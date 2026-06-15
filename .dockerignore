@@ -1,0 +1,11 @@
+.git
+.idea
+.vscode
+__pycache__
+*.pyc
+.env
+.env.prod
+db_data
+data
+*.log
+docs

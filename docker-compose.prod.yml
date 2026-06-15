@@ -1,0 +1,102 @@
+# 本番環境（A 方式: vas の nginx を単一フロントとして流用）
+# - 公開ポートは持たない。vas の nginx が /acmg/ を huhvar-app:8000 へプロキシする。
+# - 静的ファイルは WhiteNoise がアプリ自身で配信（vas 側の静的設定・ボリューム共有は不要）。
+# - huhvar-app を vas のネットワーク(external)へ参加させ、vas nginx から到達可能にする。
+# - サービス名 acmgapp（コンテナ名 huhvar-app）。共有ネットワーク上で vas の "app" 別名と衝突させない。
+#
+# 前提: vas を `docker compose -f docker-compose.prod.yml up` で起動しており、
+#       その default ネットワーク名が vas_default であること（`docker network ls` で確認）。
+# 構成: db / redis / acmgapp / worker / transvar（自前 web nginx は廃止）
+
+services:
+  db:
+    container_name: huhvar-postgres
+    build:
+      context: .
+      dockerfile: containers/postgres/Dockerfile
+    volumes:
+      - ~/huhvar_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready -U "${POSTGRES_USER:-huhvar}" || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    env_file:
+      - .env.prod
+    restart: always
+
+  redis:
+    container_name: huhvar-redis
+    image: redis:7-alpine
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  acmgapp:
+    container_name: huhvar-app
+    image: huhvar-app:latest
+    build:
+      context: .
+      dockerfile: containers/django/Dockerfile
+    volumes:
+      - .:/code
+      - ~/HUHVar:/huhvar:ro
+      - ~/huhvar_data:/data
+      - ~/tools:/tools
+    expose:
+      - "8000"
+    command: sh -c "/usr/local/bin/entrypoint.sh"
+    env_file:
+      - .env.prod
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - default   # db / redis / transvar との内部通信
+      - frontnet  # vas nginx からの到達用（external）
+    restart: always
+
+  worker:
+    container_name: huhvar-worker
+    image: huhvar-app:latest
+    build:
+      context: .
+      dockerfile: containers/django/Dockerfile
+    volumes:
+      - .:/code
+      - ~/HUHVar:/huhvar:ro
+      - ~/huhvar_data:/data
+      - ~/tools:/tools
+    command: sh -c "celery -A config worker --loglevel=info --concurrency=1"
+    env_file:
+      - .env.prod
+    depends_on:
+      - acmgapp
+      - redis
+    restart: always
+
+  transvar:
+    container_name: huhvar-transvar
+    build:
+      context: .
+      dockerfile: containers/transvar/Dockerfile
+    volumes:
+      - ~/tools:/tools
+    expose:
+      - "5000"
+    env_file:
+      - .env.prod
+    restart: always
+
+networks:
+  default:
+  frontnet:
+    external: true
+    name: vas_default   # ← vas の実ネットワーク名に合わせる（docker network ls で確認）

@@ -1,0 +1,102 @@
+import io
+import os
+
+import qrcode
+import qrcode.image.svg
+from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.mail import send_mail
+from django.shortcuts import redirect, render
+from django.utils.safestring import mark_safe
+
+from django_otp import login as otp_login
+from django_otp.plugins.otp_totp.models import TOTPDevice
+
+from .forms import AccountRequestForm
+
+
+def account_request(request):
+    """新規ユーザーは自己登録できないため、発行リクエストのみ送信する。"""
+    if request.method == "POST":
+        form = AccountRequestForm(request.POST)
+        if form.is_valid():
+            obj = form.save()
+            admin_address = getattr(settings, "ADMIN_ADDRESS", "") or os.environ.get(
+                "ADMIN_ADDRESS", ""
+            )
+            if admin_address:
+                send_mail(
+                    subject="[HUHVar] 新規アカウント発行リクエスト",
+                    message=(
+                        f"氏名: {obj.full_name}\n"
+                        f"メール: {obj.email}\n"
+                        f"所属: {obj.institution}\n"
+                        f"目的: {obj.purpose}\n"
+                    ),
+                    from_email=None,
+                    recipient_list=[admin_address],
+                    fail_silently=True,
+                )
+            messages.success(request, "リクエストを送信しました。管理者の承認をお待ちください。")
+            return redirect("accounts:login")
+    else:
+        form = AccountRequestForm()
+    return render(request, "accounts/account_request.html", {"form": form})
+
+
+def _qr_svg(data: str) -> str:
+    """otpauth URI を SVG QR にする（Pillow 不要の SVG ファクトリを使用）。"""
+    factory = qrcode.image.svg.SvgImage
+    img = qrcode.make(data, image_factory=factory, box_size=10)
+    buf = io.BytesIO()
+    img.save(buf)
+    return mark_safe(buf.getvalue().decode())
+
+
+@login_required
+def mfa_setup(request):
+    """MFA（TOTP）登録。確認済みデバイスがあれば検証/トップへ振り分ける。"""
+    confirmed = TOTPDevice.objects.filter(user=request.user, confirmed=True).first()
+    if confirmed:
+        if request.user.is_verified():
+            return redirect("analysis:index")
+        return redirect("accounts:mfa_verify")
+
+    device = TOTPDevice.objects.filter(user=request.user, confirmed=False).first()
+    if device is None:
+        device = TOTPDevice.objects.create(user=request.user, name="default", confirmed=False)
+
+    if request.method == "POST":
+        token = request.POST.get("token", "").strip()
+        if device.verify_token(token):
+            device.confirmed = True
+            device.save()
+            otp_login(request, device)
+            messages.success(request, "MFA を設定しました。")
+            return redirect("analysis:index")
+        messages.error(request, "認証コードが正しくありません。")
+
+    return render(request, "accounts/mfa_setup.html", {
+        "qr_svg": _qr_svg(device.config_url),
+        "secret": device.bin_key.hex(),
+    })
+
+
+@login_required
+def mfa_verify(request):
+    """ログイン後の TOTP 検証（2要素目）。"""
+    device = TOTPDevice.objects.filter(user=request.user, confirmed=True).first()
+    if device is None:
+        return redirect("accounts:mfa_setup")
+    if request.user.is_verified():
+        return redirect("analysis:index")
+
+    if request.method == "POST":
+        token = request.POST.get("token", "").strip()
+        if device.verify_token(token):
+            otp_login(request, device)
+            return redirect("analysis:index")
+        messages.error(request, "認証コードが正しくありません。")
+
+    return render(request, "accounts/mfa_verify.html")

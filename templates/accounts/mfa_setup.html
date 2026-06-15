@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}MFA 設定 | HUHVar{% endblock %}
+{% block content %}
+<h1>多要素認証（MFA）の設定</h1>
+<p>本サービスは MFA が必須です。認証アプリ（Google Authenticator / Microsoft Authenticator など）で
+以下の QR コードをスキャンし、表示された 6 桁コードを入力してください。</p>
+
+<div>{{ qr_svg }}</div>
+
+<p>QR を読めない場合は次のシークレットキーを手動登録してください：<br>
+    <code>{{ secret }}</code></p>
+
+<form method="post">
+    {% csrf_token %}
+    <label>認証コード（6桁）: <input type="text" name="token" inputmode="numeric"
+        autocomplete="one-time-code" required></label>
+    <button type="submit">登録して有効化</button>
+</form>
+<p><a href="{% url 'accounts:logout' %}">ログアウト</a></p>
+{% endblock %}

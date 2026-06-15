@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}HUHVar ACMG Classifier{% endblock %}</title>
+</head>
+<body>
+    <header>
+        <strong>HUHVar ACMG Classifier</strong>
+        {% if user.is_authenticated %}
+            | {{ user.get_username }}
+            <a href="{% url 'accounts:logout' %}">ログアウト</a>
+        {% endif %}
+    </header>
+    <hr>
+    {% if messages %}
+        <ul>
+            {% for message in messages %}<li>{{ message }}</li>{% endfor %}
+        </ul>
+    {% endif %}
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

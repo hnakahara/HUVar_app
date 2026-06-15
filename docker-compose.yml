@@ -1,0 +1,101 @@
+# テスト環境（HTTP 28080）
+# 6 サービス構成: db / redis / app / worker / transvar / web
+# コンテナ名は vas と分離するため huhvar- プレフィックスを付与。
+
+services:
+  db:
+    container_name: huhvar-postgres
+    build:
+      context: .
+      dockerfile: containers/postgres/Dockerfile
+    volumes:
+      - ~/huhvar_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready -U "${POSTGRES_USER:-huhvar}" || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    env_file:
+      - .env
+
+  redis:
+    container_name: huhvar-redis
+    image: redis:7-alpine
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    container_name: huhvar-app
+    image: huhvar-app:latest
+    build:
+      context: .
+      dockerfile: containers/django/Dockerfile
+    volumes:
+      - .:/code
+      - static_volume:/static
+      - ~/HUHVar:/huhvar:ro          # HUHVar 解析エンジンのソース（pip install -e）
+      - ~/huhvar_data:/data          # HUHVar 参照データ
+      - ~/tools:/tools               # TransVar 参照（vas と共用、エンジン側参照用）
+    expose:
+      - "8000"
+    command: sh -c "/usr/local/bin/entrypoint.sh"
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    container_name: huhvar-worker
+    image: huhvar-app:latest
+    build:
+      context: .
+      dockerfile: containers/django/Dockerfile
+    volumes:
+      - .:/code
+      - ~/HUHVar:/huhvar:ro
+      - ~/huhvar_data:/data
+      - ~/tools:/tools
+    # Celery 直列処理（concurrency=1）
+    command: sh -c "celery -A config worker --loglevel=info --concurrency=1"
+    env_file:
+      - .env
+    depends_on:
+      - app
+      - redis
+
+  transvar:
+    container_name: huhvar-transvar
+    build:
+      context: .
+      dockerfile: containers/transvar/Dockerfile
+    volumes:
+      - ~/tools:/tools               # TransVar 設定・参照（/tools/transvar/...）
+    expose:
+      - "5000"
+    env_file:
+      - .env
+
+  web:
+    container_name: huhvar-web
+    build:
+      context: .
+      dockerfile: containers/nginx/Dockerfile
+      args:
+        NGINX_CONF: containers/nginx/conf.d/default.conf
+    volumes:
+      - static_volume:/static
+    ports:
+      - "28080:80"
+    depends_on:
+      - app
+
+volumes:
+  static_volume:

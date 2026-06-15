@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}アカウント発行リクエスト | HUHVar{% endblock %}
+{% block content %}
+<h1>アカウント発行リクエスト</h1>
+<p>新規ユーザーは自己登録できません。以下を送信し、管理者の承認をお待ちください。</p>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">リクエスト送信</button>
+</form>
+<p><a href="{% url 'accounts:login' %}">ログインへ戻る</a></p>
+{% endblock %}

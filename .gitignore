@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Django
+*.log
+db.sqlite3
+/staticfiles/
+/media/
+
+# Environment / secrets
+.env
+.env.prod
+*.pem
+*.key
+*.crt
+
+# Data (mounted volumes, large reference data)
+/data/
+db_data/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db

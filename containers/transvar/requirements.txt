@@ -1,0 +1,5 @@
+# TransVar サービス（Python 3.9）用
+transvar==2.5.10.20211024
+fastapi==0.110.0
+uvicorn==0.25.0
+pydantic==1.10.14
