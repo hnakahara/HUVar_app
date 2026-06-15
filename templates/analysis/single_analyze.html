@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}解析 | HUHVar{% endblock %}
+{% block content %}
+<h1>解析対象（解決済み変異）</h1>
+<table border="1" cellpadding="6" cellspacing="0">
+    <tr><th>アセンブリ</th><td>{{ variant.assembly }}</td></tr>
+    <tr><th>genome</th><td>{{ variant.chrom }}:{{ variant.pos }} {{ variant.ref }}&gt;{{ variant.alt }}</td></tr>
+    <tr><th>gene</th><td>{{ variant.gene }}</td></tr>
+    <tr><th>transcript</th><td>{{ variant.transcript }}</td></tr>
+    <tr><th>HGVS c.</th><td>{{ variant.hgvs_c }}</td></tr>
+    <tr><th>HGVS p.</th><td>{{ variant.hgvs_p }}</td></tr>
+</table>
+
+<p style="color:#555;">※ ここから先（ACMG 全クライテリア判定・根拠表示・重みの手動編集）は
+<strong>M4</strong> で実装します。</p>
+
+<p><a href="{% url 'analysis:single_input' %}">← 別の変異を解析</a></p>
+{% endblock %}

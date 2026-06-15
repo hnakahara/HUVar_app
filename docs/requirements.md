@@ -19,7 +19,8 @@
 |---|----------|------|------|
 | M0 | 技術検証スパイク（TransVar 3.9 コンテナ / HUHVar 3.11 同居） | ⬜ | docker build / compose up は実サーバーで要検証 |
 | M1 | docker compose 基盤（db/redis/app/worker/transvar/web・環境分離） | 🟢 | WSL で `docker compose up` 起動確認済（db/redis/app/web 健全・migrate・/acmg 配信・ログイン・admin 動作）。本番 HTTPS=443/HTTP=80 に確定 |
-| M2 | 認証・ユーザー管理（MFA 必須・アカウントリクエスト） | 🟡 | カスタム User・ロール・AccountRequest・login/logout・admin 確認済。MFA 強制ミドルウェア＋TOTP 登録(QR)/検証フロー実装済（構文OK）。実機での MFA 動作検証は未 |
+| M2 | 認証・ユーザー管理（MFA 必須・アカウントリクエスト） | 🟢 | 本番実機で確認完了: ログイン→MFA登録(QR)→検証→解析トップ、強制ミドルウェア動作、admin ユーザー追加/承認。QR は data-URI img で表示 |
+| M3 | 入力 & TransVar 変換 & MANE 限定 | 🟡 | 実装中 |
 | M3 | 入力 & TransVar 変換 & MANE 限定 | ⬜ | |
 | M4 | 単一変異解析・結果画面・手動編集 | ⬜ | |
 | M5 | バッチ（VCF）解析・TSV ダウンロード・Celery ジョブ | ⬜ | |
@@ -326,3 +327,4 @@ HUHVar_app/
 | v0.9 | 2026-06-15 | GitHub リポジトリ hnakahara/HUHVar_app(Private) 作成・初期コミット push(.env系は除外)。本番 A 方式を実機疎通確認: vas nginx → huhvar-app 経由で https://<domain>/acmg/api/health/ が {"status":"ok"} を返却。ポート無衝突の単一フロント構成が稼働 |
 | v0.10 | 2026-06-15 | 本番ログイン後に next が /acmg 抜き(/)になり vas ルートへ飛ぶ不具合を修正。原因は ASGI+FORCE_SCRIPT_NAME 不整合(reverse は /acmg 付き・ASGIRequest.path は root_path 未設定で裸)。本番起動を WSGI(gunicorn config.wsgi)へ変更。あわせて vas とドメイン共有のためクッキーを分離(SESSION/CSRF_COOKIE_NAME=huhvar_*、PATH=/acmg/)。別件: prod の ${REDIS_PASSWORD} 未解決と SECRET_KEY 内 $ の compose 展開警告は要対処(--env-file .env.prod 運用＋$を含まない秘密へ再生成) |
 | v0.11 | 2026-06-15 | redis 認証修正: requirepass/healthcheck をコンテナ env(env_file)から取得($$ シェル展開)し compose の ${REDIS_PASSWORD} 依存を排除(worker の AUTH エラー解消)。500 の原因を特定: nginx が /acmg をストリップ転送しつつ SCRIPT_NAME ヘッダを送ると gunicorn(WSGI) が PATH_INFO 分割で IndexError。全 nginx 設定(vas/HUHVar test/prod)から proxy_set_header SCRIPT_NAME を削除し FORCE_SCRIPT_NAME に一本化 |
+| v0.12 | 2026-06-15 | M2 を 🟢(本番実機で MFA 確認完了)。MFA QR を data-URI img 化。M3 着手: TransVar サービス /convert を本実装(vas 移植: canno/panno/ganno --refseq --gseq、MANE summary で MANE Select 限定、protein 3→1字、genome は g. 補完、複数候補返却)。Django 単一変異入力フロー(SingleVariantForm→transvar_client→候補選択 single_resolve→確認 single_analyze)とテンプレート追加。解析実行(run_single 連携)は M4 |

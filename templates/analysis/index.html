@@ -4,7 +4,7 @@
 <h1>HUHVar ACMG Classifier</h1>
 <p>変異の病的性を ACMG 2015 + ClinGen SVI 基準で分類します。</p>
 <ul>
-    <li>単一変異解析（genome / cDNA / protein）— <em>M3-M4 で実装</em></li>
+    <li><a href="{% url 'analysis:single_input' %}">単一変異解析</a>（genome / cDNA / protein、MANE Select 限定）</li>
     <li>バッチ解析（VCF アップロード → TSV ダウンロード）— <em>M5 で実装</em></li>
 </ul>
 {% endblock %}

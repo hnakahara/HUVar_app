@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}変換結果 | HUHVar{% endblock %}
+{% block content %}
+<h1>TransVar 変換結果（MANE Select 限定）</h1>
+<p>入力: <code>{{ query }}</code> / アセンブリ: {{ assembly }} / 種別: {{ kind }}</p>
+
+{% if candidates|length > 1 %}
+<p>複数の候補があります。解析する変異を選択してください。</p>
+{% endif %}
+
+<table border="1" cellpadding="6" cellspacing="0">
+    <thead>
+        <tr>
+            <th></th><th>gene</th><th>transcript</th><th>genome</th>
+            <th>HGVS c.</th><th>HGVS p.</th><th>region</th><th></th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for c in candidates %}
+        <tr>
+            <td>{{ forloop.counter }}</td>
+            <td>{{ c.gene }}</td>
+            <td>{{ c.transcript }}</td>
+            <td>{{ c.chrom }}:{{ c.pos }} {{ c.ref }}&gt;{{ c.alt }}</td>
+            <td>{{ c.hgvs_c }}</td>
+            <td>{{ c.hgvs_p }}</td>
+            <td>{{ c.region }}</td>
+            <td>
+                <form method="post" action="{% url 'analysis:single_analyze' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="assembly" value="{{ assembly }}">
+                    <input type="hidden" name="chrom" value="{{ c.chrom }}">
+                    <input type="hidden" name="pos" value="{{ c.pos }}">
+                    <input type="hidden" name="ref" value="{{ c.ref }}">
+                    <input type="hidden" name="alt" value="{{ c.alt }}">
+                    <input type="hidden" name="gene" value="{{ c.gene }}">
+                    <input type="hidden" name="transcript" value="{{ c.transcript }}">
+                    <input type="hidden" name="hgvs_c" value="{{ c.hgvs_c }}">
+                    <input type="hidden" name="hgvs_p" value="{{ c.hgvs_p }}">
+                    <button type="submit">この変異で解析</button>
+                </form>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<p><a href="{% url 'analysis:single_input' %}">← 入力に戻る</a></p>
+{% endblock %}
