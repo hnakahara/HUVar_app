@@ -1,3 +1,4 @@
+import base64
 import io
 import os
 
@@ -8,7 +9,6 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.mail import send_mail
 from django.shortcuts import redirect, render
-from django.utils.safestring import mark_safe
 
 from django_otp import login as otp_login
 from django_otp.plugins.otp_totp.models import TOTPDevice
@@ -45,13 +45,14 @@ def account_request(request):
     return render(request, "accounts/account_request.html", {"form": form})
 
 
-def _qr_svg(data: str) -> str:
-    """otpauth URI を SVG QR にする（Pillow 不要の SVG ファクトリを使用）。"""
-    factory = qrcode.image.svg.SvgImage
-    img = qrcode.make(data, image_factory=factory, box_size=10)
+def _qr_data_uri(data: str) -> str:
+    """otpauth URI を QR(SVG) の data URI にする（Pillow 不要・<img> で確実に表示）。"""
+    factory = qrcode.image.svg.SvgPathImage
+    img = qrcode.make(data, image_factory=factory, box_size=10, border=2)
     buf = io.BytesIO()
     img.save(buf)
-    return mark_safe(buf.getvalue().decode())
+    b64 = base64.b64encode(buf.getvalue()).decode()
+    return "data:image/svg+xml;base64," + b64
 
 
 @login_required
@@ -78,7 +79,7 @@ def mfa_setup(request):
         messages.error(request, "認証コードが正しくありません。")
 
     return render(request, "accounts/mfa_setup.html", {
-        "qr_svg": _qr_svg(device.config_url),
+        "qr_data_uri": _qr_data_uri(device.config_url),
         "secret": device.bin_key.hex(),
     })
 

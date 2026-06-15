@@ -5,7 +5,7 @@
 <p>本サービスは MFA が必須です。認証アプリ（Google Authenticator / Microsoft Authenticator など）で
 以下の QR コードをスキャンし、表示された 6 桁コードを入力してください。</p>
 
-<div>{{ qr_svg }}</div>
+<div><img src="{{ qr_data_uri }}" alt="MFA QR code" style="width:240px;height:240px;"></div>
 
 <p>QR を読めない場合は次のシークレットキーを手動登録してください：<br>
     <code>{{ secret }}</code></p>
