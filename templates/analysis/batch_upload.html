@@ -7,8 +7,10 @@
 
 <form method="post" action="{% url 'analysis:batch_upload' %}" enctype="multipart/form-data">
     {% csrf_token %}
-    {# ファイル入力はブラウザ標準UIの文言(「ファイルを選択」等)がブラウザ言語依存になるため、
-       ネイティブ入力を隠して自前のボタン＋ファイル名表示にし、アプリの言語に揃える。 #}
+    {% comment %}
+    ファイル入力はブラウザ標準UIの文言(「ファイルを選択」等)がブラウザ言語依存になるため、
+    ネイティブ入力を隠して自前のボタン＋ファイル名表示にし、アプリの言語に揃える。
+    {% endcomment %}
     <p>
         {{ form.vcf.label }}:
         <input type="file" name="vcf" id="id_vcf" accept=".vcf,.vcf.gz" style="display:none"
