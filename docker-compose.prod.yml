@@ -50,7 +50,7 @@ services:
     volumes:
       - .:/code
       - ~/HUHVar:/huhvar:ro
-      - ~/huhvar_data:/data
+      - /ddrive/data:/data
       - ~/tools:/tools
     expose:
       - "8000"
@@ -76,7 +76,7 @@ services:
     volumes:
       - .:/code
       - ~/HUHVar:/huhvar:ro
-      - ~/huhvar_data:/data
+      - /ddrive/data:/data
       - ~/tools:/tools
     command: sh -c "celery -A config worker --loglevel=info --concurrency=1"
     env_file:

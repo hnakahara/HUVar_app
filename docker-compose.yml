@@ -43,7 +43,7 @@ services:
       - .:/code
       - static_volume:/static
       - ~/HUHVar:/huhvar:ro          # HUHVar 解析エンジンのソース（pip install -e）
-      - ~/huhvar_data:/data          # HUHVar 参照データ
+      - /ddrive/data:/data          # HUHVar 参照データ
       - ~/tools:/tools               # TransVar 参照（vas と共用、エンジン側参照用）
     expose:
       - "8000"
@@ -65,7 +65,7 @@ services:
     volumes:
       - .:/code
       - ~/HUHVar:/huhvar:ro
-      - ~/huhvar_data:/data
+      - /ddrive/data:/data
       - ~/tools:/tools
     # Celery 直列処理（concurrency=1）
     command: sh -c "celery -A config worker --loglevel=info --concurrency=1"
