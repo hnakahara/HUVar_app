@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% load i18n %}
-{% block title %}{% translate "単一変異解析" %} | HUHVar{% endblock %}
+{% block title %}{% translate "単一バリアント解析" %} | HUHVar{% endblock %}
 {% block content %}
-<h1>{% translate "単一変異解析" %}</h1>
+<h1>{% translate "単一バリアント解析" %}</h1>
 <p>{% translate "genome coordinate / cDNA / protein のいずれかを入力してください（c. / p. は省略可）。cDNA・protein は MANE Select に限定して座標変換します。" %}</p>
 
 {% if error %}<p style="color:#b00;">⚠ {{ error }}</p>{% endif %}

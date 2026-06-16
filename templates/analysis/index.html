@@ -3,9 +3,9 @@
 {% block title %}HUHVar ACMG Classifier{% endblock %}
 {% block content %}
 <h1>HUHVar ACMG Classifier</h1>
-<p>{% translate "変異の病的性を ACMG 2015 + ClinGen SVI 基準で分類します。" %}</p>
+<p>{% translate "バリアントの病的性を ACMG 2015 + ClinGen SVI 基準で分類します。" %}</p>
 <ul>
-    <li><a href="{% url 'analysis:single_input' %}">{% translate "単一変異解析" %}</a>
+    <li><a href="{% url 'analysis:single_input' %}">{% translate "単一バリアント解析" %}</a>
         （{% translate "genome / cDNA / protein、MANE Select 限定" %}）</li>
     <li><a href="{% url 'analysis:batch_upload' %}">{% translate "バッチ解析" %}</a>
         （{% translate "VCF アップロード → TSV ダウンロード" %}）

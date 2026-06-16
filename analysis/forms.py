@@ -8,7 +8,7 @@ class SingleVariantForm(forms.Form):
     """単一変異入力。genome / cDNA / protein に対応（c./p. はあってもなくても可）。"""
 
     query = forms.CharField(
-        label=_("変異"),
+        label=_("バリアント"),
         max_length=255,
         widget=forms.TextInput(attrs={
             "placeholder": "chr17:7674221G>A  /  TP53 742C>T  /  TP53 R248W",

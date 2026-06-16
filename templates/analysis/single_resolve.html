@@ -6,7 +6,7 @@
 <p>{% translate "入力" %}: <code>{{ query }}</code> / {% translate "アセンブリ" %}: {{ assembly }} / {% translate "種別" %}: {{ kind }}</p>
 
 {% if candidates|length > 1 %}
-<p>{% translate "複数の候補があります。解析する変異を選択してください。" %}</p>
+<p>{% translate "複数の候補があります。解析するバリアントを選択してください。" %}</p>
 {% endif %}
 {% if not candidates.0.is_mane_select %}
 <p style="color:#a60;">⚠ {% translate "MANE Select に該当が無いため、候補トランスクリプトから選択してください（非 MANE）。" %}</p>
@@ -42,7 +42,7 @@
                     <input type="hidden" name="transcript" value="{{ c.transcript }}">
                     <input type="hidden" name="hgvs_c" value="{{ c.hgvs_c }}">
                     <input type="hidden" name="hgvs_p" value="{{ c.hgvs_p }}">
-                    <button type="submit">{% translate "この変異で解析" %}</button>
+                    <button type="submit">{% translate "このバリアントで解析" %}</button>
                 </form>
             </td>
         </tr>

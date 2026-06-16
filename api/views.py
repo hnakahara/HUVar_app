@@ -104,10 +104,10 @@ class ClassifyView(APIView):
             user=request.user, action="api_classify",
             detail=f'{variant["chrom"]}:{variant["pos"]}:{variant["ref"]}:{variant["alt"]}')
         notify_admin(
-            "API 単一変異解析(classify)実行",
+            "API 単一バリアント解析(classify)実行",
             f"ユーザー: {request.user.get_username()}\n"
             f"遺伝子: {variant.get('gene') or '-'}\n"
-            f"変異: {variant.get('hgvs_c') or '-'} {variant.get('hgvs_p') or ''}\n"
+            f"バリアント: {variant.get('hgvs_c') or '-'} {variant.get('hgvs_p') or ''}\n"
             f'座標: {variant["chrom"]}:{variant["pos"]}:{variant["ref"]}:{variant["alt"]}\n'
             f"分類: {display.get('classification_bayesian', '-')}\n",
         )

@@ -114,10 +114,10 @@ def single_analyze(request):
     AuditLog.objects.create(user=request.user, action="single_analyze",
                             detail=vr.variant_id)
     notify_admin(
-        "単一変異解析(explain)実行",
+        "単一バリアント解析(explain)実行",
         f"ユーザー: {request.user.get_username()}\n"
         f"遺伝子: {vr.gene_symbol or '-'}\n"
-        f"変異: {vr.hgvs_c or '-'} {vr.hgvs_p or ''}\n"
+        f"バリアント: {vr.hgvs_c or '-'} {vr.hgvs_p or ''}\n"
         f"座標: {vr.variant_id}\n"
         f"分類: {vr.classification}\n",
     )

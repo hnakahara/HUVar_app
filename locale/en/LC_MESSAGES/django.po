@@ -33,10 +33,10 @@ msgstr "Submit request"
 msgid "ログインへ戻る"
 msgstr "Back to login"
 
-msgid "変異の病的性を ACMG 2015 + ClinGen SVI 基準で分類します。"
+msgid "バリアントの病的性を ACMG 2015 + ClinGen SVI 基準で分類します。"
 msgstr "Classify variant pathogenicity using the ACMG 2015 + ClinGen SVI criteria."
 
-msgid "単一変異解析"
+msgid "単一バリアント解析"
 msgstr "Single variant analysis"
 
 msgid "genome / cDNA / protein、MANE Select 限定"
@@ -80,10 +80,10 @@ msgstr "Assembly"
 msgid "種別"
 msgstr "Type"
 
-msgid "複数の候補があります。解析する変異を選択してください。"
+msgid "複数の候補があります。解析するバリアントを選択してください。"
 msgstr "Multiple candidates found. Please select the variant to analyze."
 
-msgid "この変異で解析"
+msgid "このバリアントで解析"
 msgstr "Analyze this variant"
 
 msgid "MANE Select に該当が無いため、候補トランスクリプトから選択してください（非 MANE）。"
@@ -195,11 +195,11 @@ msgstr "Applied manual edits:"
 msgid "結果を JSON でダウンロード"
 msgstr "Download result as JSON"
 
-msgid "← 別の変異を解析"
+msgid "← 別のバリアントを解析"
 msgstr "← Analyze another variant"
 
 # --- forms (analysis/forms.py) ---
-msgid "変異"
+msgid "バリアント"
 msgstr "Variant"
 
 msgid "入力種別"
@@ -270,10 +270,10 @@ msgstr "From the second login onward, you are prompted for the 6-digit code afte
 msgid "セッションはブラウザを閉じると失効します（最大 12 時間保持）。"
 msgstr "Your session expires when you close the browser (kept for up to 12 hours)."
 
-msgid "2. 単一変異解析"
+msgid "2. 単一バリアント解析"
 msgstr "2. Single variant analysis"
 
-msgid "1 つの変異を ACMG 2015 + ClinGen SVI 基準で分類します。"
+msgid "1 つのバリアントを ACMG 2015 + ClinGen SVI 基準で分類します。"
 msgstr "Classify a single variant using the ACMG 2015 + ClinGen SVI criteria."
 
 msgid "入力形式"
@@ -300,7 +300,7 @@ msgstr "Choose the assembly (GRCh38 / GRCh37) and, if needed, specify the input 
 msgid "候補の選択"
 msgstr "Selecting a candidate"
 
-msgid "変換結果が複数候補ある場合は一覧から該当する変異を選択します。MANE Select で座標が得られない場合は、全 transcript 候補にフォールバックして提示します。"
+msgid "変換結果が複数候補ある場合は一覧から該当するバリアントを選択します。MANE Select で座標が得られない場合は、全 transcript 候補にフォールバックして提示します。"
 msgstr "When the conversion returns multiple candidates, select the relevant variant from the list. If no coordinate is available for MANE Select, all transcript candidates are offered as a fallback."
 
 msgid "結果の見方"

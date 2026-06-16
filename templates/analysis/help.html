@@ -8,7 +8,7 @@
 <nav class="toc">
     <ul>
         <li><a href="#login">{% translate "ログインと多要素認証 (MFA)" %}</a></li>
-        <li><a href="#single">{% translate "単一変異解析" %}</a></li>
+        <li><a href="#single">{% translate "単一バリアント解析" %}</a></li>
         <li><a href="#batch">{% translate "バッチ解析 (VCF)" %}</a></li>
         <li><a href="#api">{% translate "API（外部連携）" %}</a></li>
         <li><a href="#misc">{% translate "言語切替・アカウント発行" %}</a></li>
@@ -25,8 +25,8 @@
     <li>{% translate "セッションはブラウザを閉じると失効します（最大 12 時間保持）。" %}</li>
 </ul>
 
-<h2 id="single">{% translate "2. 単一変異解析" %}</h2>
-<p>{% translate "1 つの変異を ACMG 2015 + ClinGen SVI 基準で分類します。" %}</p>
+<h2 id="single">{% translate "2. 単一バリアント解析" %}</h2>
+<p>{% translate "1 つのバリアントを ACMG 2015 + ClinGen SVI 基準で分類します。" %}</p>
 
 <h3>{% translate "入力形式" %}</h3>
 <p>{% translate "次のいずれの形式でも入力できます（MANE Select transcript に限定して解釈します）。" %}</p>
@@ -38,7 +38,7 @@
 <p>{% translate "アセンブリ (GRCh38 / GRCh37) を選び、必要なら入力種別を指定します（通常は自動判定で問題ありません）。" %}</p>
 
 <h3>{% translate "候補の選択" %}</h3>
-<p>{% translate "変換結果が複数候補ある場合は一覧から該当する変異を選択します。MANE Select で座標が得られない場合は、全 transcript 候補にフォールバックして提示します。" %}</p>
+<p>{% translate "変換結果が複数候補ある場合は一覧から該当するバリアントを選択します。MANE Select で座標が得られない場合は、全 transcript 候補にフォールバックして提示します。" %}</p>
 
 <h3>{% translate "結果の見方" %}</h3>
 <ul>
@@ -77,7 +77,7 @@
     <tr><th>{% translate "用途" %}</th><th>{% translate "メソッド / パス" %}</th></tr>
     <tr><td>{% translate "疎通確認" %}</td><td><code>GET /acmg/api/health/</code></td></tr>
     <tr><td>{% translate "認証確認" %}</td><td><code>GET /acmg/api/whoami/</code></td></tr>
-    <tr><td>{% translate "単一変異解析" %}</td><td><code>POST /acmg/api/classify/</code></td></tr>
+    <tr><td>{% translate "単一バリアント解析" %}</td><td><code>POST /acmg/api/classify/</code></td></tr>
     <tr><td>{% translate "バッチ投入" %}</td><td><code>POST /acmg/api/jobs/</code></td></tr>
     <tr><td>{% translate "バッチ状態" %}</td><td><code>GET /acmg/api/jobs/&lt;id&gt;/</code></td></tr>
     <tr><td>{% translate "バッチ結果 (TSV)" %}</td><td><code>GET /acmg/api/jobs/&lt;id&gt;/result.tsv</code></td></tr>
