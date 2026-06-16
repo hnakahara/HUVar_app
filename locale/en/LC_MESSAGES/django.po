@@ -86,6 +86,9 @@ msgstr "Multiple candidates found. Please select the variant to analyze."
 msgid "この変異で解析"
 msgstr "Analyze this variant"
 
+msgid "MANE Select に該当が無いため、候補トランスクリプトから選択してください（非 MANE）。"
+msgstr "No MANE Select match; please choose from the candidate transcripts (non-MANE)."
+
 msgid "← 入力に戻る"
 msgstr "← Back to input"
 

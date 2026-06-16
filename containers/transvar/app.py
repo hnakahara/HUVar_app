@@ -184,7 +184,7 @@ def _coord_failed(row: dict) -> bool:
     return g is None or "(" in g
 
 
-def _row_to_candidate(row: dict) -> Optional[Candidate]:
+def _row_to_candidate(row: dict, is_mane: bool = True) -> Optional[Candidate]:
     if _coord_failed(row):
         return None
     chrom, g, c, p, coord = _split_coords(row)
@@ -205,7 +205,7 @@ def _row_to_candidate(row: dict) -> Optional[Candidate]:
         hgvs_c=c,
         hgvs_p=p,
         region=row.get("region"),
-        is_mane_select=True,
+        is_mane_select=is_mane,
         raw=coord,
     )
 
@@ -272,13 +272,30 @@ def convert(req: ConvertRequest) -> ConvertResponse:
             return ConvertResponse(ok=False, kind=kind, refversion=refversion,
                                    error=f"unknown kind: {kind}")
 
-        candidates = [c for c in (_row_to_candidate(r) for r in mane_rows) if c]
+        # MANE Select を優先。MANE で座標が得られなければ、TransVar の全候補
+        # transcript へフォールバックし、ユーザーに選択させる（MANE に無い変異対応）。
+        if mane_rows:
+            cand_rows, is_mane = mane_rows, True
+        else:
+            cand_rows, is_mane = rows, False
+
+        seen = set()
+        candidates = []
+        for r in cand_rows:
+            c = _row_to_candidate(r, is_mane)
+            if c is None:
+                continue
+            gkey = (c.chrom, c.pos, c.ref, c.alt)  # genome 座標で重複排除
+            if gkey in seen:
+                continue
+            seen.add(gkey)
+            candidates.append(c)
+
         if not candidates:
-            # MANE 一致なし or 座標取得失敗。アノテーション可能な transcript を参考提示。
             avail = sorted({_base(r.get("transcript")) for r in rows if r.get("transcript")})
             return ConvertResponse(
                 ok=False, kind=kind, refversion=refversion, candidates=[],
-                error=("MANE Select で座標を取得できませんでした。"
+                error=("座標を取得できませんでした。"
                        + (f" 候補transcript: {', '.join(avail)}" if avail else "")),
             )
         return ConvertResponse(ok=True, kind=kind, refversion=refversion,

@@ -169,7 +169,7 @@
 ### 4.3 相互変換・MANE 限定（FR-CONV）
 
 - **FR-CONV-1**: cDNA / protein ↔ genome coordinate の相互変換が必要な場合は **TransVar**（独立コンテナ）を使用。
-- **FR-CONV-2**: cDNA・protein を入力に用いる場合、対応トランスクリプトは **MANE Select に限定**する（vas の `intervar_function.py` の MANE 抽出ロジックを参考に移植）。
+- **FR-CONV-2**: cDNA・protein を入力に用いる場合、対応トランスクリプトは **MANE Select を優先**する。ただし MANE Select に該当が無い変異（別アイソフォーム番号、例 SCN5A:p.E1784K 等）も解析できるよう、**MANE で座標が得られない場合は TransVar の候補トランスクリプトを提示してユーザーが選択**できる（genome 座標へ解決できれば解析可能）。genome 入力も同様（MANE 優先・無ければ候補提示）。候補は genome 座標で重複排除。
 - **FR-CONV-3**: protein 入力は複数の塩基変化に対応し得るため、**複数候補が出る場合はユーザーに候補を提示し選択させる**（選択 UI）。
 - **FR-CONV-4**: 変換結果（解決された CHROM/POS/REF/ALT・transcript・HGVS c./p.）を解析前にユーザーへ提示。
 - **FR-CONV-5**: **GRCh37 / GRCh38 両対応**。ユーザーがアセンブリを指定可能とし、TransVar・HUHVar の両方に正しく伝播させる。
@@ -353,3 +353,4 @@ HUHVar_app/
 | v0.21 | 2026-06-16 | 実解析の本番投入。app/worker イメージに ensembl-vep=111＋samtools/bcftools/htslib を micromamba で内蔵(vas と独立)、vep は専用ラッパーで conda perl 実行(システム python:3.11 維持)。参照データを /ddrive/data→/data にマウント。エンジンは app/worker 双方で pip install -e /huhvar(worker は command 上書きで entrypoint を通らないため command に追加)。M4(単一)・M5(バッチ)・M7(API) を本番実データで検証完了し 🟢。FR-IN/SINGLE/BATCH/API も 🟢 |
 | v0.22 | 2026-06-16 | M6(🟡) 変異結果キャッシュ。analysis/cache.py: cached_classify_single が VariantResultCache を参照(キー=assembly/chrom/pos/ref/alt/engine_version/refdata_signature)。署名は参照ファイルの size+mtime＋エンジン版の SHA-256 で、更新時に自動無効化。ReferenceDataVersion を admin 可視化用に更新。単一 web(single_analyze)/API(classify) に組込み。手動編集は非キャッシュ。バッチ per-variant は run_pipeline 一括のため未対応 |
 | v0.23 | 2026-06-16 | M6 を 🟢。バッチキャッシュ実装: cached_classify_batch が VCF を read_vcf で列挙→VariantResultCache 照合。全件キャッシュ済みならエンジン非実行で TSV 即生成、未済が1件でもあればフル解析(VEPバッチ効率維持)し全件キャッシュ。engine.classify_vcf 追加、_to_display に変異情報追加。バッチ TSV は display dict から自前生成(全クライテリア列)。tasks は cached_classify_batch を使用 |
+| v0.24 | 2026-06-16 | MANE 非該当変異の解析対応(FR-CONV-2 緩和)。TransVar /convert を「MANE Select 優先・無ければ全候補transcriptへフォールバック(is_mane_select=false)」に変更し genome 座標で重複排除。結果画面に MANE 列＋非MANE 選択注記を追加。単一(web/API)は候補選択→genome 座標で解析できるため MANE に無い変異も解析可能 |
