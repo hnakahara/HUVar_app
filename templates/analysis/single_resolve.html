@@ -1,11 +1,12 @@
 {% extends "base.html" %}
-{% block title %}変換結果 | HUHVar{% endblock %}
+{% load i18n %}
+{% block title %}{% translate "変換結果" %} | HUHVar{% endblock %}
 {% block content %}
-<h1>TransVar 変換結果（MANE Select 限定）</h1>
-<p>入力: <code>{{ query }}</code> / アセンブリ: {{ assembly }} / 種別: {{ kind }}</p>
+<h1>{% translate "TransVar 変換結果（MANE Select 限定）" %}</h1>
+<p>{% translate "入力" %}: <code>{{ query }}</code> / {% translate "アセンブリ" %}: {{ assembly }} / {% translate "種別" %}: {{ kind }}</p>
 
 {% if candidates|length > 1 %}
-<p>複数の候補があります。解析する変異を選択してください。</p>
+<p>{% translate "複数の候補があります。解析する変異を選択してください。" %}</p>
 {% endif %}
 
 <table border="1" cellpadding="6" cellspacing="0">
@@ -37,7 +38,7 @@
                     <input type="hidden" name="transcript" value="{{ c.transcript }}">
                     <input type="hidden" name="hgvs_c" value="{{ c.hgvs_c }}">
                     <input type="hidden" name="hgvs_p" value="{{ c.hgvs_p }}">
-                    <button type="submit">この変異で解析</button>
+                    <button type="submit">{% translate "この変異で解析" %}</button>
                 </form>
             </td>
         </tr>
@@ -45,5 +46,5 @@
     </tbody>
 </table>
 
-<p><a href="{% url 'analysis:single_input' %}">← 入力に戻る</a></p>
+<p><a href="{% url 'analysis:single_input' %}">{% translate "← 入力に戻る" %}</a></p>
 {% endblock %}

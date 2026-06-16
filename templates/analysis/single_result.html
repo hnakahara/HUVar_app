@@ -1,10 +1,11 @@
 {% extends "base.html" %}
-{% block title %}解析結果 | HUHVar{% endblock %}
+{% load i18n %}
+{% block title %}{% translate "解析結果" %} | HUHVar{% endblock %}
 {% block content %}
-<h1>ACMG 解析結果</h1>
+<h1>{% translate "ACMG 解析結果" %}</h1>
 
 <table border="1" cellpadding="6" cellspacing="0">
-    <tr><th>アセンブリ</th><td>{{ variant.assembly }}</td></tr>
+    <tr><th>{% translate "アセンブリ" %}</th><td>{{ variant.assembly }}</td></tr>
     <tr><th>genome</th><td>{{ variant.chrom }}:{{ variant.pos }} {{ variant.ref }}&gt;{{ variant.alt }}</td></tr>
     <tr><th>gene</th><td>{{ variant.gene }}</td></tr>
     <tr><th>transcript</th><td>{{ variant.transcript }}</td></tr>
@@ -12,12 +13,11 @@
 </table>
 
 {% if engine_error %}
-<p style="color:#b00;">⚠ 解析エンジンエラー: {{ engine_error }}</p>
-<p style="color:#555;">本番では <code>~/HUHVar</code>（エンジン）と <code>~/huhvar_data</code>→<code>/data</code>（参照データ）の
-配置が必要です。配置後に再解析してください。</p>
+<p style="color:#b00;">⚠ {% translate "解析エンジンエラー:" %} {{ engine_error }}</p>
+<p style="color:#555;">{% translate "本番では ~/HUHVar（エンジン）と ~/huhvar_data→/data（参照データ）の配置が必要です。配置後に再解析してください。" %}</p>
 {% else %}
 
-<h2>分類</h2>
+<h2>{% translate "分類" %}</h2>
 <ul>
     <li><strong>ACMG 2015</strong>: {{ display.classification_2015 }}
         {% if display.rules %}（{{ display.rules }}）{% endif %}</li>
@@ -28,17 +28,16 @@
 <p style="color:#a60;">warnings: {% for w in display.warnings %}{{ w }}{% if not forloop.last %} / {% endif %}{% endfor %}</p>
 {% endif %}
 
-<h2>クライテリア（全 {{ display.criteria|length }} 項目）と手動編集</h2>
-<p style="color:#555;">編集 strength を選んだ項目のみ上書き（merge）して再分類します。
-「（変更なし）」のままなら自動判定を保持します。</p>
+<h2>{% translate "クライテリアと手動編集" %}（{{ display.criteria|length }}）</h2>
+<p style="color:#555;">{% translate "編集 strength を選んだ項目のみ上書き（merge）して再分類します。「（変更なし）」のままなら自動判定を保持します。" %}</p>
 
 <form method="post" action="{% url 'analysis:single_edit' result_id %}">
     {% csrf_token %}
     <table border="1" cellpadding="4" cellspacing="0">
         <thead>
             <tr>
-                <th>criterion</th><th>判定</th><th>direction</th><th>strength</th><th>points</th>
-                <th>根拠 (evidence)</th><th>編集 strength</th><th>編集 evidence</th>
+                <th>criterion</th><th>{% translate "判定" %}</th><th>direction</th><th>strength</th><th>points</th>
+                <th>{% translate "根拠 (evidence)" %}</th><th>{% translate "編集 strength" %}</th><th>{% translate "編集 evidence" %}</th>
             </tr>
         </thead>
         <tbody>
@@ -52,7 +51,7 @@
                 <td>{{ c.evidence }}</td>
                 <td>
                     <select name="strength_{{ c.criterion }}">
-                        <option value="">（変更なし）</option>
+                        <option value="">{% translate "（変更なし）" %}</option>
                         {% for s in strength_choices %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
                     </select>
                 </td>
@@ -61,16 +60,16 @@
         {% endfor %}
         </tbody>
     </table>
-    <p><button type="submit">編集を適用して再分類</button></p>
+    <p><button type="submit">{% translate "編集を適用して再分類" %}</button></p>
 </form>
 
 {% if edits %}
-<p>適用済みの手動編集:
+<p>{% translate "適用済みの手動編集:" %}
     {% for e in edits %}{{ e.criterion }}={{ e.strength }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
 {% endif %}
 
-<p><a href="{% url 'analysis:single_export' result_id %}">結果を JSON でダウンロード</a></p>
+<p><a href="{% url 'analysis:single_export' result_id %}">{% translate "結果を JSON でダウンロード" %}</a></p>
 {% endif %}
 
-<p><a href="{% url 'analysis:single_input' %}">← 別の変異を解析</a></p>
+<p><a href="{% url 'analysis:single_input' %}">{% translate "← 別の変異を解析" %}</a></p>
 {% endblock %}

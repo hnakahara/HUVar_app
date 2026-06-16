@@ -8,6 +8,7 @@ msgstr ""
 "Language: en\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
+# --- base / index / login / account_request ---
 msgid "ログアウト"
 msgstr "Log out"
 
@@ -49,3 +50,147 @@ msgstr "VCF upload → TSV download"
 
 msgid "ジョブ履歴"
 msgstr "Job history"
+
+# --- single_input ---
+msgid "genome coordinate / cDNA / protein のいずれかを入力してください（c. / p. は省略可）。cDNA・protein は MANE Select に限定して座標変換します。"
+msgstr "Enter a genome coordinate / cDNA / protein (the c. / p. prefix is optional). cDNA and protein are converted using MANE Select transcripts only."
+
+msgid "変換 / 解析へ"
+msgstr "Convert / Analyze"
+
+msgid "入力例"
+msgstr "Examples"
+
+msgid "← トップへ"
+msgstr "← Home"
+
+# --- single_resolve ---
+msgid "変換結果"
+msgstr "Conversion result"
+
+msgid "TransVar 変換結果（MANE Select 限定）"
+msgstr "TransVar result (MANE Select only)"
+
+msgid "入力"
+msgstr "Input"
+
+msgid "アセンブリ"
+msgstr "Assembly"
+
+msgid "種別"
+msgstr "Type"
+
+msgid "複数の候補があります。解析する変異を選択してください。"
+msgstr "Multiple candidates found. Please select the variant to analyze."
+
+msgid "この変異で解析"
+msgstr "Analyze this variant"
+
+msgid "← 入力に戻る"
+msgstr "← Back to input"
+
+# --- batch_upload ---
+msgid "バッチ解析（VCF アップロード）"
+msgstr "Batch analysis (VCF upload)"
+
+msgid "VCF をアップロードすると、ジョブとして投入され順番に解析されます。完了後 TSV をダウンロードできます。成果物（アップロード VCF・生成 TSV）は 1 時間で自動削除されます。"
+msgstr "Uploading a VCF queues a job that is processed in order. After completion you can download the TSV. Artifacts (uploaded VCF and generated TSV) are auto-deleted after 1 hour."
+
+msgid "アップロードして解析"
+msgstr "Upload and analyze"
+
+# --- batch_status ---
+msgid "ジョブ"
+msgstr "Job"
+
+msgid "バッチジョブ"
+msgstr "Batch job"
+
+msgid "ファイル"
+msgstr "File"
+
+msgid "状態"
+msgstr "Status"
+
+msgid "作成"
+msgstr "Created"
+
+msgid "有効期限"
+msgstr "Expires"
+
+msgid "（経過後に自動削除）"
+msgstr " (auto-deleted after expiry)"
+
+msgid "結果 TSV をダウンロード"
+msgstr "Download result TSV"
+
+msgid "解析に失敗しました:"
+msgstr "Analysis failed:"
+
+msgid "解析中です…（自動更新）"
+msgstr "Processing… (auto-refresh)"
+
+msgid "別の VCF を解析"
+msgstr "Analyze another VCF"
+
+# --- batch_list ---
+msgid "バッチジョブ履歴"
+msgstr "Batch job history"
+
+msgid "成果物は作成から 1 時間で自動削除されます。"
+msgstr "Artifacts are auto-deleted 1 hour after creation."
+
+msgid "ジョブはありません。"
+msgstr "No jobs."
+
+msgid "新規 VCF を解析"
+msgstr "Analyze a new VCF"
+
+# --- single_result ---
+msgid "解析結果"
+msgstr "Analysis result"
+
+msgid "ACMG 解析結果"
+msgstr "ACMG analysis result"
+
+msgid "解析エンジンエラー:"
+msgstr "Analysis engine error:"
+
+msgid "本番では ~/HUHVar（エンジン）と ~/huhvar_data→/data（参照データ）の配置が必要です。配置後に再解析してください。"
+msgstr "In production, mount ~/HUHVar (engine) and ~/huhvar_data→/data (reference data), then re-run the analysis."
+
+msgid "分類"
+msgstr "Classification"
+
+msgid "クライテリアと手動編集"
+msgstr "Criteria and manual editing"
+
+msgid "編集 strength を選んだ項目のみ上書き（merge）して再分類します。「（変更なし）」のままなら自動判定を保持します。"
+msgstr "Only criteria with a selected strength are overridden (merge) and re-classified. Leaving \"(no change)\" keeps the automated call."
+
+msgid "判定"
+msgstr "Call"
+
+msgid "根拠 (evidence)"
+msgstr "Evidence"
+
+msgid "編集 strength"
+msgstr "Edit strength"
+
+msgid "編集 evidence"
+msgstr "Edit evidence"
+
+msgid "（変更なし）"
+msgstr "(no change)"
+
+msgid "編集を適用して再分類"
+msgstr "Apply edits and re-classify"
+
+msgid "適用済みの手動編集:"
+msgstr "Applied manual edits:"
+
+msgid "結果を JSON でダウンロード"
+msgstr "Download result as JSON"
+
+msgid "← 別の変異を解析"
+msgstr "← Analyze another variant"

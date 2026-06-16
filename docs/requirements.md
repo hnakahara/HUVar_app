@@ -27,7 +27,7 @@
 | M6 | 変異結果キャッシュ（DB 登録・参照データ更新で無効化） | ⬜ | |
 | M7 | REST API（VAS 連携・トークン認証） | 🟡 | 実装済: classify/jobs/job_status/job_result。本番で導線確認済(トークン認証 whoami・未認証 401・VCF ジョブ投入 201)。実解析(classify/結果TSV)はデータ配置後 |
 | M8 | セキュリティ強化・本番公開準備 | 🟡 | CSP/Permissions-Policy 等を Django ミドルウェアで全レスポンス付与、監査ログ(login/失敗/logout・解析/編集/バッチ・API)、API アップロード検証、CI(pip-audit/bandit/ruff)、SECRET_KEY の $ 回避注記。残: 本番ヘッダ実機確認・脆弱性対応の運用 |
-| M9 | 多言語対応（i18n: 日本語/英語 切替） | 🟡 | LocaleMiddleware/LANGUAGES/LOCALE_PATHS、set_language(/acmg整合)、base のヘッダに言語切替UI、主要テンプレ(base/index/login/account_request)を翻訳対象化、en の .po 整備、Dockerfile に gettext＋entrypoint で compilemessages。残: 解析/バッチ等の残テンプレ・ビューのメッセージを順次翻訳 |
+| M9 | 多言語対応（i18n: 日本語/英語 切替） | 🟢 | i18n 基盤＋言語切替UI、全ユーザー向けテンプレ(base/index/login/account_request/single_input/single_resolve/single_result/batch_upload/batch_status/batch_list)を翻訳対象化、en .po 整備、gettext/compilemessages。本番で切替動作確認済。残(軽微): ビューのフラッシュメッセージ・admin は順次 |
 
 ### 機能要件ステータス
 
@@ -40,7 +40,7 @@
 | FR-BATCH-1..4 | VCF 解析・TSV ダウンロード・履歴 | 🟡 | 実装済(アップロード/Celery直列/TSV/履歴/保持1時間)。実解析検証はデータ配置後 |
 | FR-CACHE-1..4 | 変異結果キャッシュ・参照データ更新で無効化 | 🟡 | データモデル（VariantResultCache/ReferenceDataVersion）定義済み。ロジックは M6 |
 | FR-API-1..4 | REST API（トークン認証） | 🟡 | classify/jobs 実装済(トークン認証・throttle)。実解析検証はデータ配置後 |
-| FR-I18N-1..6 | 多言語対応（日本語/英語 切替） | 🟡 | 切替UI・LocaleMiddleware・set_language・en .po・compilemessages 実装。主要画面翻訳済、残画面は順次 |
+| FR-I18N-1..6 | 多言語対応（日本語/英語 切替） | 🟢 | 切替UI・LocaleMiddleware・set_language・en .po・compilemessages。全ユーザー向け画面を翻訳。ビューのメッセージ/admin は軽微残 |
 | NFR-SEC-* | セキュリティ | 🟡 | TLS/HSTS・nginx レート制限・セキュリティヘッダ(CSP等)・MFA必須・axes・監査ログ・アップロード検証・秘密の env 管理・CI 脆弱性スキャン 実装。実機ヘッダ確認と運用は継続 |
 | NFR-ENV-* | 環境分離 | ⬜ |
 | NFR-PORT-* | ポート設計 | ⬜ |
@@ -349,3 +349,4 @@ HUHVar_app/
 | v0.17 | 2026-06-16 | M7 実装(🟡)。REST API: classify(単一・query/座標直指定・複数候補返却)、jobs(VCF→Celery)・job_status・job_result(TSV)。DRF TokenAuthentication(admin 発行・公開obtainなし)＋throttle、token 認証はセッション非依存のため MFA 強制対象外。実解析検証はデータ配置後 |
 | v0.18 | 2026-06-16 | M8 実装(🟡)。SecurityHeadersMiddleware(CSP/Permissions-Policy/X-Content-Type-Options/Referrer-Policy/X-Frame-Options を全レスポンスに付与、フロント nginx 非依存)。監査ログ: 認証イベント(signals: login/login_failed/logout)＋解析/編集/バッチ/API 操作を AuditLog 記録。API アップロード検証(.vcf/.vcf.gz・50MB)。CI(.github security.yml: ruff/bandit/pip-audit)。SECRET_KEY は $ 非含有を注記。M8 本番でヘッダ/監査ログ確認済。REDIS_PASSWORD の $ 起因の compose 警告は $ 無し再生成で解消(.env 注記追加) |
 | v0.19 | 2026-06-16 | M9 着手(🟡)。i18n: LocaleMiddleware・LANGUAGES(ja/en)・LOCALE_PATHS、config.urls に set_language、base ヘッダに言語切替セレクタ(/acmg・FORCE_SCRIPT_NAME 整合、MFA 未検証でも set_language 許可)。base/index/login/account_request を {% translate %} 化、locale/en の django.po 整備。Dockerfile に gettext 追加、entrypoint で compilemessages、.mo は gitignore |
+| v0.20 | 2026-06-16 | M9 を 🟢。残りの全ユーザー向け解析画面(single_input/single_resolve/single_result/batch_upload/batch_status/batch_list)を {% translate %} 化し en .po を拡充。本番ビルドで日英切替を確認(/acmg/single 含む)。ビューのフラッシュメッセージ/admin は軽微残として継続 |

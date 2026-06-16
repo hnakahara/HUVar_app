@@ -1,26 +1,27 @@
 {% extends "base.html" %}
-{% block title %}ジョブ {{ job.id }} | HUHVar{% endblock %}
+{% load i18n %}
+{% block title %}{% translate "ジョブ" %} {{ job.id }} | HUHVar{% endblock %}
 {% block content %}
-<h1>バッチジョブ #{{ job.id }}</h1>
+<h1>{% translate "バッチジョブ" %} #{{ job.id }}</h1>
 <table border="1" cellpadding="6" cellspacing="0">
-    <tr><th>ファイル</th><td>{{ job.input_text }}</td></tr>
-    <tr><th>アセンブリ</th><td>{{ job.assembly }}</td></tr>
-    <tr><th>状態</th><td>{{ job.get_status_display }}</td></tr>
-    <tr><th>作成</th><td>{{ job.created_at }}</td></tr>
-    <tr><th>有効期限</th><td>{{ job.expires_at }}（経過後に自動削除）</td></tr>
+    <tr><th>{% translate "ファイル" %}</th><td>{{ job.input_text }}</td></tr>
+    <tr><th>{% translate "アセンブリ" %}</th><td>{{ job.assembly }}</td></tr>
+    <tr><th>{% translate "状態" %}</th><td>{{ job.get_status_display }}</td></tr>
+    <tr><th>{% translate "作成" %}</th><td>{{ job.created_at }}</td></tr>
+    <tr><th>{% translate "有効期限" %}</th><td>{{ job.expires_at }}{% translate "（経過後に自動削除）" %}</td></tr>
 </table>
 
 {% if job.status == "done" %}
-    <p><a href="{% url 'analysis:batch_download' job.id %}">結果 TSV をダウンロード</a></p>
+    <p><a href="{% url 'analysis:batch_download' job.id %}">{% translate "結果 TSV をダウンロード" %}</a></p>
 {% elif job.status == "failed" %}
-    <p style="color:#b00;">⚠ 解析に失敗しました: {{ job.error }}</p>
+    <p style="color:#b00;">⚠ {% translate "解析に失敗しました:" %} {{ job.error }}</p>
 {% else %}
-    <p>解析中です…（自動更新）</p>
+    <p>{% translate "解析中です…（自動更新）" %}</p>
     <script>setTimeout(function () { location.reload(); }, 3000);</script>
 {% endif %}
 
 <p>
-    <a href="{% url 'analysis:batch_list' %}">ジョブ履歴</a> ｜
-    <a href="{% url 'analysis:batch_upload' %}">別の VCF を解析</a>
+    <a href="{% url 'analysis:batch_list' %}">{% translate "ジョブ履歴" %}</a> ｜
+    <a href="{% url 'analysis:batch_upload' %}">{% translate "別の VCF を解析" %}</a>
 </p>
 {% endblock %}

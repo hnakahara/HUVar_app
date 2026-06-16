@@ -1,23 +1,23 @@
 {% extends "base.html" %}
-{% block title %}単一変異解析 | HUHVar{% endblock %}
+{% load i18n %}
+{% block title %}{% translate "単一変異解析" %} | HUHVar{% endblock %}
 {% block content %}
-<h1>単一変異解析</h1>
-<p>genome coordinate / cDNA / protein のいずれかを入力してください（<code>c.</code> / <code>p.</code> は省略可）。
-   cDNA・protein は MANE Select に限定して座標変換します。</p>
+<h1>{% translate "単一変異解析" %}</h1>
+<p>{% translate "genome coordinate / cDNA / protein のいずれかを入力してください（c. / p. は省略可）。cDNA・protein は MANE Select に限定して座標変換します。" %}</p>
 
 {% if error %}<p style="color:#b00;">⚠ {{ error }}</p>{% endif %}
 
 <form method="post" action="{% url 'analysis:single_input' %}">
     {% csrf_token %}
     {{ form.as_p }}
-    <button type="submit">変換 / 解析へ</button>
+    <button type="submit">{% translate "変換 / 解析へ" %}</button>
 </form>
 
-<h3>入力例</h3>
+<h3>{% translate "入力例" %}</h3>
 <ul>
     <li>genome: <code>chr17:7674221G&gt;A</code></li>
-    <li>cDNA: <code>TP53:c.742C&gt;T</code>（または <code>TP53:742C&gt;T</code>）</li>
-    <li>protein: <code>TP53:p.R248W</code>（または <code>TP53:R248W</code>）</li>
+    <li>cDNA: <code>TP53:c.742C&gt;T</code>（<code>TP53:742C&gt;T</code>）</li>
+    <li>protein: <code>TP53:p.R248W</code>（<code>TP53:R248W</code>）</li>
 </ul>
-<p><a href="{% url 'analysis:index' %}">← トップへ</a></p>
+<p><a href="{% url 'analysis:index' %}">{% translate "← トップへ" %}</a></p>
 {% endblock %}
