@@ -152,8 +152,10 @@ def _normalize_protein(gene_rest: str) -> str:
 
 def _run_transvar(mode: str, query: str) -> List[dict]:
     """transvar <mode> -i <query> --refseq --gseq を実行し行(dict)を返す。"""
+    # --seqmax 1000: 長い dup / indel は既定の配列長上限で no_valid_transcript_found に
+    # なる（vas でも同様）。大きな正値で解決する（-1=無制限はなぜか失敗するため使わない）。
     res = subprocess.run(
-        ["transvar", mode, "-i", query, "--refseq", "--gseq"],
+        ["transvar", mode, "-i", query, "--refseq", "--gseq", "--seqmax", "1000"],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=120,
     )
     if not res.stdout.strip():
