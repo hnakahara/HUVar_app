@@ -213,3 +213,9 @@ msgstr "Please select a VCF file (.vcf or .vcf.gz)."
 
 msgid "ファイルサイズが大きすぎます（上限 50MB）。"
 msgstr "File is too large (max 50MB)."
+
+msgid "ファイルを選択"
+msgstr "Choose file"
+
+msgid "選択されていません"
+msgstr "No file selected"

@@ -7,7 +7,20 @@
 
 <form method="post" action="{% url 'analysis:batch_upload' %}" enctype="multipart/form-data">
     {% csrf_token %}
-    {{ form.as_p }}
+    {# ファイル入力はブラウザ標準UIの文言(「ファイルを選択」等)がブラウザ言語依存になるため、
+       ネイティブ入力を隠して自前のボタン＋ファイル名表示にし、アプリの言語に揃える。 #}
+    <p>
+        {{ form.vcf.label }}:
+        <input type="file" name="vcf" id="id_vcf" accept=".vcf,.vcf.gz" style="display:none"
+               onchange="document.getElementById('vcf_name').textContent = this.files.length ? this.files[0].name : '{% translate "選択されていません" %}'">
+        <button type="button" onclick="document.getElementById('id_vcf').click()">{% translate "ファイルを選択" %}</button>
+        <span id="vcf_name">{% translate "選択されていません" %}</span>
+        {{ form.vcf.errors }}
+    </p>
+    <p>
+        {{ form.assembly.label }}: {{ form.assembly }}
+        {{ form.assembly.errors }}
+    </p>
     <button type="submit">{% translate "アップロードして解析" %}</button>
 </form>
 
