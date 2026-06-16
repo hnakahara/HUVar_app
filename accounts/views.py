@@ -29,7 +29,7 @@ def account_request(request):
                 send_mail(
                     subject="[HUHVar] 新規アカウント発行リクエスト",
                     message=(
-                        f"氏名: {obj.full_name}\n"
+                        f"ユーザー名: {obj.full_name}\n"
                         f"メール: {obj.email}\n"
                         f"所属: {obj.institution}\n"
                         f"目的: {obj.purpose}\n"

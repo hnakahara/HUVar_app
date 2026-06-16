@@ -66,7 +66,8 @@ class AccountRequestAdmin(admin.ModelAdmin):
         from analysis.models import AuditLog
         for req in queryset:
             # 既存ユーザー（同一メール/ユーザー名）があれば作成せず承認のみ
-            username = req.email
+            # ユーザー名はリクエストの User name をそのまま使用する
+            username = req.full_name
             if User.objects.filter(email=req.email).exists() or \
                     User.objects.filter(username=username).exists():
                 req.status = AccountRequest.Status.APPROVED
