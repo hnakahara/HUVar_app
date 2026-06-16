@@ -33,6 +33,30 @@ def _build_config(assembly: str):
     return Config(data_dir=Path(DATA_DIR), assembly=asm)
 
 
+# アセンブリ → eRepo マニュアルクライテリアのファイル接尾辞
+_HGVER = {"GRCh38": "hg38", "GRCh37": "hg19"}
+
+
+def manual_criteria_path(cfg):
+    """既定マニュアルエビデンス（eRepo）の TSV パス。data/shared/erepo_manual_criteria_<hg>.tsv。"""
+    hg = _HGVER.get(cfg.assembly.value)
+    if not hg:
+        return None
+    return cfg.data_dir / "shared" / f"erepo_manual_criteria_{hg}.tsv"
+
+
+def _load_manual_for_variant(cfg, variant_key: str):
+    """eRepo マニュアルクライテリアから当該変異の SupplementEntry リストを返す。"""
+    path = manual_criteria_path(cfg)
+    if not path or not path.exists():
+        return []
+    try:
+        from acmg_classifier.io.supplement_reader import read_supplement
+        return read_supplement(path).get(variant_key, [])
+    except Exception:  # noqa: BLE001  マニュアル読込失敗は解析を止めない
+        return []
+
+
 def _build_supplement(entries: Optional[List[dict]], variant_id: str):
     """手動編集 -> SupplementEntry リスト（merge で再分類）。"""
     if not entries:
@@ -109,8 +133,20 @@ def classify_single(
         ) from exc
 
     cfg = _build_config(assembly)
-    variant_id = f"{chrom}:{pos}:{ref}:{alt}"
-    supplement = _build_supplement(supplement_entries, variant_id)
+    # 変異キー（chrom 正規化込み）を算出してマニュアル照合・supplement に使う
+    try:
+        from acmg_classifier.models.enums import Assembly
+        from acmg_classifier.models.variant import VariantRecord
+        variant_id = VariantRecord(
+            chrom=chrom, pos=int(pos), ref=ref, alt=alt, assembly=Assembly(assembly)
+        ).key
+    except Exception:  # noqa: BLE001
+        variant_id = f"{chrom}:{pos}:{ref}:{alt}"
+
+    # 既定マニュアルエビデンス(eRepo) ＋ ユーザー手動編集 を merge（cfg.supplement_mode=MERGE）
+    manual = _load_manual_for_variant(cfg, variant_id)
+    user = _build_supplement(supplement_entries, variant_id) or []
+    supplement = (list(manual) + list(user)) or None
 
     try:
         result = run_single(chrom, int(pos), ref, alt, cfg, supplement=supplement)
@@ -161,8 +197,10 @@ def classify_vcf(vcf_path: str, assembly: str) -> dict:
         ) from exc
 
     cfg = _build_config(assembly)
+    mpath = manual_criteria_path(cfg)
+    sup_path = mpath if (mpath and mpath.exists()) else None  # 既定マニュアル(merge)
     try:
-        results = run_pipeline(Path(vcf_path), cfg)  # output_path=None: TSV は当方で生成
+        results = run_pipeline(Path(vcf_path), cfg, supplement_path=sup_path)  # TSV は当方で生成
     except FileNotFoundError as exc:
         raise EngineUnavailable(
             f"参照データ/入力が見つかりません（{DATA_DIR} 配下を確認）: {exc}"

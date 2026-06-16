@@ -70,6 +70,14 @@ def _tracked_paths(assembly: str):
         out.append(("vep_cache", cfg.vep_cache_dir))
     except Exception:  # noqa: BLE001
         pass
+    # 既定マニュアルエビデンス(eRepo)。更新時にキャッシュを無効化する。
+    try:
+        from .engine import manual_criteria_path
+        mp = manual_criteria_path(cfg)
+        if mp is not None:
+            out.append(("erepo_manual", mp))
+    except Exception:  # noqa: BLE001
+        pass
     return out
 
 
