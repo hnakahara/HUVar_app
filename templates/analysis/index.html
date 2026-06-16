@@ -5,6 +5,7 @@
 <p>変異の病的性を ACMG 2015 + ClinGen SVI 基準で分類します。</p>
 <ul>
     <li><a href="{% url 'analysis:single_input' %}">単一変異解析</a>（genome / cDNA / protein、MANE Select 限定）</li>
-    <li>バッチ解析（VCF アップロード → TSV ダウンロード）— <em>M5 で実装</em></li>
+    <li><a href="{% url 'analysis:batch_upload' %}">バッチ解析</a>（VCF アップロード → TSV ダウンロード）
+        ｜ <a href="{% url 'analysis:batch_list' %}">ジョブ履歴</a></li>
 </ul>
 {% endblock %}

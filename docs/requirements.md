@@ -23,7 +23,7 @@
 | M3 | 入力 & TransVar 変換 & MANE 限定 | 🟢 | 本番実機で確認: MANE map size=19288、TP53:c.742C>T → MANE Select 1件(chr17:7674221G>A/p.R248W)。genome/cDNA/protein・c./p.省略・候補選択 UI 実装済 |
 | M3 | 入力 & TransVar 変換 & MANE 限定 | ⬜ | |
 | M4 | 単一変異解析・結果画面・手動編集 | 🟡 | 実装済(engine.classify_single→run_single 同期実行、全クライテリア表示、strength/evidence 手動編集→supplement merge 再分類、JSON エクスポート)。本番で導線確認済(入力→TransVar→候補→解析→結果、エンジン/データ未配置のため graceful error 表示)。実解析の実機検証は ~/HUHVar マウント＋/data 配置後 |
-| M5 | バッチ（VCF）解析・TSV ダウンロード・Celery ジョブ | ⬜ | |
+| M5 | バッチ（VCF）解析・TSV ダウンロード・Celery ジョブ | 🟡 | 実装済(VCFアップロード→Celery直列投入→run_pipeline→TSV、ジョブ状態/履歴/ダウンロード、保持1時間で自動削除)。実解析の実機検証はデータ配置後 |
 | M6 | 変異結果キャッシュ（DB 登録・参照データ更新で無効化） | ⬜ | |
 | M7 | REST API（VAS 連携・トークン認証） | ⬜ | |
 | M8 | セキュリティ強化・本番公開準備 | ⬜ | |
@@ -37,7 +37,7 @@
 | FR-IN-1..4 | 入力（genome / cDNA / protein / VCF） | 🟡 | 単一の3形式は実機確認済。VCF は M5 |
 | FR-CONV-1..5 | TransVar 変換・MANE 限定・候補選択 | 🟢 | 実機確認済(MANE Select 限定・c./p.省略可・GRCh37/38・複数候補は選択UI) |
 | FR-SINGLE-1..6 | 単一変異解析・全クライテリア表示・手動編集 | 🟡 | 実装済(同期実行・全28項目＋根拠・strength手動編集・JSON出力)。データ配置後に実機検証 |
-| FR-BATCH-1..4 | VCF 解析・TSV ダウンロード・履歴 | ⬜ |
+| FR-BATCH-1..4 | VCF 解析・TSV ダウンロード・履歴 | 🟡 | 実装済(アップロード/Celery直列/TSV/履歴/保持1時間)。実解析検証はデータ配置後 |
 | FR-CACHE-1..4 | 変異結果キャッシュ・参照データ更新で無効化 | 🟡 | データモデル（VariantResultCache/ReferenceDataVersion）定義済み。ロジックは M6 |
 | FR-API-1..4 | REST API（トークン認証） | 🟡 | トークン認証設定・health/whoami 雛形あり。解析エンドポイントは M7 |
 | FR-I18N-1..6 | 多言語対応（日本語/英語 切替） | ⬜ | 要件追加済。実装は M9（i18n: LocaleMiddleware/gettext/set_language） |
@@ -197,7 +197,7 @@
 - **FR-CACHE-3**: **使用している参照データ（HUHVar の参照配列・OpenSpliceAI モデル・phyloP bigWig・遺伝子リスト等、および TransVar 参照）のいずれかが更新された場合、キャッシュを無効化**し、次回アクセス時に再解析する。更新検知は **参照データ各ファイルの「ハッシュ ＋ サイズ ＋ 更新日時（mtime）」を組み合わせた版署名** で行う。いずれかが変化したら無効化する。
 - **FR-CACHE-4**: ユーザーの **手動編集結果（CriterionEdit）はキャッシュとは別管理**とし、自動判定キャッシュを上書きしない（編集はユーザー/ジョブに紐づく）。
 
-> 注: 本キャッシュ（自動判定結果）は参照データ更新まで永続保持する。NFR-OPS-3 の「保持期間 1 日」は **ジョブ成果物（アップロード VCF・生成 TSV・ジョブ単位の結果ファイル）** に適用される別物である。
+> 注: 本キャッシュ（自動判定結果）は参照データ更新まで永続保持する。NFR-OPS-3 の「保持期間 1 時間」は **ジョブ成果物（アップロード VCF・生成 TSV・ジョブ単位の結果ファイル）** に適用される別物である。
 
 ### 4.7 API（FR-API）
 
@@ -265,7 +265,7 @@
 
 - **NFR-OPS-1**: 解析は **Celery + Redis** による非同期ジョブで **順番に処理**（直列）。大規模 VCF でもタイムアウトしないよう nginx/gunicorn のタイムアウトを調整（vas は 3600s）。
 - **NFR-OPS-2**: HUHVar 参照データ（配列・OpenSpliceAI モデル・phyloP bigWig 等、数 GB）と TransVar 参照（`/tools/transvar`、vas と共用）はボリュームで提供。GRCh37/GRCh38 両アセンブリ分を用意。
-- **NFR-OPS-3**: **ジョブ成果物（アップロード VCF・生成 TSV・ジョブ単位の結果ファイル）の保持期間は 1 日**。経過後は定期ジョブで自動削除。※ 変異単位の自動判定キャッシュ（FR-CACHE）は対象外で、参照データ更新まで永続保持。
+- **NFR-OPS-3**: **ジョブ成果物（アップロード VCF・生成 TSV・ジョブ単位の結果ファイル）の保持期間は 1 時間**。経過後は自動削除（現状はジョブ一覧アクセス時に随時クリーンアップ。将来 Celery beat 化可）。※ 変異単位の自動判定キャッシュ（FR-CACHE）は対象外で、参照データ更新まで永続保持。
 - **NFR-OPS-4**: ログ収集、ヘルスチェック（DB `pg_isready`、redis `PING`、transvar `/health`）。
 
 ## 6. データモデル（概要）
@@ -273,7 +273,7 @@
 - `User`（Django 標準 + ロール + MFA デバイス）
 - `ApiToken`（API 用トークン: 所有者・発行日時・失効フラグ）
 - `AccountRequest`（アカウント発行リクエスト: 氏名・所属・メール・目的・状態）
-- `AnalysisJob`（種別: single/batch、入力、assembly、ステータス、Celery タスク ID、結果ファイル、所有者、作成日時、**成果物有効期限 = 作成 +1 日**）
+- `AnalysisJob`（種別: single/batch、入力、assembly、ステータス、Celery タスク ID、結果ファイル、所有者、作成日時、**成果物有効期限 = 作成 +1 時間**）
 - `VariantResultCache`（変異キャッシュ: 正規化変異キー〔assembly, chrom, pos, ref, alt〕＋ エンジン版 ＋ **参照データ版署名**、分類結果 JSON、作成/更新日時。FR-CACHE）
 - `ReferenceDataVersion`（使用中参照データ〔HUHVar 各データ・TransVar〕の版署名 = ファイルごとの ハッシュ＋サイズ＋mtime。更新検知とキャッシュ無効化に使用）
 - `VariantResult`（単一変異の最終結果・分類・スコア。ジョブ/ユーザー紐づけ）
@@ -344,3 +344,4 @@ HUHVar_app/
 | v0.13 | 2026-06-16 | 多言語対応(i18n: 日本語/英語 切替)要件を追加(FR-I18N-1..6)。Django 標準 i18n(LocaleMiddleware/gettext/{% translate %}/set_language)、既定 ja、/acmg 整合、専門略語は原文・UI 文言を翻訳対象。マイルストーン M9 として計画(実装は後続) |
 | v0.14 | 2026-06-16 | M3 完了(🟢)。MANE summary の列名が vas 配置版で RefSeq_nuc_major のため map が空だった不具合を修正(RefSeq_nuc→major/minor フォールバック)。本番実機で TP53:c.742C>T→MANE Select 1件(chr17:7674221G>A/p.R248W) を確認。FR-CONV 🟢、FR-IN 🟡(VCF は M5) |
 | v0.15 | 2026-06-16 | M4 実装(🟡)。analysis/engine.py で acmg_classifier.run_single を同期実行(Python 直接 import、未導入/データ未配置は EngineUnavailable で graceful)。single_analyze→結果保存(AnalysisJob/VariantResult)→single_result で全クライテリア(28項目)＋根拠＋分類(2015/Bayesian)表示。single_edit で strength/evidence 手動編集→supplement(merge)再分類＋CriterionEdit 監査記録。single_export で JSON 出力。実機検証は参照データ(/data)配置後 |
+| v0.16 | 2026-06-16 | M5 実装(🟡)。VCF アップロード→Celery(直列)投入→engine.classify_batch(run_pipeline)→全クライテリア列 TSV 生成。batch_upload/status(自動更新)/list/download、認証付き配信。成果物保持を 1日→**1時間**に変更(JOB_ARTIFACT_RETENTION_HOURS、default_expiry、cleanup_expired_jobs を一覧アクセス時に実行)。MEDIA_ROOT 追加。実解析検証はデータ配置後 |

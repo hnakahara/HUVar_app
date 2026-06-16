@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}ジョブ履歴 | HUHVar{% endblock %}
+{% block content %}
+<h1>バッチジョブ履歴</h1>
+<p>成果物は作成から 1 時間で自動削除されます。</p>
+
+<table border="1" cellpadding="6" cellspacing="0">
+    <thead>
+        <tr><th>#</th><th>ファイル</th><th>アセンブリ</th><th>状態</th><th>作成</th><th>有効期限</th><th></th></tr>
+    </thead>
+    <tbody>
+    {% for job in jobs %}
+        <tr>
+            <td><a href="{% url 'analysis:batch_status' job.id %}">{{ job.id }}</a></td>
+            <td>{{ job.input_text }}</td>
+            <td>{{ job.assembly }}</td>
+            <td>{{ job.get_status_display }}</td>
+            <td>{{ job.created_at }}</td>
+            <td>{{ job.expires_at }}</td>
+            <td>
+                {% if job.status == "done" %}
+                    <a href="{% url 'analysis:batch_download' job.id %}">TSV</a>
+                {% endif %}
+            </td>
+        </tr>
+    {% empty %}
+        <tr><td colspan="7">ジョブはありません。</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<p>
+    <a href="{% url 'analysis:batch_upload' %}">新規 VCF を解析</a> ｜
+    <a href="{% url 'analysis:index' %}">← トップへ</a>
+</p>
+{% endblock %}

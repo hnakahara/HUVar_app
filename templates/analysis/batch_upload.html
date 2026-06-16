@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}バッチ解析（VCF） | HUHVar{% endblock %}
+{% block content %}
+<h1>バッチ解析（VCF アップロード）</h1>
+<p>VCF をアップロードすると、ジョブとして投入され順番に解析されます。完了後 TSV をダウンロードできます。
+   成果物（アップロード VCF・生成 TSV）は <strong>1 時間</strong>で自動削除されます。</p>
+
+<form method="post" action="{% url 'analysis:batch_upload' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">アップロードして解析</button>
+</form>
+
+<p>
+    <a href="{% url 'analysis:batch_list' %}">ジョブ履歴</a> ｜
+    <a href="{% url 'analysis:index' %}">← トップへ</a>
+</p>
+{% endblock %}

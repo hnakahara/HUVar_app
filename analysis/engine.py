@@ -112,3 +112,27 @@ def classify_single(
         raise EngineUnavailable(f"解析に失敗しました: {exc}") from exc
 
     return _to_display(result)
+
+
+def classify_batch(vcf_path: str, output_tsv_path: str, assembly: str) -> int:
+    """VCF を一括 ACMG 分類し、全クライテリア列を含む TSV を output_tsv_path に書く。
+
+    返り値は分類した変異数。バッチは Celery タスクから呼ばれる（FR-BATCH）。
+    """
+    try:
+        from acmg_classifier.pipeline.pipeline import run_pipeline
+    except Exception as exc:  # noqa: BLE001
+        raise EngineUnavailable(
+            f"解析エンジン(acmg_classifier)が利用できません: {exc}"
+        ) from exc
+
+    cfg = _build_config(assembly)
+    try:
+        results = run_pipeline(Path(vcf_path), cfg, output_path=Path(output_tsv_path))
+    except FileNotFoundError as exc:
+        raise EngineUnavailable(
+            f"参照データ/入力が見つかりません（{DATA_DIR} 配下を確認）: {exc}"
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise EngineUnavailable(f"バッチ解析に失敗しました: {exc}") from exc
+    return len(results)

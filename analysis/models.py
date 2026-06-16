@@ -6,8 +6,8 @@ from django.utils import timezone
 
 
 def default_expiry():
-    days = getattr(settings, "JOB_ARTIFACT_RETENTION_DAYS", 1)
-    return timezone.now() + timedelta(days=days)
+    hours = getattr(settings, "JOB_ARTIFACT_RETENTION_HOURS", 1)
+    return timezone.now() + timedelta(hours=hours)
 
 
 class Assembly(models.TextChoices):

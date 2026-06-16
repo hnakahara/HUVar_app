@@ -106,6 +106,10 @@ USE_TZ = True
 STATIC_URL = "/acmg/static/"
 STATIC_ROOT = "/static"
 
+# アップロード VCF / 生成 TSV の保存先（認証付きビューで配信。/media は公開しない）
+MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_URL = "/acmg/media/"
+
 # WhiteNoise（圧縮配信）。Manifest は使わず test/prod 双方で安全に動かす。
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
@@ -146,8 +150,8 @@ AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]
 # --- TransVar サービス ---
 TRANSVAR_SERVICE_URL = os.environ.get("TRANSVAR_SERVICE_URL", "http://transvar:5000")
 
-# --- ジョブ成果物の保持期間（日）。変異キャッシュ（FR-CACHE）は対象外。 ---
-JOB_ARTIFACT_RETENTION_DAYS = int(os.environ.get("JOB_ARTIFACT_RETENTION_DAYS", "1"))
+# --- ジョブ成果物の保持期間（時間）。変異キャッシュ（FR-CACHE）は対象外。 ---
+JOB_ARTIFACT_RETENTION_HOURS = int(os.environ.get("JOB_ARTIFACT_RETENTION_HOURS", "1"))
 
 LOGIN_URL = "accounts:login"
 # ログイン後は MFA フローへ（登録済みなら検証、未登録なら登録へ自動分岐）

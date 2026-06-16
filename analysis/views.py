@@ -1,15 +1,16 @@
 import json
 
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
+from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from transvar_client.client import TransvarError
 from transvar_client.client import convert as transvar_convert
 
 from .engine import STRENGTH_CHOICES, EngineUnavailable, classify_single
-from .forms import SingleVariantForm
+from .forms import BatchVariantForm, SingleVariantForm
 from .models import AnalysisJob, CriterionEdit, VariantResult
+from .tasks import cleanup_expired_jobs, run_batch_classification
 
 
 @login_required
@@ -170,4 +171,59 @@ def single_export(request, pk: int):
     body = json.dumps(vr.result_json or {}, ensure_ascii=False, indent=2)
     resp = HttpResponse(body, content_type="application/json; charset=utf-8")
     resp["Content-Disposition"] = f'attachment; filename="acmg_result_{vr.pk}.json"'
+    return resp
+
+
+# ---------------------------------------------------------------------------
+# バッチ（VCF）解析（FR-BATCH）— Celery で投入順に直列処理
+# ---------------------------------------------------------------------------
+
+@login_required
+def batch_upload(request):
+    """VCF アップロード → ジョブ作成 → Celery 投入 → ステータス画面へ。"""
+    form = BatchVariantForm(request.POST or None, request.FILES or None)
+    if request.method == "POST" and form.is_valid():
+        job = AnalysisJob.objects.create(
+            owner=request.user,
+            kind=AnalysisJob.Kind.BATCH,
+            assembly=form.cleaned_data["assembly"],
+            input_file=form.cleaned_data["vcf"],
+            input_text=form.cleaned_data["vcf"].name,
+            status=AnalysisJob.Status.PENDING,
+        )
+        run_batch_classification.delay(job.id)
+        return redirect("analysis:batch_status", pk=job.id)
+    return render(request, "analysis/batch_upload.html", {"form": form})
+
+
+@login_required
+def batch_status(request, pk: int):
+    """ジョブの進捗。完了で TSV ダウンロード可。pending/running は自動更新。"""
+    job = get_object_or_404(AnalysisJob, pk=pk, owner=request.user,
+                            kind=AnalysisJob.Kind.BATCH)
+    refreshing = job.status in (AnalysisJob.Status.PENDING, AnalysisJob.Status.RUNNING)
+    return render(request, "analysis/batch_status.html", {
+        "job": job, "refreshing": refreshing,
+    })
+
+
+@login_required
+def batch_list(request):
+    """バッチジョブ履歴（保持期間切れは随時クリーンアップ）。"""
+    cleanup_expired_jobs()
+    jobs = AnalysisJob.objects.filter(
+        owner=request.user, kind=AnalysisJob.Kind.BATCH
+    ).order_by("-created_at")
+    return render(request, "analysis/batch_list.html", {"jobs": jobs})
+
+
+@login_required
+def batch_download(request, pk: int):
+    """生成 TSV をダウンロード（認証＋所有者チェック。/media は非公開）。"""
+    job = get_object_or_404(AnalysisJob, pk=pk, owner=request.user,
+                            kind=AnalysisJob.Kind.BATCH)
+    if job.status != AnalysisJob.Status.DONE or not job.result_file:
+        raise Http404("結果がまだありません。")
+    resp = FileResponse(job.result_file.open("rb"), content_type="text/tab-separated-values")
+    resp["Content-Disposition"] = f'attachment; filename="acmg_batch_{job.id}.tsv"'
     return resp
