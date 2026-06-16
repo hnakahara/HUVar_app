@@ -21,8 +21,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Ensembl VEP 111 + htslib ツール（HUHVar 用。vas とは独立にイメージ内へ） ---
-# micromamba で専用 conda 環境を作り、その bin を PATH 末尾に追加（システム python を
-# 優先したいので prepend ではなく append）。find_vep_cmd() は which("vep") で検出する。
+# micromamba で専用 conda 環境を作る。VEP は env 同梱の perl(DBI/Bio::EnsEMBL 等)で
+# 動く必要があるため、env の bin を PATH 先頭に置く（vep のシェバン env perl が conda
+# perl を拾うように）。この env には python/gunicorn/celery を含めないため、Django 側の
+# システム python:3.11 は引き続き使われる。find_vep_cmd() は which("vep") で検出する。
 RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest \
     | tar -xj -C /usr/local/bin --strip-components=1 bin/micromamba && \
     micromamba create -y -p /opt/conda/envs/vep \
@@ -30,7 +32,7 @@ RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest \
         ensembl-vep=111 samtools bcftools htslib && \
     micromamba clean -a -y && \
     rm -rf /root/.cache
-ENV PATH="${PATH}:/opt/conda/envs/vep/bin"
+ENV PATH="/opt/conda/envs/vep/bin:${PATH}"
 
 COPY requirements.txt /code/
 RUN pip install --upgrade pip && pip install -r requirements.txt
