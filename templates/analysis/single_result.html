@@ -19,10 +19,12 @@
 
 <h2>{% translate "分類" %}</h2>
 <ul>
-    <li><strong>ACMG 2015</strong>: {{ display.classification_2015 }}
-        {% if display.rules %}（{{ display.rules }}）{% endif %}</li>
-    <li><strong>Bayesian</strong>: {{ display.classification_bayesian }}
-        （score {{ display.bayesian_score }}）</li>
+    <li><strong>ACMG 2015</strong>:
+        <span class="badge {% if 'Pathogenic' in display.classification_2015 %}badge-path{% elif 'Benign' in display.classification_2015 %}badge-benign{% else %}badge-vus{% endif %}">{{ display.classification_2015 }}</span>
+        {% if display.rules %}<span style="color:var(--muted);">（{{ display.rules }}）</span>{% endif %}</li>
+    <li><strong>Bayesian</strong>:
+        <span class="badge {% if 'Pathogenic' in display.classification_bayesian %}badge-path{% elif 'Benign' in display.classification_bayesian %}badge-benign{% else %}badge-vus{% endif %}">{{ display.classification_bayesian }}</span>
+        <span style="color:var(--muted);">（score {{ display.bayesian_score }}）</span></li>
 </ul>
 {% if display.warnings %}
 <p style="color:#a60;">warnings: {% for w in display.warnings %}{{ w }}{% if not forloop.last %} / {% endif %}{% endfor %}</p>
@@ -42,9 +44,9 @@
         </thead>
         <tbody>
         {% for c in display.criteria %}
-            <tr style="{% if c.suppressed %}color:#999;{% elif c.triggered %}font-weight:bold;{% endif %}">
+            <tr class="{% if c.suppressed %}row-suppressed{% elif c.triggered %}row-met{% else %}row-not{% endif %}">
                 <td>{{ c.criterion }}</td>
-                <td>{% if c.suppressed %}suppressed{% elif c.triggered %}met{% else %}not met{% endif %}</td>
+                <td>{% if c.suppressed %}<span class="tag tag-suppressed">suppressed</span>{% elif c.triggered %}<span class="tag tag-met">MET</span>{% else %}<span class="tag tag-not">not met</span>{% endif %}</td>
                 <td>{{ c.direction }}</td>
                 <td>{{ c.strength }}</td>
                 <td>{{ c.points }}</td>

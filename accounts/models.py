@@ -11,6 +11,11 @@ class User(AbstractUser):
 
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.GENERAL)
     institution = models.CharField(max_length=255, blank=True)
+    # MFA 免除（レビュー用）。administrator が admin で設定。True の間は MFA 強制を回避。
+    mfa_exempt = models.BooleanField(
+        default=False,
+        help_text="レビュー等のため MFA を免除する（セキュリティ上、通常は無効）。",
+    )
 
     @property
     def is_administrator(self) -> bool:

@@ -22,7 +22,9 @@ class MFAEnforcementMiddleware:
 
     def __call__(self, request):
         user = getattr(request, "user", None)
-        if user is not None and user.is_authenticated and not user.is_verified():
+        if (user is not None and user.is_authenticated
+                and not getattr(user, "mfa_exempt", False)
+                and not user.is_verified()):
             path = request.path
             allowed = {
                 reverse("accounts:login"),

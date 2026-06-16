@@ -160,6 +160,25 @@ li { margin: .25em 0; }
 
 /* ---- Badge (classification 等) ---- */
 .badge {
-  display: inline-block; padding: 2px 10px; border-radius: 999px;
-  font-weight: 700; font-size: .85rem; background: #eef2ff; color: var(--accent);
+  display: inline-block; padding: 3px 12px; border-radius: 999px;
+  font-weight: 700; font-size: .9rem; background: #eef2ff; color: var(--accent);
 }
+.badge-path { background: #fee2e2; color: #b91c1c; }     /* Pathogenic 系: 赤 */
+.badge-benign { background: #dcfce7; color: #166534; }   /* Benign 系: 緑 */
+.badge-vus { background: #f1f5f9; color: #475569; }      /* VUS: 灰 */
+
+/* ---- クライテリア判定タグ ---- */
+.tag {
+  display: inline-block; padding: 2px 10px; border-radius: 999px;
+  font-size: .78rem; font-weight: 800; letter-spacing: .3px;
+}
+.tag-met { background: #16a34a; color: #fff; }           /* MET: 緑塗り（目立たせる） */
+.tag-not { background: #eef0f4; color: #9ca3af; }        /* not met: 薄灰 */
+.tag-suppressed { background: #fde68a; color: #92400e; } /* suppressed: 橙 */
+
+/* MET 行は左に緑のアクセント＋淡い背景で強調。not met は淡色化 */
+tbody tr.row-met > td { background: #f0fdf4; }
+tbody tr.row-met > td:first-child { box-shadow: inset 3px 0 0 #16a34a; font-weight: 700; }
+tbody tr.row-suppressed > td { color: #9ca3af; background: #fffbeb; }
+tbody tr.row-not > td { color: #94a3b8; }
+tbody tr.row-not > td:first-child { color: #64748b; }

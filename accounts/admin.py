@@ -7,10 +7,11 @@ from .models import AccountRequest, User
 
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
-    list_display = ("username", "email", "role", "institution", "is_active", "is_staff")
-    list_filter = ("role", "is_active", "is_staff")
+    list_display = ("username", "email", "role", "institution", "mfa_exempt",
+                    "is_active", "is_staff")
+    list_filter = ("role", "mfa_exempt", "is_active", "is_staff")
     fieldsets = UserAdmin.fieldsets + (
-        ("HUHVar", {"fields": ("role", "institution")}),
+        ("HUHVar", {"fields": ("role", "institution", "mfa_exempt")}),
     )
 
 

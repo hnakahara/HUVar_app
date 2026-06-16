@@ -58,6 +58,9 @@ def _qr_data_uri(data: str) -> str:
 @login_required
 def mfa_setup(request):
     """MFA（TOTP）登録。確認済みデバイスがあれば検証/トップへ振り分ける。"""
+    # MFA 免除ユーザー（レビュー用）は設定不要でトップへ
+    if getattr(request.user, "mfa_exempt", False):
+        return redirect("analysis:index")
     confirmed = TOTPDevice.objects.filter(user=request.user, confirmed=True).first()
     if confirmed:
         if request.user.is_verified():
