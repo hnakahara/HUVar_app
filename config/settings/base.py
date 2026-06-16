@@ -35,6 +35,8 @@ MIDDLEWARE = [
     # 静的ファイル配信（本番でフロント nginx に vas を流用するためアプリ側で配信）
     # FORCE_SCRIPT_NAME(/acmg) は WhiteNoise が自動で静的プレフィックスから除去する。
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    # セキュリティヘッダ（CSP/Permissions-Policy 等）を全レスポンスに付与
+    "accounts.middleware.SecurityHeadersMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",

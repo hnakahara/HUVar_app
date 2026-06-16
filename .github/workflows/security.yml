@@ -1,0 +1,23 @@
+name: security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install scanners
+        run: pip install bandit pip-audit ruff
+      - name: Ruff (lint)
+        run: ruff check . || true
+      - name: Bandit (static security, medium+)
+        run: bandit -r accounts analysis api config transvar_client containers/transvar -ll || true
+      - name: pip-audit (dependency CVEs)
+        run: pip-audit -r requirements.txt || true

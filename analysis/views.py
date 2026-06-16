@@ -9,7 +9,7 @@ from transvar_client.client import convert as transvar_convert
 
 from .engine import STRENGTH_CHOICES, EngineUnavailable, classify_single
 from .forms import BatchVariantForm, SingleVariantForm
-from .models import AnalysisJob, CriterionEdit, VariantResult
+from .models import AnalysisJob, AuditLog, CriterionEdit, VariantResult
 from .tasks import cleanup_expired_jobs, run_batch_classification
 
 
@@ -101,6 +101,8 @@ def single_analyze(request):
         bayesian_score=display["bayesian_score"],
         result_json={"variant": variant, "display": display, "edits": []},
     )
+    AuditLog.objects.create(user=request.user, action="single_analyze",
+                            detail=vr.variant_id)
     return redirect("analysis:single_result", pk=vr.pk)
 
 
@@ -161,6 +163,8 @@ def single_edit(request, pk: int):
             triggered=(e["strength"] != "NotMet"), evidence=e.get("evidence", ""),
             editor=request.user,
         )
+    AuditLog.objects.create(user=request.user, action="criterion_edit",
+                            detail=f"result={vr.pk} edits={len(entries)}")
     return redirect("analysis:single_result", pk=vr.pk)
 
 
@@ -192,6 +196,8 @@ def batch_upload(request):
             status=AnalysisJob.Status.PENDING,
         )
         run_batch_classification.delay(job.id)
+        AuditLog.objects.create(user=request.user, action="batch_submit",
+                                detail=job.input_text)
         return redirect("analysis:batch_status", pk=job.id)
     return render(request, "analysis/batch_upload.html", {"form": form})
 

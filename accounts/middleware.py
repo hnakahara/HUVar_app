@@ -40,3 +40,33 @@ class MFAEnforcementMiddleware:
                     "accounts:mfa_verify" if has_device else "accounts:mfa_setup"
                 )
         return self.get_response(request)
+
+
+class SecurityHeadersMiddleware:
+    """全レスポンスにセキュリティヘッダを付与する（フロント nginx 構成に依存しない）。
+
+    CSP は本アプリのインライン style / 最小の inline script（自動更新）を許容する
+    実用的な基準値。将来 nonce 化で 'unsafe-inline' を外して強化可能。
+    """
+
+    CSP = (
+        "default-src 'self'; "
+        "img-src 'self' data:; "
+        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "frame-ancestors 'none'"
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        resp = self.get_response(request)
+        resp.setdefault("Content-Security-Policy", self.CSP)
+        resp.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+        resp.setdefault("X-Content-Type-Options", "nosniff")
+        resp.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        resp.setdefault("X-Frame-Options", "DENY")
+        return resp

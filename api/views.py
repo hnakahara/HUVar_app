@@ -14,7 +14,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from analysis.engine import EngineUnavailable, classify_single
-from analysis.models import AnalysisJob
+from analysis.models import AnalysisJob, AuditLog
 from analysis.tasks import run_batch_classification
 from transvar_client.client import TransvarError
 from transvar_client.client import convert as transvar_convert
@@ -97,6 +97,9 @@ class ClassifyView(APIView):
         except (EngineUnavailable, ValueError) as exc:
             return Response({"error": str(exc)}, status=503)
 
+        AuditLog.objects.create(
+            user=request.user, action="api_classify",
+            detail=f'{variant["chrom"]}:{variant["pos"]}:{variant["ref"]}:{variant["alt"]}')
         return Response({"variant": variant, **display})
 
 
@@ -109,12 +112,19 @@ class JobCreateView(APIView):
         f = request.FILES.get("vcf")
         if not f:
             return Response({"error": "vcf ファイル（multipart）が必要です"}, status=400)
+        name = (f.name or "").lower()
+        if not (name.endswith(".vcf") or name.endswith(".vcf.gz")):
+            return Response({"error": "VCF（.vcf / .vcf.gz）が必要です"}, status=400)
+        if f.size and f.size > 50 * 1024 * 1024:
+            return Response({"error": "ファイルサイズが大きすぎます（上限 50MB）"}, status=400)
         assembly = request.data.get("assembly", "GRCh38")
         job = AnalysisJob.objects.create(
             owner=request.user, kind=AnalysisJob.Kind.BATCH, assembly=assembly,
             input_file=f, input_text=f.name, status=AnalysisJob.Status.PENDING,
         )
         run_batch_classification.delay(job.id)
+        AuditLog.objects.create(user=request.user, action="api_batch_submit",
+                                detail=f.name)
         return Response({
             "job_id": job.id,
             "status": job.status,
