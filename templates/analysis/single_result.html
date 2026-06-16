@@ -70,7 +70,11 @@
     {% for e in edits %}{{ e.criterion }}={{ e.strength }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
 {% endif %}
 
-<p><a href="{% url 'analysis:single_export' result_id %}">{% translate "結果を JSON でダウンロード" %}</a></p>
+<form method="post" action="{% url 'analysis:single_export' result_id %}">
+    {% csrf_token %}
+    <input type="hidden" name="result_json" value="{{ export_json }}">
+    <p><button type="submit">{% translate "結果を JSON でダウンロード" %}</button></p>
+</form>
 {% endif %}
 
 <p><a href="{% url 'analysis:single_input' %}">{% translate "← 別の変異を解析" %}</a></p>

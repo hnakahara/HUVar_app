@@ -11,7 +11,7 @@ from transvar_client.client import convert as transvar_convert
 from .cache import cached_classify_single
 from .engine import STRENGTH_CHOICES, EngineUnavailable, classify_single
 from .forms import BatchVariantForm, SingleVariantForm
-from .models import AnalysisJob, AuditLog, CriterionEdit, VariantResult
+from .models import AnalysisJob, AuditLog, VariantResult
 from .tasks import cleanup_expired_jobs, run_batch_classification
 
 
@@ -126,6 +126,8 @@ def single_result(request, pk: int):
         "display": data.get("display", {}),
         "edits": data.get("edits", []),
         "strength_choices": STRENGTH_CHOICES,
+        # 画面に表示中の内容をそのままエクスポートできるよう JSON を埋め込む
+        "export_json": json.dumps(data, ensure_ascii=False),
     })
 
 
@@ -161,28 +163,35 @@ def single_edit(request, pk: int):
             "engine_error": str(exc), "strength_choices": STRENGTH_CHOICES,
         })
 
-    vr.classification = display["classification_bayesian"]
-    vr.bayesian_score = display["bayesian_score"]
-    vr.result_json = {"variant": variant, "display": display, "edits": entries}
-    vr.save(update_fields=["classification", "bayesian_score", "result_json"])
-
-    # 監査用に編集履歴を保存
-    for e in entries:
-        CriterionEdit.objects.create(
-            variant_result=vr, criterion=e["criterion"], strength=e["strength"],
-            triggered=(e["strength"] != "NotMet"), evidence=e.get("evidence", ""),
-            editor=request.user,
-        )
-    AuditLog.objects.create(user=request.user, action="criterion_edit",
-                            detail=f"result={vr.pk} edits={len(entries)}")
-    return redirect("analysis:single_result", pk=vr.pk)
+    # 手動編集による再分類はデータベースに保存しない（その場で表示するのみ）。
+    # 元の自動分類結果(VariantResult)は上書きせず保持する。
+    edited = {"variant": variant, "display": display, "edits": entries}
+    return render(request, "analysis/single_result.html", {
+        "result_id": vr.pk,
+        "variant": variant,
+        "display": display,
+        "edits": entries,
+        "strength_choices": STRENGTH_CHOICES,
+        # 未保存の編集結果をそのままエクスポートできるよう JSON を埋め込む
+        "export_json": json.dumps(edited, ensure_ascii=False),
+    })
 
 
 @login_required
 def single_export(request, pk: int):
-    """結果（全クライテリア＋根拠＋分類）を JSON でダウンロード（FR-SINGLE-6）。"""
+    """結果（全クライテリア＋根拠＋分類）を JSON でダウンロード（FR-SINGLE-6）。
+
+    POST で result_json を受け取った場合は、その（未保存の手動編集後）内容を
+    そのままエクスポートする。GET の場合は保存済みの自動分類結果を返す。
+    """
     vr = get_object_or_404(VariantResult, pk=pk, job__owner=request.user)
-    body = json.dumps(vr.result_json or {}, ensure_ascii=False, indent=2)
+    data = vr.result_json or {}
+    if request.method == "POST" and request.POST.get("result_json"):
+        try:
+            data = json.loads(request.POST["result_json"])
+        except (ValueError, TypeError):
+            data = vr.result_json or {}
+    body = json.dumps(data, ensure_ascii=False, indent=2)
     resp = HttpResponse(body, content_type="application/json; charset=utf-8")
     resp["Content-Disposition"] = f'attachment; filename="acmg_result_{vr.pk}.json"'
     return resp
