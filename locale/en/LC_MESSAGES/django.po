@@ -222,3 +222,188 @@ msgstr "Choose file"
 
 msgid "選択されていません"
 msgstr "No file selected"
+
+# --- nav / index / single_result (added) ---
+msgid "使い方"
+msgstr "Help"
+
+msgid "各機能の使い方ガイドはこちら"
+msgstr "See the usage guide for each feature"
+
+msgid "JSON でダウンロード"
+msgstr "Download JSON"
+
+msgid "TSV でダウンロード"
+msgstr "Download TSV"
+
+# --- help page ---
+msgid "使い方ガイド"
+msgstr "Usage Guide"
+
+msgid "HUHVar ACMG Classifier の各機能の使い方を説明します。"
+msgstr "This page explains how to use each feature of the HUHVar ACMG Classifier."
+
+msgid "ログインと多要素認証 (MFA)"
+msgstr "Login and multi-factor authentication (MFA)"
+
+msgid "バッチ解析 (VCF)"
+msgstr "Batch analysis (VCF)"
+
+msgid "API（外部連携）"
+msgstr "API (external integration)"
+
+msgid "言語切替・アカウント発行"
+msgstr "Language switching and account issuance"
+
+msgid "1. ログインと多要素認証 (MFA)"
+msgstr "1. Login and multi-factor authentication (MFA)"
+
+msgid "発行されたユーザー名と仮パスワードでログインします。"
+msgstr "Log in with the issued user name and temporary password."
+
+msgid "初回ログイン時に多要素認証 (MFA) の設定が必要です。認証アプリ (Google Authenticator など) で QR コードを読み取り、表示された 6 桁コードを入力してください。"
+msgstr "On your first login you must set up multi-factor authentication (MFA). Scan the QR code with an authenticator app (such as Google Authenticator) and enter the displayed 6-digit code."
+
+msgid "2 回目以降はログイン後に 6 桁コードの入力を求められます。"
+msgstr "From the second login onward, you are prompted for the 6-digit code after signing in."
+
+msgid "セッションはブラウザを閉じると失効します（最大 12 時間保持）。"
+msgstr "Your session expires when you close the browser (kept for up to 12 hours)."
+
+msgid "2. 単一変異解析"
+msgstr "2. Single variant analysis"
+
+msgid "1 つの変異を ACMG 2015 + ClinGen SVI 基準で分類します。"
+msgstr "Classify a single variant using the ACMG 2015 + ClinGen SVI criteria."
+
+msgid "入力形式"
+msgstr "Input formats"
+
+msgid "次のいずれの形式でも入力できます（MANE Select transcript に限定して解釈します）。"
+msgstr "You can enter any of the following formats (interpreted using MANE Select transcripts only)."
+
+msgid "genome 座標"
+msgstr "genome coordinate"
+
+msgid "cDNA"
+msgstr "cDNA"
+
+msgid "または空白区切りで"
+msgstr "or, space-separated,"
+
+msgid "protein"
+msgstr "protein"
+
+msgid "アセンブリ (GRCh38 / GRCh37) を選び、必要なら入力種別を指定します（通常は自動判定で問題ありません）。"
+msgstr "Choose the assembly (GRCh38 / GRCh37) and, if needed, specify the input type (auto-detect is usually fine)."
+
+msgid "候補の選択"
+msgstr "Selecting a candidate"
+
+msgid "変換結果が複数候補ある場合は一覧から該当する変異を選択します。MANE Select で座標が得られない場合は、全 transcript 候補にフォールバックして提示します。"
+msgstr "When the conversion returns multiple candidates, select the relevant variant from the list. If no coordinate is available for MANE Select, all transcript candidates are offered as a fallback."
+
+msgid "結果の見方"
+msgstr "Reading the results"
+
+msgid "ACMG 2015 と Bayesian の 2 方式の分類、および Bayesian スコアを表示します。"
+msgstr "Shows the classification by two methods, ACMG 2015 and Bayesian, along with the Bayesian score."
+
+msgid "各クライテリアの判定 (MET / not met / suppressed)・方向・strength・points・根拠を一覧で確認できます。"
+msgstr "You can review each criterion's call (MET / not met / suppressed), direction, strength, points, and evidence in a table."
+
+msgid "手動編集と再分類"
+msgstr "Manual editing and re-classification"
+
+msgid "クライテリアごとに「編集 strength」を選び、根拠を入力して「編集を適用して再分類」を押すと、その場で再計算します。"
+msgstr "For each criterion, choose an \"Edit strength\", enter evidence, and click \"Apply edits and re-classify\" to recompute on the spot."
+
+msgid "「（変更なし）」のままの項目は自動判定を保持します。"
+msgstr "Criteria left at \"(no change)\" keep their automated call."
+
+msgid "手動編集による再分類の結果はデータベースに保存されません"
+msgstr "Re-classification results from manual editing are not saved to the database"
+
+msgid "（元の自動解析結果は保存されます）。"
+msgstr " (the original automated analysis result is saved)."
+
+msgid "結果のダウンロード"
+msgstr "Downloading results"
+
+msgid "「JSON でダウンロード」「TSV でダウンロード」から保存できます。"
+msgstr "You can save via \"Download JSON\" or \"Download TSV\"."
+
+msgid "手動編集を行った場合は、画面に表示されている（編集後の）内容がそのままダウンロードされます。"
+msgstr "If you made manual edits, the content shown on screen (after editing) is downloaded as-is."
+
+msgid "3. バッチ解析 (VCF)"
+msgstr "3. Batch analysis (VCF)"
+
+msgid "VCF ファイル (.vcf / .vcf.gz、上限 50MB) をアップロードし、アセンブリを選んで投入します。"
+msgstr "Upload a VCF file (.vcf / .vcf.gz, up to 50MB), choose the assembly, and submit."
+
+msgid "解析は投入順に直列処理されます。ジョブ状態画面で進捗を確認でき、完了すると結果 TSV をダウンロードできます。"
+msgstr "Analyses are processed serially in submission order. You can check progress on the job status page and download the result TSV once finished."
+
+msgid "過去のジョブは「ジョブ履歴」から確認できます。"
+msgstr "You can review past jobs from \"Job history\"."
+
+msgid "アップロードファイルと結果ファイルは保持期間 (既定 1 時間) を過ぎると自動削除されます。必要な結果は早めにダウンロードしてください。"
+msgstr "Uploaded and result files are auto-deleted after the retention period (default 1 hour). Please download the results you need promptly."
+
+msgid "4. API（外部連携）"
+msgstr "4. API (external integration)"
+
+msgid "外部クライアントからトークン認証で利用できます。トークンは管理者が発行します。"
+msgstr "External clients can use it with token authentication. Tokens are issued by an administrator."
+
+msgid "認証"
+msgstr "Authentication"
+
+msgid "HTTP ヘッダに次を付与します。"
+msgstr "Add the following HTTP header."
+
+msgid "主なエンドポイント"
+msgstr "Main endpoints"
+
+msgid "用途"
+msgstr "Purpose"
+
+msgid "メソッド / パス"
+msgstr "Method / Path"
+
+msgid "疎通確認"
+msgstr "Health check"
+
+msgid "認証確認"
+msgstr "Auth check"
+
+msgid "バッチ投入"
+msgstr "Submit batch"
+
+msgid "バッチ状態"
+msgstr "Batch status"
+
+msgid "バッチ結果 (TSV)"
+msgstr "Batch result (TSV)"
+
+msgid "classify は query または chrom/pos/ref/alt と assembly を JSON で送ります。バッチ投入は multipart で vcf ファイルを送ります。"
+msgstr "For classify, send query or chrom/pos/ref/alt plus assembly as JSON. For batch submission, send the vcf file as multipart."
+
+msgid "API のバッチ投入には月あたりの実行上限があります（既定 5 回／月、ユーザーごとに変更可）。"
+msgstr "API batch submission has a monthly limit (default 5/month, configurable per user)."
+
+msgid "レート制限が適用されます（既定 60 リクエスト／分）。"
+msgstr "Rate limiting applies (default 60 requests/minute)."
+
+msgid "5. 言語切替・アカウント発行"
+msgstr "5. Language switching and account issuance"
+
+msgid "画面右上のセレクタで日本語 / English を切り替えできます。"
+msgstr "Use the selector at the top right to switch between Japanese and English."
+
+msgid "新規アカウントは自己登録できません。発行リクエストを送信し、管理者の承認後に発行されます。"
+msgstr "New accounts cannot self-register. Submit an issuance request; the account is created after administrator approval."
+
+msgid "← トップへ戻る"
+msgstr "← Back to home"
