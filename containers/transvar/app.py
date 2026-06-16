@@ -120,9 +120,21 @@ def _set_cfg(refversion: str) -> None:
 
 
 def _infer_kind(query: str) -> str:
-    if ":c." in query or re.search(r":\d+[ACGTN]", query):
+    q = query.strip()
+    # 明示プレフィックスが最優先
+    if ":c." in q:
         return "cdna"
-    if ":p." in query or re.search(r":[A-Za-z*]\d+", query):
+    if ":p." in q:
+        return "protein"
+    # 先頭が染色体名なら genome（chr17:7674221G>A / 17:7674221G>A）。
+    head = q.split(":", 1)[0].strip()
+    if re.fullmatch(r"(chr)?(\d{1,2}|X|Y|M|MT)", head, re.IGNORECASE):
+        return "genome"
+    # 以降は GENE:変異。塩基置換/indel 記法は cDNA、アミノ酸記法は protein。
+    rest = q.split(":", 1)[1] if ":" in q else q
+    if ">" in rest or "del" in rest or "dup" in rest or "ins" in rest:
+        return "cdna"
+    if re.search(r"[A-Za-z*]\d+", rest):
         return "protein"
     return "genome"
 
