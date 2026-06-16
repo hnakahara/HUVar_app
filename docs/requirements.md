@@ -25,7 +25,7 @@
 | M4 | 単一変異解析・結果画面・手動編集 | 🟡 | 実装済(engine.classify_single→run_single 同期実行、全クライテリア表示、strength/evidence 手動編集→supplement merge 再分類、JSON エクスポート)。本番で導線確認済(入力→TransVar→候補→解析→結果、エンジン/データ未配置のため graceful error 表示)。実解析の実機検証は ~/HUHVar マウント＋/data 配置後 |
 | M5 | バッチ（VCF）解析・TSV ダウンロード・Celery ジョブ | 🟡 | 実装済(VCFアップロード→Celery直列投入→run_pipeline→TSV、ジョブ状態/履歴/ダウンロード、保持1時間で自動削除)。実解析の実機検証はデータ配置後 |
 | M6 | 変異結果キャッシュ（DB 登録・参照データ更新で無効化） | ⬜ | |
-| M7 | REST API（VAS 連携・トークン認証） | 🟡 | 実装済: POST /acmg/api/classify/(単一・query or 座標直指定、複数候補返却)、POST /jobs/(VCF→Celery)、GET /jobs/<id>/(状態)、GET /jobs/<id>/result.tsv。トークン認証(admin発行)・throttle・MFA非対象。実解析検証はデータ配置後 |
+| M7 | REST API（VAS 連携・トークン認証） | 🟡 | 実装済: classify/jobs/job_status/job_result。本番で導線確認済(トークン認証 whoami・未認証 401・VCF ジョブ投入 201)。実解析(classify/結果TSV)はデータ配置後 |
 | M8 | セキュリティ強化・本番公開準備 | ⬜ | |
 | M9 | 多言語対応（i18n: 日本語/英語 切替） | ⬜ | 要件のみ定義済（FR-I18N） |
 
