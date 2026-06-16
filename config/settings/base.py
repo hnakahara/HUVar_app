@@ -21,6 +21,8 @@ INSTALLED_APPS = [
     # 3rd party
     "rest_framework",
     "rest_framework.authtoken",
+    "drf_spectacular",
+    "drf_spectacular_sidecar",  # Swagger UI / Redoc の静的資産をローカル配信
     "django_otp",
     "django_otp.plugins.otp_totp",
     "axes",
@@ -150,6 +152,28 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "user": "60/min",
     },
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+# --- OpenAPI / Swagger UI（drf-spectacular） ---
+SPECTACULAR_SETTINGS = {
+    "TITLE": "HUHVar ACMG Classifier API",
+    "DESCRIPTION": (
+        "外部クライアント向けの REST API（トークン認証）です。"
+        "下の各エンドポイントは「Try it out」で試せます（認証が必要なものは "
+        "右上の **Authorize** に `Token <発行されたトークン>` を設定してください）。\n\n"
+        "### APIトークンの取得\n"
+        "トークンは管理者が発行します。"
+        "[➡ APIトークンの発行をリクエストする](/acmg/accounts/token-request/)\n"
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    # sidecar 同梱の静的資産を使う（外部 CDN を読まず CSP self に準拠）
+    "SWAGGER_UI_DIST": "SIDECAR",
+    "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
+    "REDOC_DIST": "SIDECAR",
+    # スキーマ/ドキュメントはデモ用に公開
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
 }
 
 # --- Celery（Redis ブローカー・直列処理） ---

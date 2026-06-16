@@ -13,7 +13,8 @@ from django.shortcuts import redirect, render
 from django_otp import login as otp_login
 from django_otp.plugins.otp_totp.models import TOTPDevice
 
-from .forms import AccountRequestForm
+from .forms import AccountRequestForm, TokenRequestForm
+from .notifications import notify_admin
 
 
 def account_request(request):
@@ -43,6 +44,26 @@ def account_request(request):
     else:
         form = AccountRequestForm()
     return render(request, "accounts/account_request.html", {"form": form})
+
+
+def token_request(request):
+    """API トークン発行リクエストを送信する（administrator が承認時に発行）。"""
+    if request.method == "POST":
+        form = TokenRequestForm(request.POST)
+        if form.is_valid():
+            obj = form.save()
+            notify_admin(
+                "API トークン発行リクエスト",
+                f"ユーザー名: {obj.user_name}\n"
+                f"メール: {obj.email}\n"
+                f"所属: {obj.institution}\n"
+                f"利用目的: {obj.intended_use}\n",
+            )
+            messages.success(request, "トークン発行リクエストを送信しました。管理者の承認をお待ちください。")
+            return redirect("api:swagger-ui")
+    else:
+        form = TokenRequestForm()
+    return render(request, "accounts/token_request.html", {"form": form})
 
 
 def _qr_data_uri(data: str) -> str:

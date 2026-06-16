@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "APIトークン発行リクエスト" %} | HUHVar{% endblock %}
+{% block content %}
+<h1>{% translate "APIトークン発行リクエスト" %}</h1>
+<p>{% translate "API を利用するためのトークン発行を申請します。以下を送信し、管理者の承認をお待ちください。" %}</p>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">{% translate "リクエスト送信" %}</button>
+</form>
+<p><a href="{% url 'api:swagger-ui' %}">{% translate "← API ドキュメントへ戻る" %}</a></p>
+{% endblock %}

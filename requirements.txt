@@ -11,6 +11,8 @@ whitenoise==6.6.0
 
 # --- REST API（トークン認証） ---
 djangorestframework==3.15.2
+# OpenAPI スキーマ + Swagger UI（sidecar で静的資産をローカル配信し CSP self に準拠）
+drf-spectacular[sidecar]==0.27.2
 
 # --- 非同期ジョブ（Celery + Redis、直列処理） ---
 celery==5.3.6

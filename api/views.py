@@ -14,6 +14,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
+
 from accounts.notifications import notify_admin
 from analysis.cache import cached_classify_single
 from analysis.engine import EngineUnavailable
@@ -22,11 +24,23 @@ from analysis.tasks import run_batch_classification
 from transvar_client.client import TransvarError
 from transvar_client.client import convert as transvar_convert
 
+from .serializers import (
+    ClassifyRequestSerializer,
+    ClassifyResponseSerializer,
+    HealthSerializer,
+    JobCreateRequestSerializer,
+    JobCreateResponseSerializer,
+    JobStatusResponseSerializer,
+    WhoAmISerializer,
+)
+
 
 class HealthView(APIView):
     """ヘルスチェック（認証不要）。"""
     permission_classes = [AllowAny]
 
+    @extend_schema(summary="ヘルスチェック", description="認証不要。サービス稼働確認に使用。",
+                   auth=[], responses=HealthSerializer, tags=["meta"])
     def get(self, request):
         return Response({"status": "ok"})
 
@@ -35,6 +49,9 @@ class WhoAmIView(APIView):
     """トークン認証の疎通確認用。"""
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(summary="認証確認 (whoami)",
+                   description="トークン認証の疎通確認。認証ユーザー情報を返す。",
+                   responses=WhoAmISerializer, tags=["meta"])
     def get(self, request):
         u = request.user
         return Response({
@@ -58,6 +75,29 @@ class ClassifyView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        summary="単一バリアント解析 (classify)",
+        description="変異1件を ACMG 2015 + ClinGen SVI 基準で分類する（同期）。"
+        "`query` で表記を渡すか、`chrom/pos/ref/alt` で座標を直接指定する。",
+        request=ClassifyRequestSerializer,
+        responses={200: ClassifyResponseSerializer},
+        tags=["classify"],
+        examples=[
+            OpenApiExample(
+                "query 指定（cDNA）",
+                value={"query": "TP53:c.742C>T", "assembly": "GRCh38"},
+                request_only=True),
+            OpenApiExample(
+                "query 指定（空白区切り protein）",
+                value={"query": "TP53 R248W", "assembly": "GRCh38"},
+                request_only=True),
+            OpenApiExample(
+                "座標直接指定",
+                value={"chrom": "chr17", "pos": 7674221, "ref": "G", "alt": "A",
+                       "assembly": "GRCh38"},
+                request_only=True),
+        ],
+    )
     def post(self, request):
         data = request.data
         assembly = data.get("assembly", "GRCh38")
@@ -119,6 +159,14 @@ class JobCreateView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
+    @extend_schema(
+        summary="バッチ解析ジョブの投入 (jobs)",
+        description="VCF をアップロードして解析ジョブを投入する（multipart/form-data）。"
+        "月あたりの実行上限あり（既定 5 回/月、ユーザーごとに変更可）。",
+        request=JobCreateRequestSerializer,
+        responses={201: JobCreateResponseSerializer},
+        tags=["batch"],
+    )
     def post(self, request):
         # 月あたりの API バッチ実行上限（ユーザーごと、既定 5）
         limit = getattr(request.user, "api_batch_monthly_limit", 5)
@@ -164,6 +212,9 @@ class JobStatusView(APIView):
     """バッチジョブの状態取得。"""
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(summary="バッチジョブの状態取得",
+                   description="ジョブの進捗を取得。完了時は result_url を含む。",
+                   responses=JobStatusResponseSerializer, tags=["batch"])
     def get(self, request, pk: int):
         job = get_object_or_404(AnalysisJob, pk=pk, owner=request.user,
                                 kind=AnalysisJob.Kind.BATCH)
@@ -179,6 +230,12 @@ class JobResultView(APIView):
     """バッチ結果 TSV の取得（認証＋所有者チェック）。"""
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        summary="バッチ結果 TSV の取得",
+        description="完了済みジョブの結果 TSV をダウンロードする。",
+        responses={200: OpenApiResponse(description="TSV ファイル（添付ダウンロード）")},
+        tags=["batch"],
+    )
     def get(self, request, pk: int):
         job = get_object_or_404(AnalysisJob, pk=pk, owner=request.user,
                                 kind=AnalysisJob.Kind.BATCH)

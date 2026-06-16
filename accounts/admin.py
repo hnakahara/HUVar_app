@@ -5,7 +5,7 @@ from django.contrib.auth.admin import UserAdmin
 from django.db.models import Count, Q
 from django.utils import timezone
 
-from .models import AccountRequest, User
+from .models import AccountRequest, TokenRequest, User
 
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
@@ -100,3 +100,41 @@ class AccountRequestAdmin(admin.ModelAdmin):
     @admin.action(description="選択したリクエストを却下する")
     def mark_rejected(self, request, queryset):
         queryset.update(status=AccountRequest.Status.REJECTED, processed_at=timezone.now())
+
+
+@admin.register(TokenRequest)
+class TokenRequestAdmin(admin.ModelAdmin):
+    list_display = ("user_name", "email", "institution", "status", "created_at")
+    list_filter = ("status",)
+    search_fields = ("user_name", "email", "institution")
+    actions = ["approve_and_issue_token", "mark_rejected"]
+
+    @admin.action(description="選択したリクエストを承認しAPIトークンを発行する")
+    def approve_and_issue_token(self, request, queryset):
+        from rest_framework.authtoken.models import Token
+        from analysis.models import AuditLog
+        for req in queryset:
+            # メール一致する既存ユーザーにトークンを発行（無ければスキップ）
+            user = User.objects.filter(email=req.email).first()
+            if user is None:
+                self.message_user(
+                    request,
+                    f"{req.email}: 一致するユーザーが見つかりません。先にユーザーを作成してください。",
+                    level=messages.WARNING)
+                continue
+            token, created = Token.objects.get_or_create(user=user)
+            req.status = TokenRequest.Status.APPROVED
+            req.processed_at = timezone.now()
+            req.save(update_fields=["status", "processed_at"])
+            AuditLog.objects.create(
+                user=request.user, action="token_issued", detail=user.username)
+            state = "発行" if created else "既存トークンを表示"
+            self.message_user(
+                request,
+                f"{user.username} のトークン（{state}）: {token.key} "
+                f"（本人に安全に伝達してください）",
+                level=messages.SUCCESS)
+
+    @admin.action(description="選択したリクエストを却下する")
+    def mark_rejected(self, request, queryset):
+        queryset.update(status=TokenRequest.Status.REJECTED, processed_at=timezone.now())

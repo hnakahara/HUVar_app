@@ -407,3 +407,16 @@ msgstr "New accounts cannot self-register. Submit an issuance request; the accou
 
 msgid "← トップへ戻る"
 msgstr "← Back to home"
+
+# --- token request page ---
+msgid "APIトークン発行リクエスト"
+msgstr "API token request"
+
+msgid "API を利用するためのトークン発行を申請します。以下を送信し、管理者の承認をお待ちください。"
+msgstr "Request an API token to use the API. Submit the form below and wait for administrator approval."
+
+msgid "← API ドキュメントへ戻る"
+msgstr "← Back to API documentation"
+
+msgid "対話的な API ドキュメント（Swagger UI）を開く"
+msgstr "Open the interactive API documentation (Swagger UI)"

@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.validators import UnicodeUsernameValidator
 
-from .models import AccountRequest
+from .models import AccountRequest, TokenRequest
 
 
 class AccountRequestForm(forms.ModelForm):
@@ -26,6 +26,35 @@ class AccountRequestForm(forms.ModelForm):
             "150文字以内。半角英数字と @ . + - _ のみ使用できます。"
         )
         # ブラウザの自動補完によるコピペ回避
+        self.fields["email_confirm"].widget.attrs["autocomplete"] = "off"
+
+    def clean(self):
+        cleaned = super().clean()
+        email = cleaned.get("email")
+        email_confirm = cleaned.get("email_confirm")
+        if email and email_confirm and email != email_confirm:
+            self.add_error("email_confirm", "メールアドレスが一致しません。")
+        return cleaned
+
+
+class TokenRequestForm(forms.ModelForm):
+    """API トークン発行リクエストフォーム。メール確認入力つき。"""
+
+    email_confirm = forms.EmailField(label="Email (confirm)")
+
+    class Meta:
+        model = TokenRequest
+        fields = ["user_name", "email", "email_confirm", "institution", "intended_use"]
+        labels = {
+            "user_name": "User name",
+            "intended_use": "Intended use",
+        }
+        widgets = {
+            "intended_use": forms.Textarea(attrs={"rows": 4}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.fields["email_confirm"].widget.attrs["autocomplete"] = "off"
 
     def clean(self):

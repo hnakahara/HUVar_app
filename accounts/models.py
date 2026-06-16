@@ -45,3 +45,23 @@ class AccountRequest(models.Model):
 
     def __str__(self) -> str:
         return f"{self.full_name} <{self.email}> ({self.status})"
+
+
+class TokenRequest(models.Model):
+    """API トークン発行リクエスト。administrator が承認時にトークンを発行する。"""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    user_name = models.CharField(max_length=150)
+    email = models.EmailField()
+    institution = models.CharField(max_length=255, blank=True)
+    intended_use = models.TextField(help_text="API の利用目的・想定用途")
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self) -> str:
+        return f"{self.user_name} <{self.email}> ({self.status})"
