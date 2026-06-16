@@ -96,7 +96,13 @@ def _mane_map() -> dict:
             for row in reader:
                 if row.get("MANE_status") == "MANE Select":
                     sym = row.get("symbol")
-                    nuc = row.get("RefSeq_nuc")
+                    # 列名は配布版で異なる: 標準は RefSeq_nuc、vas 配置版は
+                    # RefSeq_nuc_major(=versioned NM_) / RefSeq_nuc_minor。
+                    nuc = (
+                        row.get("RefSeq_nuc")
+                        or row.get("RefSeq_nuc_major")
+                        or row.get("RefSeq_nuc_minor")
+                    )
                     if sym and nuc:
                         mapping[sym] = nuc
     except FileNotFoundError:
