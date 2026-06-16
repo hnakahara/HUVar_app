@@ -22,10 +22,10 @@
 | M2 | 認証・ユーザー管理（MFA 必須・アカウントリクエスト） | 🟢 | 本番実機で確認完了: ログイン→MFA登録(QR)→検証→解析トップ、強制ミドルウェア動作、admin ユーザー追加/承認。QR は data-URI img で表示 |
 | M3 | 入力 & TransVar 変換 & MANE 限定 | 🟢 | 本番実機で確認: MANE map size=19288、TP53:c.742C>T → MANE Select 1件(chr17:7674221G>A/p.R248W)。genome/cDNA/protein・c./p.省略・候補選択 UI 実装済 |
 | M3 | 入力 & TransVar 変換 & MANE 限定 | ⬜ | |
-| M4 | 単一変異解析・結果画面・手動編集 | 🟡 | 実装済(engine.classify_single→run_single 同期実行、全クライテリア表示、strength/evidence 手動編集→supplement merge 再分類、JSON エクスポート)。本番で導線確認済(入力→TransVar→候補→解析→結果、エンジン/データ未配置のため graceful error 表示)。実解析の実機検証は ~/HUHVar マウント＋/data 配置後 |
-| M5 | バッチ（VCF）解析・TSV ダウンロード・Celery ジョブ | 🟡 | 実装済(VCFアップロード→Celery直列投入→run_pipeline→TSV、ジョブ状態/履歴/ダウンロード、保持1時間で自動削除)。実解析の実機検証はデータ配置後 |
+| M4 | 単一変異解析・結果画面・手動編集 | 🟢 | 本番で実解析確認(VEP/エンジン導入・/ddrive/data 配置)。CLI explain・ブラウザ単一解析で全クライテリア＋分類を確認。手動編集・JSON エクスポートあり |
+| M5 | バッチ（VCF）解析・TSV ダウンロード・Celery ジョブ | 🟢 | 本番で実解析確認: VCF アップロード→Celery→run_pipeline→TSV ダウンロード成功(ブラウザ/API 両方)。保持1時間 |
 | M6 | 変異結果キャッシュ（DB 登録・参照データ更新で無効化） | ⬜ | |
-| M7 | REST API（VAS 連携・トークン認証） | 🟡 | 実装済: classify/jobs/job_status/job_result。本番で導線確認済(トークン認証 whoami・未認証 401・VCF ジョブ投入 201)。実解析(classify/結果TSV)はデータ配置後 |
+| M7 | REST API（VAS 連携・トークン認証） | 🟢 | 本番で実解析確認: classify が分類＋全クライテリア JSON を返却、jobs→done→result.tsv ダウンロード成功。トークン認証・未認証 401 |
 | M8 | セキュリティ強化・本番公開準備 | 🟡 | CSP/Permissions-Policy 等を Django ミドルウェアで全レスポンス付与、監査ログ(login/失敗/logout・解析/編集/バッチ・API)、API アップロード検証、CI(pip-audit/bandit/ruff)、SECRET_KEY の $ 回避注記。残: 本番ヘッダ実機確認・脆弱性対応の運用 |
 | M9 | 多言語対応（i18n: 日本語/英語 切替） | 🟢 | i18n 基盤＋言語切替UI、全ユーザー向けテンプレ(base/index/login/account_request/single_input/single_resolve/single_result/batch_upload/batch_status/batch_list)を翻訳対象化、en .po 整備、gettext/compilemessages。本番で切替動作確認済。残(軽微): ビューのフラッシュメッセージ・admin は順次 |
 
@@ -34,12 +34,12 @@
 | 要件 ID | 概要 | 状態 |
 |---------|------|------|
 | FR-AUTH-1..6 | 認証・ユーザー管理・MFA 必須 | 🟡 | 自己登録禁止・admin 管理・login・MFA 必須(TOTP登録/検証/強制ミドルウェア)実装済。実機検証は未 |
-| FR-IN-1..4 | 入力（genome / cDNA / protein / VCF） | 🟡 | 単一の3形式は実機確認済。VCF は M5 |
+| FR-IN-1..4 | 入力（genome / cDNA / protein / VCF） | 🟢 | 単一3形式＋VCF バッチを実機確認 |
 | FR-CONV-1..5 | TransVar 変換・MANE 限定・候補選択 | 🟢 | 実機確認済(MANE Select 限定・c./p.省略可・GRCh37/38・複数候補は選択UI) |
-| FR-SINGLE-1..6 | 単一変異解析・全クライテリア表示・手動編集 | 🟡 | 実装済(同期実行・全28項目＋根拠・strength手動編集・JSON出力)。データ配置後に実機検証 |
-| FR-BATCH-1..4 | VCF 解析・TSV ダウンロード・履歴 | 🟡 | 実装済(アップロード/Celery直列/TSV/履歴/保持1時間)。実解析検証はデータ配置後 |
+| FR-SINGLE-1..6 | 単一変異解析・全クライテリア表示・手動編集 | 🟢 | 本番で実解析確認(同期・全28項目＋根拠・strength手動編集・JSON出力) |
+| FR-BATCH-1..4 | VCF 解析・TSV ダウンロード・履歴 | 🟢 | 本番で実解析確認(アップロード/Celery直列/TSV/履歴/保持1時間) |
 | FR-CACHE-1..4 | 変異結果キャッシュ・参照データ更新で無効化 | 🟡 | データモデル（VariantResultCache/ReferenceDataVersion）定義済み。ロジックは M6 |
-| FR-API-1..4 | REST API（トークン認証） | 🟡 | classify/jobs 実装済(トークン認証・throttle)。実解析検証はデータ配置後 |
+| FR-API-1..4 | REST API（トークン認証） | 🟢 | 本番で実解析確認(classify JSON・jobs→result.tsv、トークン認証・throttle) |
 | FR-I18N-1..6 | 多言語対応（日本語/英語 切替） | 🟢 | 切替UI・LocaleMiddleware・set_language・en .po・compilemessages。全ユーザー向け画面を翻訳。ビューのメッセージ/admin は軽微残 |
 | NFR-SEC-* | セキュリティ | 🟡 | TLS/HSTS・nginx レート制限・セキュリティヘッダ(CSP等)・MFA必須・axes・監査ログ・アップロード検証・秘密の env 管理・CI 脆弱性スキャン 実装。実機ヘッダ確認と運用は継続 |
 | NFR-ENV-* | 環境分離 | ⬜ |
@@ -350,3 +350,4 @@ HUHVar_app/
 | v0.18 | 2026-06-16 | M8 実装(🟡)。SecurityHeadersMiddleware(CSP/Permissions-Policy/X-Content-Type-Options/Referrer-Policy/X-Frame-Options を全レスポンスに付与、フロント nginx 非依存)。監査ログ: 認証イベント(signals: login/login_failed/logout)＋解析/編集/バッチ/API 操作を AuditLog 記録。API アップロード検証(.vcf/.vcf.gz・50MB)。CI(.github security.yml: ruff/bandit/pip-audit)。SECRET_KEY は $ 非含有を注記。M8 本番でヘッダ/監査ログ確認済。REDIS_PASSWORD の $ 起因の compose 警告は $ 無し再生成で解消(.env 注記追加) |
 | v0.19 | 2026-06-16 | M9 着手(🟡)。i18n: LocaleMiddleware・LANGUAGES(ja/en)・LOCALE_PATHS、config.urls に set_language、base ヘッダに言語切替セレクタ(/acmg・FORCE_SCRIPT_NAME 整合、MFA 未検証でも set_language 許可)。base/index/login/account_request を {% translate %} 化、locale/en の django.po 整備。Dockerfile に gettext 追加、entrypoint で compilemessages、.mo は gitignore |
 | v0.20 | 2026-06-16 | M9 を 🟢。残りの全ユーザー向け解析画面(single_input/single_resolve/single_result/batch_upload/batch_status/batch_list)を {% translate %} 化し en .po を拡充。本番ビルドで日英切替を確認(/acmg/single 含む)。ビューのフラッシュメッセージ/admin は軽微残として継続 |
+| v0.21 | 2026-06-16 | 実解析の本番投入。app/worker イメージに ensembl-vep=111＋samtools/bcftools/htslib を micromamba で内蔵(vas と独立)、vep は専用ラッパーで conda perl 実行(システム python:3.11 維持)。参照データを /ddrive/data→/data にマウント。エンジンは app/worker 双方で pip install -e /huhvar(worker は command 上書きで entrypoint を通らないため command に追加)。M4(単一)・M5(バッチ)・M7(API) を本番実データで検証完了し 🟢。FR-IN/SINGLE/BATCH/API も 🟢 |
