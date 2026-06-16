@@ -11,7 +11,7 @@ class SingleVariantForm(forms.Form):
         label=_("変異"),
         max_length=255,
         widget=forms.TextInput(attrs={
-            "placeholder": "chr17:7674221G>A  /  TP53:c.742C>T  /  TP53:p.R248W",
+            "placeholder": "chr17:7674221G>A  /  TP53 742C>T  /  TP53 R248W",
             "size": 48,
         }),
     )
