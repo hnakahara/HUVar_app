@@ -25,9 +25,9 @@ CSRF_TRUSTED_ORIGINS = [
     f"https://{h}" for h in ALLOWED_HOSTS  # noqa: F405
 ]
 
-# セッションタイムアウト（無操作で失効）
-SESSION_COOKIE_AGE = 60 * 60  # 1 時間
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+# セッション保持: ログインから 12 時間（ログアウトするまで維持）。ブラウザを閉じても維持。
+SESSION_COOKIE_AGE = 60 * 60 * 12  # 12 時間
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 
 # vas と同一ドメインを共有するため、クッキー名・パスを /acmg 専用に分離する。
 # 同名(sessionid/csrftoken)・同パス(/)だと vas のクッキーと衝突し、相互にログインを
