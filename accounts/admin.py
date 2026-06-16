@@ -1,4 +1,6 @@
-from django.contrib import admin
+import secrets
+
+from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin
 from django.db.models import Count, Q
 from django.utils import timezone
@@ -59,9 +61,40 @@ class AccountRequestAdmin(admin.ModelAdmin):
     search_fields = ("full_name", "email", "institution")
     actions = ["mark_approved", "mark_rejected"]
 
-    @admin.action(description="選択したリクエストを承認済みにする")
+    @admin.action(description="選択したリクエストを承認しユーザーを作成する")
     def mark_approved(self, request, queryset):
-        queryset.update(status=AccountRequest.Status.APPROVED, processed_at=timezone.now())
+        from analysis.models import AuditLog
+        for req in queryset:
+            # 既存ユーザー（同一メール/ユーザー名）があれば作成せず承認のみ
+            username = req.email
+            if User.objects.filter(email=req.email).exists() or \
+                    User.objects.filter(username=username).exists():
+                req.status = AccountRequest.Status.APPROVED
+                req.processed_at = timezone.now()
+                req.save(update_fields=["status", "processed_at"])
+                self.message_user(
+                    request, f"{req.email}: 既にユーザーが存在するため作成をスキップしました。",
+                    level=messages.WARNING)
+                continue
+
+            temp_password = secrets.token_urlsafe(12)
+            user = User.objects.create_user(
+                username=username,
+                email=req.email,
+                password=temp_password,
+                role=User.Role.GENERAL,
+                institution=req.institution,
+            )
+            req.status = AccountRequest.Status.APPROVED
+            req.processed_at = timezone.now()
+            req.save(update_fields=["status", "processed_at"])
+            AuditLog.objects.create(
+                user=request.user, action="user_created", detail=user.username)
+            self.message_user(
+                request,
+                f"ユーザー作成: {user.username} ／ 仮パスワード: {temp_password} "
+                f"（本人に安全に伝達してください。初回ログイン時に MFA 設定が必要です）",
+                level=messages.SUCCESS)
 
     @admin.action(description="選択したリクエストを却下する")
     def mark_rejected(self, request, queryset):
