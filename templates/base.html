@@ -1,4 +1,4 @@
-{% load i18n %}
+{% load i18n static %}
 {% get_current_language as LANGUAGE_CODE %}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE|default:'ja' }}">
@@ -6,33 +6,37 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}HUHVar ACMG Classifier{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
 <body>
-    <header>
-        <strong>HUHVar ACMG Classifier</strong>
-        {% if user.is_authenticated %}
-            | {{ user.get_username }}
-            <a href="{% url 'accounts:logout' %}">{% translate "ログアウト" %}</a>
-        {% endif %}
-        <span style="float:right;">
-            <form action="{% url 'set_language' %}" method="post" style="display:inline;">
-                {% csrf_token %}
-                <input type="hidden" name="next" value="{{ request.path }}">
-                <select name="language" onchange="this.form.submit()">
-                    <option value="ja" {% if LANGUAGE_CODE == 'ja' %}selected{% endif %}>日本語</option>
-                    <option value="en" {% if LANGUAGE_CODE == 'en' %}selected{% endif %}>English</option>
-                </select>
-            </form>
-        </span>
+    <header class="topbar">
+        <div class="topbar-inner">
+            <a class="brand" href="{% url 'analysis:index' %}">HUHVar <span>ACMG Classifier</span></a>
+            <nav class="topnav">
+                {% if user.is_authenticated %}
+                    <span class="user">{{ user.get_username }}</span>
+                    <a class="btn-ghost" href="{% url 'accounts:logout' %}">{% translate "ログアウト" %}</a>
+                {% endif %}
+                <form class="lang" action="{% url 'set_language' %}" method="post" style="margin:0;">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.path }}">
+                    <select name="language" onchange="this.form.submit()">
+                        <option value="ja" {% if LANGUAGE_CODE == 'ja' %}selected{% endif %}>日本語</option>
+                        <option value="en" {% if LANGUAGE_CODE == 'en' %}selected{% endif %}>English</option>
+                    </select>
+                </form>
+            </nav>
+        </div>
     </header>
-    <hr>
-    {% if messages %}
-        <ul>
-            {% for message in messages %}<li>{{ message }}</li>{% endfor %}
-        </ul>
-    {% endif %}
-    <main>
-        {% block content %}{% endblock %}
+    <main class="container">
+        {% if messages %}
+            <div class="messages">
+                {% for message in messages %}<div class="alert">{{ message }}</div>{% endfor %}
+            </div>
+        {% endif %}
+        <div class="card">
+            {% block content %}{% endblock %}
+        </div>
     </main>
 </body>
 </html>

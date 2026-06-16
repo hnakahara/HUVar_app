@@ -116,6 +116,8 @@ LOCALE_PATHS = [BASE_DIR / "locale"]
 
 STATIC_URL = "/acmg/static/"
 STATIC_ROOT = "/static"
+# プロジェクト同梱の静的ファイル（自前 CSS 等）を collectstatic 対象にする
+STATICFILES_DIRS = [BASE_DIR / "static"]
 
 # アップロード VCF / 生成 TSV の保存先（認証付きビューで配信。/media は公開しない）
 MEDIA_ROOT = BASE_DIR / "media"
