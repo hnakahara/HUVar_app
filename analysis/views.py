@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from transvar_client.client import TransvarError
 from transvar_client.client import convert as transvar_convert
 
+from .cache import cached_classify_single
 from .engine import STRENGTH_CHOICES, EngineUnavailable, classify_single
 from .forms import BatchVariantForm, SingleVariantForm
 from .models import AnalysisJob, AuditLog, CriterionEdit, VariantResult
@@ -73,7 +74,7 @@ def single_analyze(request):
 
     variant = _variant_from_post(request)
     try:
-        display = classify_single(
+        display, _hit = cached_classify_single(
             variant["assembly"], variant["chrom"], int(variant["pos"]),
             variant["ref"], variant["alt"],
         )

@@ -13,7 +13,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from analysis.engine import EngineUnavailable, classify_single
+from analysis.cache import cached_classify_single
+from analysis.engine import EngineUnavailable
 from analysis.models import AnalysisJob, AuditLog
 from analysis.tasks import run_batch_classification
 from transvar_client.client import TransvarError
@@ -90,7 +91,7 @@ class ClassifyView(APIView):
             }
 
         try:
-            display = classify_single(
+            display, _hit = cached_classify_single(
                 variant["assembly"], variant["chrom"], int(variant["pos"]),
                 variant["ref"], variant["alt"],
             )
