@@ -14,7 +14,7 @@
 
 {% if engine_error %}
 <p style="color:#b00;">⚠ {% translate "解析エンジンエラー:" %} {{ engine_error }}</p>
-<p style="color:#555;">{% translate "本番では ~/HUHVar（エンジン）と ~/huhvar_data→/data（参照データ）の配置が必要です。配置後に再解析してください。" %}</p>
+<p style="color:var(--muted);">{% translate "本番では ~/HUHVar（エンジン）と ~/huhvar_data→/data（参照データ）の配置が必要です。配置後に再解析してください。" %}</p>
 {% else %}
 
 <h2>{% translate "分類" %}</h2>
@@ -31,7 +31,7 @@
 {% endif %}
 
 <h2>{% translate "クライテリアと手動編集" %}（{{ display.criteria|length }}）</h2>
-<p style="color:#555;">{% translate "編集 strength を選んだ項目のみ上書き（merge）して再分類します。「（変更なし）」のままなら自動判定を保持します。" %}</p>
+<p style="color:var(--muted);">{% translate "編集 strength を選んだ項目のみ上書き（merge）して再分類します。「（変更なし）」のままなら自動判定を保持します。" %}</p>
 
 <form method="post" action="{% url 'analysis:single_edit' result_id %}">
     {% csrf_token %}
