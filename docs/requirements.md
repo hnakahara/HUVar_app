@@ -20,25 +20,27 @@
 | M0 | 技術検証スパイク（TransVar 3.9 コンテナ / HUHVar 3.11 同居） | ⬜ | docker build / compose up は実サーバーで要検証 |
 | M1 | docker compose 基盤（db/redis/app/worker/transvar/web・環境分離） | 🟢 | WSL で `docker compose up` 起動確認済（db/redis/app/web 健全・migrate・/acmg 配信・ログイン・admin 動作）。本番 HTTPS=443/HTTP=80 に確定 |
 | M2 | 認証・ユーザー管理（MFA 必須・アカウントリクエスト） | 🟢 | 本番実機で確認完了: ログイン→MFA登録(QR)→検証→解析トップ、強制ミドルウェア動作、admin ユーザー追加/承認。QR は data-URI img で表示 |
-| M3 | 入力 & TransVar 変換 & MANE 限定 | 🟡 | 実装中 |
+| M3 | 入力 & TransVar 変換 & MANE 限定 | 🟢 | 本番実機で確認: MANE map size=19288、TP53:c.742C>T → MANE Select 1件(chr17:7674221G>A/p.R248W)。genome/cDNA/protein・c./p.省略・候補選択 UI 実装済 |
 | M3 | 入力 & TransVar 変換 & MANE 限定 | ⬜ | |
 | M4 | 単一変異解析・結果画面・手動編集 | ⬜ | |
 | M5 | バッチ（VCF）解析・TSV ダウンロード・Celery ジョブ | ⬜ | |
 | M6 | 変異結果キャッシュ（DB 登録・参照データ更新で無効化） | ⬜ | |
 | M7 | REST API（VAS 連携・トークン認証） | ⬜ | |
 | M8 | セキュリティ強化・本番公開準備 | ⬜ | |
+| M9 | 多言語対応（i18n: 日本語/英語 切替） | ⬜ | 要件のみ定義済（FR-I18N） |
 
 ### 機能要件ステータス
 
 | 要件 ID | 概要 | 状態 |
 |---------|------|------|
 | FR-AUTH-1..6 | 認証・ユーザー管理・MFA 必須 | 🟡 | 自己登録禁止・admin 管理・login・MFA 必須(TOTP登録/検証/強制ミドルウェア)実装済。実機検証は未 |
-| FR-IN-1..4 | 入力（genome / cDNA / protein / VCF） | ⬜ |
-| FR-CONV-1..5 | TransVar 変換・MANE 限定・候補選択 | 🟡 | transvar サービス I/F・client・種別推定/プレフィックス正規化の骨組みのみ。変換本体は M3 |
+| FR-IN-1..4 | 入力（genome / cDNA / protein / VCF） | 🟡 | 単一の3形式は実機確認済。VCF は M5 |
+| FR-CONV-1..5 | TransVar 変換・MANE 限定・候補選択 | 🟢 | 実機確認済(MANE Select 限定・c./p.省略可・GRCh37/38・複数候補は選択UI) |
 | FR-SINGLE-1..6 | 単一変異解析・全クライテリア表示・手動編集 | ⬜ |
 | FR-BATCH-1..4 | VCF 解析・TSV ダウンロード・履歴 | ⬜ |
 | FR-CACHE-1..4 | 変異結果キャッシュ・参照データ更新で無効化 | 🟡 | データモデル（VariantResultCache/ReferenceDataVersion）定義済み。ロジックは M6 |
 | FR-API-1..4 | REST API（トークン認証） | 🟡 | トークン認証設定・health/whoami 雛形あり。解析エンドポイントは M7 |
+| FR-I18N-1..6 | 多言語対応（日本語/英語 切替） | ⬜ | 要件追加済。実装は M9（i18n: LocaleMiddleware/gettext/set_language） |
 | NFR-SEC-* | セキュリティ | ⬜ |
 | NFR-ENV-* | 環境分離 | ⬜ |
 | NFR-PORT-* | ポート設計 | ⬜ |
@@ -206,6 +208,17 @@
 - **FR-API-3**: バッチ（VCF）解析エンドポイント（ジョブ投入 → ステータス取得 → 結果取得）。
 - **FR-API-4**: レート制限（nginx `limit_req` ＋ DRF throttling）。
 
+### 4.8 多言語対応（i18n）（FR-I18N）
+
+全世界公開のため、UI を **日本語・英語**で切り替え可能とする。
+
+- **FR-I18N-1**: 日本語・英語の 2 言語をサポートし、画面上の**言語切替**（ヘッダのリンク/メニュー）で即時に切り替えられる。
+- **FR-I18N-2**: Django 標準の i18n を用いる（`USE_I18N=True`、`django.middleware.locale.LocaleMiddleware`、`gettext`／テンプレートの `{% translate %}`・`{% blocktranslate %}`、`locale/<lang>/LC_MESSAGES/*.po,*.mo`）。テンプレート・フォームのラベル・フラッシュメッセージ・バリデーション文言を翻訳対象にする。
+- **FR-I18N-3**: 既定言語は**日本語**。ユーザーの選択は `django.views.i18n.set_language` でセッション/Cookie（`django_language`）に保持。`LANGUAGES = [("ja", "日本語"), ("en", "English")]`、`LOCALE_PATHS = [BASE_DIR/"locale"]`。
+- **FR-I18N-4**: サブパス `/acmg` 配下でも言語切替が正しく動作すること（`set_language` の `next` を `/acmg` 配下に解決。`FORCE_SCRIPT_NAME` と整合）。URL プレフィックス方式（`i18n_patterns`：`/acmg/en/...`）を採る場合も `FORCE_SCRIPT_NAME` と矛盾しないよう設計する。
+- **FR-I18N-5**: ACMG クライテリア名・strength 等の専門略語（PVS1, Strong 等）は原則そのまま表示し、**説明文・UI ラベル・操作文言**を翻訳対象とする。エビデンス本文（解析エンジン由来の英語）は原文表示を基本とする。
+- **FR-I18N-6**: API（`/acmg/api/`）は言語非依存（機械可読の英語キー）を既定とし、必要に応じて `Accept-Language` で説明文言のみ切替可能とする。
+
 ## 5. 非機能要件
 
 ### 5.1 セキュリティ（NFR-SEC）— 全世界公開・IP 制限なし前提で強化
@@ -328,3 +341,5 @@ HUHVar_app/
 | v0.10 | 2026-06-15 | 本番ログイン後に next が /acmg 抜き(/)になり vas ルートへ飛ぶ不具合を修正。原因は ASGI+FORCE_SCRIPT_NAME 不整合(reverse は /acmg 付き・ASGIRequest.path は root_path 未設定で裸)。本番起動を WSGI(gunicorn config.wsgi)へ変更。あわせて vas とドメイン共有のためクッキーを分離(SESSION/CSRF_COOKIE_NAME=huhvar_*、PATH=/acmg/)。別件: prod の ${REDIS_PASSWORD} 未解決と SECRET_KEY 内 $ の compose 展開警告は要対処(--env-file .env.prod 運用＋$を含まない秘密へ再生成) |
 | v0.11 | 2026-06-15 | redis 認証修正: requirepass/healthcheck をコンテナ env(env_file)から取得($$ シェル展開)し compose の ${REDIS_PASSWORD} 依存を排除(worker の AUTH エラー解消)。500 の原因を特定: nginx が /acmg をストリップ転送しつつ SCRIPT_NAME ヘッダを送ると gunicorn(WSGI) が PATH_INFO 分割で IndexError。全 nginx 設定(vas/HUHVar test/prod)から proxy_set_header SCRIPT_NAME を削除し FORCE_SCRIPT_NAME に一本化 |
 | v0.12 | 2026-06-15 | M2 を 🟢(本番実機で MFA 確認完了)。MFA QR を data-URI img 化。M3 着手: TransVar サービス /convert を本実装(vas 移植: canno/panno/ganno --refseq --gseq、MANE summary で MANE Select 限定、protein 3→1字、genome は g. 補完、複数候補返却)。Django 単一変異入力フロー(SingleVariantForm→transvar_client→候補選択 single_resolve→確認 single_analyze)とテンプレート追加。解析実行(run_single 連携)は M4 |
+| v0.13 | 2026-06-16 | 多言語対応(i18n: 日本語/英語 切替)要件を追加(FR-I18N-1..6)。Django 標準 i18n(LocaleMiddleware/gettext/{% translate %}/set_language)、既定 ja、/acmg 整合、専門略語は原文・UI 文言を翻訳対象。マイルストーン M9 として計画(実装は後続) |
+| v0.14 | 2026-06-16 | M3 完了(🟢)。MANE summary の列名が vas 配置版で RefSeq_nuc_major のため map が空だった不具合を修正(RefSeq_nuc→major/minor フォールバック)。本番実機で TP53:c.742C>T→MANE Select 1件(chr17:7674221G>A/p.R248W) を確認。FR-CONV 🟢、FR-IN 🟡(VCF は M5) |
