@@ -194,3 +194,22 @@ msgstr "Download result as JSON"
 
 msgid "← 別の変異を解析"
 msgstr "← Analyze another variant"
+
+# --- forms (analysis/forms.py) ---
+msgid "変異"
+msgstr "Variant"
+
+msgid "入力種別"
+msgstr "Input type"
+
+msgid "自動判定"
+msgstr "Auto-detect"
+
+msgid "VCF ファイル（.vcf / .vcf.gz）"
+msgstr "VCF file (.vcf / .vcf.gz)"
+
+msgid "VCF ファイル（.vcf または .vcf.gz）を指定してください。"
+msgstr "Please select a VCF file (.vcf or .vcf.gz)."
+
+msgid "ファイルサイズが大きすぎます（上限 50MB）。"
+msgstr "File is too large (max 50MB)."
