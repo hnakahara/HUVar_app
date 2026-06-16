@@ -15,7 +15,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libcurl4-openssl-dev \
     libssl-dev \
     gettext \
+    curl \
+    bzip2 \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# --- Ensembl VEP 111 + htslib ツール（HUHVar 用。vas とは独立にイメージ内へ） ---
+# micromamba で専用 conda 環境を作り、その bin を PATH 末尾に追加（システム python を
+# 優先したいので prepend ではなく append）。find_vep_cmd() は which("vep") で検出する。
+RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest \
+    | tar -xj -C /usr/local/bin --strip-components=1 bin/micromamba && \
+    micromamba create -y -p /opt/conda/envs/vep \
+        -c conda-forge -c bioconda \
+        ensembl-vep=111 samtools bcftools htslib && \
+    micromamba clean -a -y && \
+    rm -rf /root/.cache
+ENV PATH="${PATH}:/opt/conda/envs/vep/bin"
 
 COPY requirements.txt /code/
 RUN pip install --upgrade pip && pip install -r requirements.txt
