@@ -7,6 +7,7 @@ Django admin で発行/失効する（公開のトークン取得エンドポイ
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
+from django.utils import timezone
 
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -110,6 +111,18 @@ class JobCreateView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
+        # 月あたりの API バッチ実行上限（ユーザーごと、既定 5）
+        limit = getattr(request.user, "api_batch_monthly_limit", 5)
+        month_start = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        used = AuditLog.objects.filter(
+            user=request.user, action="api_batch_submit", created_at__gte=month_start,
+        ).count()
+        if used >= limit:
+            return Response({
+                "error": f"今月の API バッチ実行上限（{limit} 回/月）に達しています。",
+                "limit": limit, "used": used,
+            }, status=429)
+
         f = request.FILES.get("vcf")
         if not f:
             return Response({"error": "vcf ファイル（multipart）が必要です"}, status=400)

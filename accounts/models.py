@@ -16,6 +16,11 @@ class User(AbstractUser):
         default=False,
         help_text="レビュー等のため MFA を免除する（セキュリティ上、通常は無効）。",
     )
+    # API バッチ(jobs)の月あたり実行上限（ユーザーごとに変更可）
+    api_batch_monthly_limit = models.PositiveIntegerField(
+        default=5,
+        help_text="API バッチ(jobs)の月あたり実行回数の上限。",
+    )
 
     @property
     def is_administrator(self) -> bool:
