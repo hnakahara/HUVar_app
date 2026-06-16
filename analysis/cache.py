@@ -9,8 +9,10 @@
 """
 from __future__ import annotations
 
+import csv
 import hashlib
 import os
+from pathlib import Path
 from typing import Tuple
 
 # 署名対象の Config パス属性（存在しないものはスキップ）。分類結果に影響する参照のみ。
@@ -117,3 +119,97 @@ def cached_classify_single(assembly: str, chrom: str, pos: int, ref: str, alt: s
     VariantResultCache.objects.update_or_create(**key, defaults={"result_json": display})
     _refresh_reference_versions(assembly)
     return display, False
+
+
+# ---------------------------------------------------------------------------
+# バッチ（VCF）キャッシュ（FR-CACHE）
+# ---------------------------------------------------------------------------
+
+_TSV_BASE_COLS = [
+    "variant_id", "chrom", "pos", "ref", "alt", "gene_symbol", "transcript_id",
+    "hgvs_c", "hgvs_p", "classification_2015", "rules", "bayesian_score",
+    "classification_bayesian", "warnings",
+]
+
+
+def _read_variants(vcf_path: str, assembly: str):
+    """VCF を read_vcf で列挙し [(key, chrom, pos, ref, alt)] を順序保持で返す。"""
+    from acmg_classifier.io.vcf_reader import read_vcf
+    from acmg_classifier.models.enums import Assembly
+
+    out = []
+    for v in read_vcf(Path(vcf_path), Assembly(assembly)):
+        if v.alt and v.alt != ".":
+            out.append((v.key, v.chrom, v.pos, v.ref, v.alt))
+    return out
+
+
+def _write_batch_tsv(out_path: str, displays: list) -> None:
+    """display dict 群（VCF 順）から全クライテリア列付き TSV を書く。"""
+    rows = [d for d in displays if d]
+    crit_order = [c["criterion"] for c in rows[0]["criteria"]] if rows else []
+    header = list(_TSV_BASE_COLS)
+    for c in crit_order:
+        header += [c, f"{c}_strength", f"{c}_evidence"]
+
+    with open(out_path, "w", newline="", encoding="utf-8") as fh:
+        w = csv.writer(fh, delimiter="\t")
+        w.writerow(header)
+        for d in rows:
+            crit_map = {c["criterion"]: c for c in d.get("criteria", [])}
+            row = [
+                d.get("variant_id", ""), d.get("chrom", ""), d.get("pos", ""),
+                d.get("ref", ""), d.get("alt", ""), d.get("gene_symbol", ""),
+                d.get("transcript_id", ""), d.get("hgvs_c", ""), d.get("hgvs_p", ""),
+                d.get("classification_2015", ""), d.get("rules", ""),
+                d.get("bayesian_score", ""), d.get("classification_bayesian", ""),
+                " / ".join(d.get("warnings", [])),
+            ]
+            for c in crit_order:
+                cc = crit_map.get(c, {})
+                state = ("suppressed" if cc.get("suppressed")
+                         else ("met" if cc.get("triggered") else "not_met"))
+                row += [state, cc.get("strength", ""), cc.get("evidence", "")]
+            w.writerow(row)
+
+
+def cached_classify_batch(in_vcf_path: str, out_tsv_path: str, assembly: str) -> int:
+    """VCF をキャッシュ活用で解析し TSV を出力。戻り値は出力した変異数。
+
+    - 全変異がキャッシュ済み → エンジンを呼ばず TSV を即生成。
+    - 未キャッシュが1つでもあれば全体を解析（VEP バッチ効率維持）し全件キャッシュ。
+      （部分集合 VCF の分割は多アレル等で脆いため、堅実にフル解析する）
+    """
+    from .engine import classify_vcf
+    from .models import VariantResultCache
+
+    variants = _read_variants(in_vcf_path, assembly)
+    sig = reference_signature(assembly)
+    ev = engine_version()
+
+    cached = {}
+    for key, chrom, pos, ref, alt in variants:
+        row = VariantResultCache.objects.filter(
+            assembly=assembly, chrom=chrom, pos=int(pos), ref=ref, alt=alt,
+            engine_version=ev, refdata_signature=sig,
+        ).first()
+        if row is not None:
+            cached[key] = row.result_json
+
+    uncached = [v for v in variants if v[0] not in cached]
+
+    fresh = {}
+    if uncached:
+        fresh = classify_vcf(in_vcf_path, assembly)
+        for _key, disp in fresh.items():
+            VariantResultCache.objects.update_or_create(
+                assembly=assembly, chrom=disp.get("chrom", ""),
+                pos=int(disp.get("pos") or 0), ref=disp.get("ref", ""),
+                alt=disp.get("alt", ""), engine_version=ev, refdata_signature=sig,
+                defaults={"result_json": disp},
+            )
+        _refresh_reference_versions(assembly)
+
+    ordered = [fresh.get(key) or cached.get(key) for key, *_ in variants]
+    _write_batch_tsv(out_tsv_path, ordered)
+    return len([d for d in ordered if d])

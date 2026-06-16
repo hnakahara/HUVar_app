@@ -12,7 +12,8 @@ from django.utils import timezone
 @shared_task(bind=True)
 def run_batch_classification(self, job_id: int) -> str:
     """VCF を HUHVar(run_pipeline) で解析し、全クライテリア列の TSV を生成する。"""
-    from .engine import EngineUnavailable, classify_batch
+    from .cache import cached_classify_batch
+    from .engine import EngineUnavailable
     from .models import AnalysisJob
 
     try:
@@ -30,7 +31,7 @@ def run_batch_classification(self, job_id: int) -> str:
         out_abs = os.path.join(settings.MEDIA_ROOT, out_rel)
         os.makedirs(os.path.dirname(out_abs), exist_ok=True)
 
-        classify_batch(in_path, out_abs, job.assembly)
+        cached_classify_batch(in_path, out_abs, job.assembly)
 
         job.result_file.name = out_rel
         job.status = AnalysisJob.Status.DONE

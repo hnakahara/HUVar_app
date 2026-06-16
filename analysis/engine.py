@@ -70,6 +70,16 @@ def _to_display(result) -> dict:
             "points": r.points,
         })
     return {
+        # 変異情報（run_pipeline 由来の結果には設定される。run_single では空）
+        "variant_id": getattr(result, "variant_id", "") or "",
+        "chrom": getattr(result, "chrom", "") or "",
+        "pos": getattr(result, "pos", 0) or 0,
+        "ref": getattr(result, "ref", "") or "",
+        "alt": getattr(result, "alt", "") or "",
+        "gene_symbol": getattr(result, "gene_symbol", "") or "",
+        "transcript_id": getattr(result, "transcript_id", "") or "",
+        "hgvs_c": getattr(result, "hgvs_c", "") or "",
+        "hgvs_p": getattr(result, "hgvs_p", "") or "",
         "classification_2015": result.classification_2015.value,
         "rules": result.classification_2015_rules,
         "bayesian_score": result.bayesian_score,
@@ -136,3 +146,32 @@ def classify_batch(vcf_path: str, output_tsv_path: str, assembly: str) -> int:
     except Exception as exc:  # noqa: BLE001
         raise EngineUnavailable(f"バッチ解析に失敗しました: {exc}") from exc
     return len(results)
+
+
+def classify_vcf(vcf_path: str, assembly: str) -> dict:
+    """VCF の全変異を解析し {variant_key: display} を返す（バッチキャッシュ用）。
+
+    variant_key は VariantRecord.key（"chrom:pos:ref:alt"）と一致する。
+    """
+    try:
+        from acmg_classifier.pipeline.pipeline import run_pipeline
+    except Exception as exc:  # noqa: BLE001
+        raise EngineUnavailable(
+            f"解析エンジン(acmg_classifier)が利用できません: {exc}"
+        ) from exc
+
+    cfg = _build_config(assembly)
+    try:
+        results = run_pipeline(Path(vcf_path), cfg)  # output_path=None: TSV は当方で生成
+    except FileNotFoundError as exc:
+        raise EngineUnavailable(
+            f"参照データ/入力が見つかりません（{DATA_DIR} 配下を確認）: {exc}"
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise EngineUnavailable(f"バッチ解析に失敗しました: {exc}") from exc
+
+    out = {}
+    for r in results:
+        key = getattr(r, "variant_id", None) or f"{r.chrom}:{r.pos}:{r.ref}:{r.alt}"
+        out[key] = _to_display(r)
+    return out

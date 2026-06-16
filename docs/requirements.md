@@ -24,7 +24,7 @@
 | M3 | 入力 & TransVar 変換 & MANE 限定 | ⬜ | |
 | M4 | 単一変異解析・結果画面・手動編集 | 🟢 | 本番で実解析確認(VEP/エンジン導入・/ddrive/data 配置)。CLI explain・ブラウザ単一解析で全クライテリア＋分類を確認。手動編集・JSON エクスポートあり |
 | M5 | バッチ（VCF）解析・TSV ダウンロード・Celery ジョブ | 🟢 | 本番で実解析確認: VCF アップロード→Celery→run_pipeline→TSV ダウンロード成功(ブラウザ/API 両方)。保持1時間 |
-| M6 | 変異結果キャッシュ（DB 登録・参照データ更新で無効化） | 🟡 | 単一(web/API)で実装: cached_classify_single が VariantResultCache を参照、署名=参照ファイル size+mtime+エンジン版の SHA-256、未更新なら DB から返却・更新で自動無効化。手動編集(supplement)は非キャッシュ。バッチ内の per-variant キャッシュは run_pipeline 一括処理のため未対応(将来) |
+| M6 | 変異結果キャッシュ（DB 登録・参照データ更新で無効化） | 🟢 | 単一(web/API)＋バッチ実装。署名=参照ファイル size+mtime+エンジン版の SHA-256。バッチは VCF 列挙→全件キャッシュ済みならエンジン非実行で TSV 即生成、未済があればフル解析して全件キャッシュ。手動編集(supplement)は非キャッシュ |
 | M7 | REST API（VAS 連携・トークン認証） | 🟢 | 本番で実解析確認: classify が分類＋全クライテリア JSON を返却、jobs→done→result.tsv ダウンロード成功。トークン認証・未認証 401 |
 | M8 | セキュリティ強化・本番公開準備 | 🟡 | CSP/Permissions-Policy 等を Django ミドルウェアで全レスポンス付与、監査ログ(login/失敗/logout・解析/編集/バッチ・API)、API アップロード検証、CI(pip-audit/bandit/ruff)、SECRET_KEY の $ 回避注記。残: 本番ヘッダ実機確認・脆弱性対応の運用 |
 | M9 | 多言語対応（i18n: 日本語/英語 切替） | 🟢 | i18n 基盤＋言語切替UI、全ユーザー向けテンプレ(base/index/login/account_request/single_input/single_resolve/single_result/batch_upload/batch_status/batch_list)を翻訳対象化、en .po 整備、gettext/compilemessages。本番で切替動作確認済。残(軽微): ビューのフラッシュメッセージ・admin は順次 |
@@ -38,7 +38,7 @@
 | FR-CONV-1..5 | TransVar 変換・MANE 限定・候補選択 | 🟢 | 実機確認済(MANE Select 限定・c./p.省略可・GRCh37/38・複数候補は選択UI) |
 | FR-SINGLE-1..6 | 単一変異解析・全クライテリア表示・手動編集 | 🟢 | 本番で実解析確認(同期・全28項目＋根拠・strength手動編集・JSON出力) |
 | FR-BATCH-1..4 | VCF 解析・TSV ダウンロード・履歴 | 🟢 | 本番で実解析確認(アップロード/Celery直列/TSV/履歴/保持1時間) |
-| FR-CACHE-1..4 | 変異結果キャッシュ・参照データ更新で無効化 | 🟡 | 単一(web/API)実装済(DB登録・署名=size+mtime+エンジン版で無効化・手動編集は非キャッシュ)。バッチ per-variant は未(将来) |
+| FR-CACHE-1..4 | 変異結果キャッシュ・参照データ更新で無効化 | 🟢 | 単一・バッチとも実装(DB登録・署名=size+mtime+エンジン版で自動無効化・手動編集は非キャッシュ)。バッチは全件キャッシュ済みならエンジン非実行 |
 | FR-API-1..4 | REST API（トークン認証） | 🟢 | 本番で実解析確認(classify JSON・jobs→result.tsv、トークン認証・throttle) |
 | FR-I18N-1..6 | 多言語対応（日本語/英語 切替） | 🟢 | 切替UI・LocaleMiddleware・set_language・en .po・compilemessages。全ユーザー向け画面を翻訳。ビューのメッセージ/admin は軽微残 |
 | NFR-SEC-* | セキュリティ | 🟡 | TLS/HSTS・nginx レート制限・セキュリティヘッダ(CSP等)・MFA必須・axes・監査ログ・アップロード検証・秘密の env 管理・CI 脆弱性スキャン 実装。実機ヘッダ確認と運用は継続 |
@@ -352,3 +352,4 @@ HUHVar_app/
 | v0.20 | 2026-06-16 | M9 を 🟢。残りの全ユーザー向け解析画面(single_input/single_resolve/single_result/batch_upload/batch_status/batch_list)を {% translate %} 化し en .po を拡充。本番ビルドで日英切替を確認(/acmg/single 含む)。ビューのフラッシュメッセージ/admin は軽微残として継続 |
 | v0.21 | 2026-06-16 | 実解析の本番投入。app/worker イメージに ensembl-vep=111＋samtools/bcftools/htslib を micromamba で内蔵(vas と独立)、vep は専用ラッパーで conda perl 実行(システム python:3.11 維持)。参照データを /ddrive/data→/data にマウント。エンジンは app/worker 双方で pip install -e /huhvar(worker は command 上書きで entrypoint を通らないため command に追加)。M4(単一)・M5(バッチ)・M7(API) を本番実データで検証完了し 🟢。FR-IN/SINGLE/BATCH/API も 🟢 |
 | v0.22 | 2026-06-16 | M6(🟡) 変異結果キャッシュ。analysis/cache.py: cached_classify_single が VariantResultCache を参照(キー=assembly/chrom/pos/ref/alt/engine_version/refdata_signature)。署名は参照ファイルの size+mtime＋エンジン版の SHA-256 で、更新時に自動無効化。ReferenceDataVersion を admin 可視化用に更新。単一 web(single_analyze)/API(classify) に組込み。手動編集は非キャッシュ。バッチ per-variant は run_pipeline 一括のため未対応 |
+| v0.23 | 2026-06-16 | M6 を 🟢。バッチキャッシュ実装: cached_classify_batch が VCF を read_vcf で列挙→VariantResultCache 照合。全件キャッシュ済みならエンジン非実行で TSV 即生成、未済が1件でもあればフル解析(VEPバッチ効率維持)し全件キャッシュ。engine.classify_vcf 追加、_to_display に変異情報追加。バッチ TSV は display dict から自前生成(全クライテリア列)。tasks は cached_classify_batch を使用 |
