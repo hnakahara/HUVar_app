@@ -1,3 +1,5 @@
+import csv
+import io
 import json
 
 from django.contrib.auth.decorators import login_required
@@ -177,12 +179,59 @@ def single_edit(request, pk: int):
     })
 
 
+def _result_to_tsv(data: dict) -> str:
+    """単一変異の結果(result_json)を TSV 文字列に整形する。
+
+    先頭にメタ情報（# 始まり）、続いてクライテリア表を出力する。
+    """
+    variant = data.get("variant", {}) or {}
+    display = data.get("display", {}) or {}
+    buf = io.StringIO()
+    w = csv.writer(buf, delimiter="\t", lineterminator="\n")
+
+    genome = (f'{variant.get("chrom", "")}:{variant.get("pos", "")}'
+              f'{variant.get("ref", "")}>{variant.get("alt", "")}')
+    warnings = display.get("warnings") or []
+    if isinstance(warnings, (list, tuple)):
+        warnings = " / ".join(str(x) for x in warnings)
+    meta = [
+        ("assembly", variant.get("assembly", "")),
+        ("genome", genome),
+        ("gene", variant.get("gene", "")),
+        ("transcript", variant.get("transcript", "")),
+        ("hgvs_c", variant.get("hgvs_c", "")),
+        ("hgvs_p", variant.get("hgvs_p", "")),
+        ("classification_2015", display.get("classification_2015", "")),
+        ("rules", display.get("rules", "")),
+        ("classification_bayesian", display.get("classification_bayesian", "")),
+        ("bayesian_score", display.get("bayesian_score", "")),
+        ("warnings", warnings),
+    ]
+    for k, v in meta:
+        w.writerow([f"# {k}", v])
+
+    w.writerow(["criterion", "judgment", "direction", "strength", "points", "evidence"])
+    for c in display.get("criteria", []) or []:
+        if c.get("suppressed"):
+            judgment = "suppressed"
+        elif c.get("triggered"):
+            judgment = "MET"
+        else:
+            judgment = "not met"
+        w.writerow([
+            c.get("criterion", ""), judgment, c.get("direction", ""),
+            c.get("strength", ""), c.get("points", ""), c.get("evidence", ""),
+        ])
+    return buf.getvalue()
+
+
 @login_required
 def single_export(request, pk: int):
-    """結果（全クライテリア＋根拠＋分類）を JSON でダウンロード（FR-SINGLE-6）。
+    """結果（全クライテリア＋根拠＋分類）を JSON / TSV でダウンロード（FR-SINGLE-6）。
 
     POST で result_json を受け取った場合は、その（未保存の手動編集後）内容を
     そのままエクスポートする。GET の場合は保存済みの自動分類結果を返す。
+    fmt=tsv で TSV、それ以外（既定）は JSON を返す。
     """
     vr = get_object_or_404(VariantResult, pk=pk, job__owner=request.user)
     data = vr.result_json or {}
@@ -191,6 +240,14 @@ def single_export(request, pk: int):
             data = json.loads(request.POST["result_json"])
         except (ValueError, TypeError):
             data = vr.result_json or {}
+
+    fmt = (request.POST.get("fmt") or request.GET.get("fmt") or "json").lower()
+    if fmt == "tsv":
+        body = _result_to_tsv(data)
+        resp = HttpResponse(body, content_type="text/tab-separated-values; charset=utf-8")
+        resp["Content-Disposition"] = f'attachment; filename="acmg_result_{vr.pk}.tsv"'
+        return resp
+
     body = json.dumps(data, ensure_ascii=False, indent=2)
     resp = HttpResponse(body, content_type="application/json; charset=utf-8")
     resp["Content-Disposition"] = f'attachment; filename="acmg_result_{vr.pk}.json"'

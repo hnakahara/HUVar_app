@@ -73,7 +73,10 @@
 <form method="post" action="{% url 'analysis:single_export' result_id %}">
     {% csrf_token %}
     <input type="hidden" name="result_json" value="{{ export_json }}">
-    <p><button type="submit">{% translate "結果を JSON でダウンロード" %}</button></p>
+    <p>
+        <button type="submit" name="fmt" value="json">{% translate "JSON でダウンロード" %}</button>
+        <button type="submit" name="fmt" value="tsv">{% translate "TSV でダウンロード" %}</button>
+    </p>
 </form>
 {% endif %}
 
