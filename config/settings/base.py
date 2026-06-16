@@ -115,6 +115,10 @@ STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
 }
+# フロント nginx(vas) が /acmg を剥がして /static/ でアプリに渡すため、WhiteNoise の
+# 配信 prefix は /static/ に固定する（STATIC_URL=/acmg/static/ から自動導出だと
+# /acmg/static/ になり、剥がし後の /static/ と一致せず admin の CSS 等が 404 になる）。
+WHITENOISE_STATIC_PREFIX = "/static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
