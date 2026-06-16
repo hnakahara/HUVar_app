@@ -25,7 +25,7 @@
 | M4 | 単一変異解析・結果画面・手動編集 | 🟡 | 実装済(engine.classify_single→run_single 同期実行、全クライテリア表示、strength/evidence 手動編集→supplement merge 再分類、JSON エクスポート)。本番で導線確認済(入力→TransVar→候補→解析→結果、エンジン/データ未配置のため graceful error 表示)。実解析の実機検証は ~/HUHVar マウント＋/data 配置後 |
 | M5 | バッチ（VCF）解析・TSV ダウンロード・Celery ジョブ | 🟡 | 実装済(VCFアップロード→Celery直列投入→run_pipeline→TSV、ジョブ状態/履歴/ダウンロード、保持1時間で自動削除)。実解析の実機検証はデータ配置後 |
 | M6 | 変異結果キャッシュ（DB 登録・参照データ更新で無効化） | ⬜ | |
-| M7 | REST API（VAS 連携・トークン認証） | ⬜ | |
+| M7 | REST API（VAS 連携・トークン認証） | 🟡 | 実装済: POST /acmg/api/classify/(単一・query or 座標直指定、複数候補返却)、POST /jobs/(VCF→Celery)、GET /jobs/<id>/(状態)、GET /jobs/<id>/result.tsv。トークン認証(admin発行)・throttle・MFA非対象。実解析検証はデータ配置後 |
 | M8 | セキュリティ強化・本番公開準備 | ⬜ | |
 | M9 | 多言語対応（i18n: 日本語/英語 切替） | ⬜ | 要件のみ定義済（FR-I18N） |
 
@@ -39,7 +39,7 @@
 | FR-SINGLE-1..6 | 単一変異解析・全クライテリア表示・手動編集 | 🟡 | 実装済(同期実行・全28項目＋根拠・strength手動編集・JSON出力)。データ配置後に実機検証 |
 | FR-BATCH-1..4 | VCF 解析・TSV ダウンロード・履歴 | 🟡 | 実装済(アップロード/Celery直列/TSV/履歴/保持1時間)。実解析検証はデータ配置後 |
 | FR-CACHE-1..4 | 変異結果キャッシュ・参照データ更新で無効化 | 🟡 | データモデル（VariantResultCache/ReferenceDataVersion）定義済み。ロジックは M6 |
-| FR-API-1..4 | REST API（トークン認証） | 🟡 | トークン認証設定・health/whoami 雛形あり。解析エンドポイントは M7 |
+| FR-API-1..4 | REST API（トークン認証） | 🟡 | classify/jobs 実装済(トークン認証・throttle)。実解析検証はデータ配置後 |
 | FR-I18N-1..6 | 多言語対応（日本語/英語 切替） | ⬜ | 要件追加済。実装は M9（i18n: LocaleMiddleware/gettext/set_language） |
 | NFR-SEC-* | セキュリティ | ⬜ |
 | NFR-ENV-* | 環境分離 | ⬜ |
@@ -345,3 +345,5 @@ HUHVar_app/
 | v0.14 | 2026-06-16 | M3 完了(🟢)。MANE summary の列名が vas 配置版で RefSeq_nuc_major のため map が空だった不具合を修正(RefSeq_nuc→major/minor フォールバック)。本番実機で TP53:c.742C>T→MANE Select 1件(chr17:7674221G>A/p.R248W) を確認。FR-CONV 🟢、FR-IN 🟡(VCF は M5) |
 | v0.15 | 2026-06-16 | M4 実装(🟡)。analysis/engine.py で acmg_classifier.run_single を同期実行(Python 直接 import、未導入/データ未配置は EngineUnavailable で graceful)。single_analyze→結果保存(AnalysisJob/VariantResult)→single_result で全クライテリア(28項目)＋根拠＋分類(2015/Bayesian)表示。single_edit で strength/evidence 手動編集→supplement(merge)再分類＋CriterionEdit 監査記録。single_export で JSON 出力。実機検証は参照データ(/data)配置後 |
 | v0.16 | 2026-06-16 | M5 実装(🟡)。VCF アップロード→Celery(直列)投入→engine.classify_batch(run_pipeline)→全クライテリア列 TSV 生成。batch_upload/status(自動更新)/list/download、認証付き配信。成果物保持を 1日→**1時間**に変更(JOB_ARTIFACT_RETENTION_HOURS、default_expiry、cleanup_expired_jobs を一覧アクセス時に実行)。MEDIA_ROOT 追加。実解析検証はデータ配置後 |
+| (fix) | 2026-06-16 | M3 補修2件: genome 入力の種別誤判定(_infer_kind を染色体名優先に)、長い dup/indel の no_valid_transcript_found(全 transvar 呼出に --seqmax 1000 付与)。本番で genome・ERBB2:c.2314_2325dup の MANE 解決を確認 |
+| v0.17 | 2026-06-16 | M7 実装(🟡)。REST API: classify(単一・query/座標直指定・複数候補返却)、jobs(VCF→Celery)・job_status・job_result(TSV)。DRF TokenAuthentication(admin 発行・公開obtainなし)＋throttle、token 認証はセッション非依存のため MFA 強制対象外。実解析検証はデータ配置後 |
