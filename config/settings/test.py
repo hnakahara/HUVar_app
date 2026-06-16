@@ -16,3 +16,9 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:28080",
     "http://127.0.0.1:28080",
 ]
+
+# テスト/開発では SMTP に接続せずコンソールに出力（EMAIL_BACKEND 未指定時）
+import os  # noqa: E402
+
+if "EMAIL_BACKEND" not in os.environ:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"

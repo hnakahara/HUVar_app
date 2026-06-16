@@ -14,6 +14,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.notifications import notify_admin
 from analysis.cache import cached_classify_single
 from analysis.engine import EngineUnavailable
 from analysis.models import AnalysisJob, AuditLog
@@ -102,6 +103,14 @@ class ClassifyView(APIView):
         AuditLog.objects.create(
             user=request.user, action="api_classify",
             detail=f'{variant["chrom"]}:{variant["pos"]}:{variant["ref"]}:{variant["alt"]}')
+        notify_admin(
+            "API 単一変異解析(classify)実行",
+            f"ユーザー: {request.user.get_username()}\n"
+            f"遺伝子: {variant.get('gene') or '-'}\n"
+            f"変異: {variant.get('hgvs_c') or '-'} {variant.get('hgvs_p') or ''}\n"
+            f'座標: {variant["chrom"]}:{variant["pos"]}:{variant["ref"]}:{variant["alt"]}\n'
+            f"分類: {display.get('classification_bayesian', '-')}\n",
+        )
         return Response({"variant": variant, **display})
 
 
@@ -139,6 +148,11 @@ class JobCreateView(APIView):
         run_batch_classification.delay(job.id)
         AuditLog.objects.create(user=request.user, action="api_batch_submit",
                                 detail=f.name)
+        notify_admin(
+            "API バッチ解析(jobs)投入",
+            f"ユーザー: {request.user.get_username()}\n"
+            f"API バッチ解析が投入されました（内容は非開示）。\n",
+        )
         return Response({
             "job_id": job.id,
             "status": job.status,

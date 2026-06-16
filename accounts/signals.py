@@ -26,6 +26,11 @@ def _log(user, action: str, detail: str = "") -> None:
 @receiver(user_logged_in)
 def on_login(sender, request, user, **kwargs):
     _log(user, "login")
+    from .notifications import notify_admin
+    notify_admin(
+        "ログイン通知",
+        f"ユーザー: {user.get_username()}\nメール: {user.email}\nがログインしました。",
+    )
 
 
 @receiver(user_logged_out)

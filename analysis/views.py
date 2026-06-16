@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
+from accounts.notifications import notify_admin
 from transvar_client.client import TransvarError
 from transvar_client.client import convert as transvar_convert
 
@@ -104,6 +105,14 @@ def single_analyze(request):
     )
     AuditLog.objects.create(user=request.user, action="single_analyze",
                             detail=vr.variant_id)
+    notify_admin(
+        "単一変異解析(explain)実行",
+        f"ユーザー: {request.user.get_username()}\n"
+        f"遺伝子: {vr.gene_symbol or '-'}\n"
+        f"変異: {vr.hgvs_c or '-'} {vr.hgvs_p or ''}\n"
+        f"座標: {vr.variant_id}\n"
+        f"分類: {vr.classification}\n",
+    )
     return redirect("analysis:single_result", pk=vr.pk)
 
 
@@ -199,6 +208,11 @@ def batch_upload(request):
         run_batch_classification.delay(job.id)
         AuditLog.objects.create(user=request.user, action="batch_submit",
                                 detail=job.input_text)
+        notify_admin(
+            "バッチ解析(classify)投入",
+            f"ユーザー: {request.user.get_username()}\n"
+            f"バッチ解析が投入されました（内容は非開示）。\n",
+        )
         return redirect("analysis:batch_status", pk=job.id)
     return render(request, "analysis/batch_upload.html", {"form": form})
 

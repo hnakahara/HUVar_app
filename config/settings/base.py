@@ -182,3 +182,25 @@ LOGIN_REDIRECT_URL = "accounts:mfa_setup"
 
 # --- MFA（TOTP）---
 OTP_TOTP_ISSUER = "HUHVar ACMG Classifier"
+
+# --- メール（Gmail SMTP）/ 管理者通知 ---
+# ADMIN_ADDRESS 宛にアカウント発行リクエスト・ログイン・解析実行を通知する
+# （accounts.notifications.notify_admin）。未設定なら通知はスキップされる。
+# 認証は GMAIL_ADDRESS / GMAIL_PASS（Gmail アプリパスワード）を使用する。
+ADMIN_ADDRESS = os.environ.get("ADMIN_ADDRESS", "")
+
+EMAIL_BACKEND = os.environ.get(
+    "EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend"
+)
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.environ.get("GMAIL_ADDRESS", "")
+EMAIL_HOST_PASSWORD = os.environ.get("GMAIL_PASS", "")
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "1") == "1"
+EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "0") == "1"
+# リクエストスレッドが SMTP 応答待ちでブロックし続けないようタイムアウトを設ける
+EMAIL_TIMEOUT = int(os.environ.get("EMAIL_TIMEOUT", "10"))
+
+# 送信元は Gmail アカウント（Gmail は From のなりすましを許可しないため）
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "") or EMAIL_HOST_USER
+SERVER_EMAIL = os.environ.get("SERVER_EMAIL", "") or DEFAULT_FROM_EMAIL
