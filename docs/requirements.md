@@ -22,7 +22,7 @@
 | M2 | 認証・ユーザー管理（MFA 必須・アカウントリクエスト） | 🟢 | 本番実機で確認完了: ログイン→MFA登録(QR)→検証→解析トップ、強制ミドルウェア動作、admin ユーザー追加/承認。QR は data-URI img で表示 |
 | M3 | 入力 & TransVar 変換 & MANE 限定 | 🟢 | 本番実機で確認: MANE map size=19288、TP53:c.742C>T → MANE Select 1件(chr17:7674221G>A/p.R248W)。genome/cDNA/protein・c./p.省略・候補選択 UI 実装済 |
 | M3 | 入力 & TransVar 変換 & MANE 限定 | ⬜ | |
-| M4 | 単一変異解析・結果画面・手動編集 | ⬜ | |
+| M4 | 単一変異解析・結果画面・手動編集 | 🟡 | 実装済(engine.classify_single→run_single 同期実行、全クライテリア表示、strength/evidence 手動編集→supplement merge 再分類、JSON エクスポート)。実機検証は参照データ配置後 |
 | M5 | バッチ（VCF）解析・TSV ダウンロード・Celery ジョブ | ⬜ | |
 | M6 | 変異結果キャッシュ（DB 登録・参照データ更新で無効化） | ⬜ | |
 | M7 | REST API（VAS 連携・トークン認証） | ⬜ | |
@@ -36,7 +36,7 @@
 | FR-AUTH-1..6 | 認証・ユーザー管理・MFA 必須 | 🟡 | 自己登録禁止・admin 管理・login・MFA 必須(TOTP登録/検証/強制ミドルウェア)実装済。実機検証は未 |
 | FR-IN-1..4 | 入力（genome / cDNA / protein / VCF） | 🟡 | 単一の3形式は実機確認済。VCF は M5 |
 | FR-CONV-1..5 | TransVar 変換・MANE 限定・候補選択 | 🟢 | 実機確認済(MANE Select 限定・c./p.省略可・GRCh37/38・複数候補は選択UI) |
-| FR-SINGLE-1..6 | 単一変異解析・全クライテリア表示・手動編集 | ⬜ |
+| FR-SINGLE-1..6 | 単一変異解析・全クライテリア表示・手動編集 | 🟡 | 実装済(同期実行・全28項目＋根拠・strength手動編集・JSON出力)。データ配置後に実機検証 |
 | FR-BATCH-1..4 | VCF 解析・TSV ダウンロード・履歴 | ⬜ |
 | FR-CACHE-1..4 | 変異結果キャッシュ・参照データ更新で無効化 | 🟡 | データモデル（VariantResultCache/ReferenceDataVersion）定義済み。ロジックは M6 |
 | FR-API-1..4 | REST API（トークン認証） | 🟡 | トークン認証設定・health/whoami 雛形あり。解析エンドポイントは M7 |
@@ -343,3 +343,4 @@ HUHVar_app/
 | v0.12 | 2026-06-15 | M2 を 🟢(本番実機で MFA 確認完了)。MFA QR を data-URI img 化。M3 着手: TransVar サービス /convert を本実装(vas 移植: canno/panno/ganno --refseq --gseq、MANE summary で MANE Select 限定、protein 3→1字、genome は g. 補完、複数候補返却)。Django 単一変異入力フロー(SingleVariantForm→transvar_client→候補選択 single_resolve→確認 single_analyze)とテンプレート追加。解析実行(run_single 連携)は M4 |
 | v0.13 | 2026-06-16 | 多言語対応(i18n: 日本語/英語 切替)要件を追加(FR-I18N-1..6)。Django 標準 i18n(LocaleMiddleware/gettext/{% translate %}/set_language)、既定 ja、/acmg 整合、専門略語は原文・UI 文言を翻訳対象。マイルストーン M9 として計画(実装は後続) |
 | v0.14 | 2026-06-16 | M3 完了(🟢)。MANE summary の列名が vas 配置版で RefSeq_nuc_major のため map が空だった不具合を修正(RefSeq_nuc→major/minor フォールバック)。本番実機で TP53:c.742C>T→MANE Select 1件(chr17:7674221G>A/p.R248W) を確認。FR-CONV 🟢、FR-IN 🟡(VCF は M5) |
+| v0.15 | 2026-06-16 | M4 実装(🟡)。analysis/engine.py で acmg_classifier.run_single を同期実行(Python 直接 import、未導入/データ未配置は EngineUnavailable で graceful)。single_analyze→結果保存(AnalysisJob/VariantResult)→single_result で全クライテリア(28項目)＋根拠＋分類(2015/Bayesian)表示。single_edit で strength/evidence 手動編集→supplement(merge)再分類＋CriterionEdit 監査記録。single_export で JSON 出力。実機検証は参照データ(/data)配置後 |

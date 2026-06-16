@@ -1,10 +1,15 @@
+import json
+
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
 
 from transvar_client.client import TransvarError
 from transvar_client.client import convert as transvar_convert
 
+from .engine import STRENGTH_CHOICES, EngineUnavailable, classify_single
 from .forms import SingleVariantForm
+from .models import AnalysisJob, CriterionEdit, VariantResult
 
 
 @login_required
@@ -45,17 +50,8 @@ def single_input(request):
     return render(request, "analysis/single_input.html", context)
 
 
-@login_required
-def single_analyze(request):
-    """選択された変異（解決済み genome 座標）で解析を実行する。
-
-    M4 で HUHVar(run_single) 連携・全クライテリア表示・手動編集を実装する。
-    現状は解決済み変異の確認画面までを表示する。
-    """
-    if request.method != "POST":
-        return render(request, "analysis/single_input.html",
-                      {"form": SingleVariantForm()})
-    variant = {
+def _variant_from_post(request) -> dict:
+    return {
         "assembly": request.POST.get("assembly", ""),
         "chrom": request.POST.get("chrom", ""),
         "pos": request.POST.get("pos", ""),
@@ -66,4 +62,112 @@ def single_analyze(request):
         "hgvs_c": request.POST.get("hgvs_c", ""),
         "hgvs_p": request.POST.get("hgvs_p", ""),
     }
-    return render(request, "analysis/single_analyze.html", {"variant": variant})
+
+
+@login_required
+def single_analyze(request):
+    """選択された変異（解決済み genome 座標）を ACMG 解析し、結果を保存して表示する。"""
+    if request.method != "POST":
+        return redirect("analysis:single_input")
+
+    variant = _variant_from_post(request)
+    try:
+        display = classify_single(
+            variant["assembly"], variant["chrom"], int(variant["pos"]),
+            variant["ref"], variant["alt"],
+        )
+    except (EngineUnavailable, ValueError) as exc:
+        return render(request, "analysis/single_result.html", {
+            "variant": variant, "engine_error": str(exc),
+            "strength_choices": STRENGTH_CHOICES,
+        })
+
+    job = AnalysisJob.objects.create(
+        owner=request.user,
+        kind=AnalysisJob.Kind.SINGLE,
+        assembly=variant["assembly"],
+        input_text=f'{variant["chrom"]}:{variant["pos"]}{variant["ref"]}>{variant["alt"]}',
+        status=AnalysisJob.Status.DONE,
+    )
+    vr = VariantResult.objects.create(
+        job=job,
+        variant_id=f'{variant["chrom"]}:{variant["pos"]}:{variant["ref"]}:{variant["alt"]}',
+        gene_symbol=variant["gene"],
+        transcript_id=variant["transcript"],
+        hgvs_c=variant["hgvs_c"],
+        hgvs_p=variant["hgvs_p"],
+        classification=display["classification_bayesian"],
+        bayesian_score=display["bayesian_score"],
+        result_json={"variant": variant, "display": display, "edits": []},
+    )
+    return redirect("analysis:single_result", pk=vr.pk)
+
+
+@login_required
+def single_result(request, pk: int):
+    vr = get_object_or_404(VariantResult, pk=pk, job__owner=request.user)
+    data = vr.result_json or {}
+    return render(request, "analysis/single_result.html", {
+        "result_id": vr.pk,
+        "variant": data.get("variant", {}),
+        "display": data.get("display", {}),
+        "edits": data.get("edits", []),
+        "strength_choices": STRENGTH_CHOICES,
+    })
+
+
+@login_required
+def single_edit(request, pk: int):
+    """クライテリアの重み(strength)・evidence を手動編集して再分類（FR-SINGLE-5）。"""
+    vr = get_object_or_404(VariantResult, pk=pk, job__owner=request.user)
+    if request.method != "POST":
+        return redirect("analysis:single_result", pk=pk)
+
+    data = vr.result_json or {}
+    variant = data.get("variant", {})
+    prev_criteria = (data.get("display", {}) or {}).get("criteria", [])
+
+    # 各クライテリアの編集を収集（strength を選んだものだけ supplement 化）
+    entries = []
+    for c in prev_criteria:
+        crit = c["criterion"]
+        strength = request.POST.get(f"strength_{crit}", "").strip()
+        evidence = request.POST.get(f"evidence_{crit}", "").strip()
+        if strength in STRENGTH_CHOICES:
+            entries.append({"criterion": crit, "strength": strength, "evidence": evidence})
+
+    try:
+        display = classify_single(
+            variant["assembly"], variant["chrom"], int(variant["pos"]),
+            variant["ref"], variant["alt"], supplement_entries=entries,
+        )
+    except (EngineUnavailable, ValueError) as exc:
+        return render(request, "analysis/single_result.html", {
+            "result_id": vr.pk, "variant": variant,
+            "display": data.get("display", {}), "edits": entries,
+            "engine_error": str(exc), "strength_choices": STRENGTH_CHOICES,
+        })
+
+    vr.classification = display["classification_bayesian"]
+    vr.bayesian_score = display["bayesian_score"]
+    vr.result_json = {"variant": variant, "display": display, "edits": entries}
+    vr.save(update_fields=["classification", "bayesian_score", "result_json"])
+
+    # 監査用に編集履歴を保存
+    for e in entries:
+        CriterionEdit.objects.create(
+            variant_result=vr, criterion=e["criterion"], strength=e["strength"],
+            triggered=(e["strength"] != "NotMet"), evidence=e.get("evidence", ""),
+            editor=request.user,
+        )
+    return redirect("analysis:single_result", pk=vr.pk)
+
+
+@login_required
+def single_export(request, pk: int):
+    """結果（全クライテリア＋根拠＋分類）を JSON でダウンロード（FR-SINGLE-6）。"""
+    vr = get_object_or_404(VariantResult, pk=pk, job__owner=request.user)
+    body = json.dumps(vr.result_json or {}, ensure_ascii=False, indent=2)
+    resp = HttpResponse(body, content_type="application/json; charset=utf-8")
+    resp["Content-Disposition"] = f'attachment; filename="acmg_result_{vr.pk}.json"'
+    return resp

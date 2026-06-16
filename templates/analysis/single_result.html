@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}解析結果 | HUHVar{% endblock %}
+{% block content %}
+<h1>ACMG 解析結果</h1>
+
+<table border="1" cellpadding="6" cellspacing="0">
+    <tr><th>アセンブリ</th><td>{{ variant.assembly }}</td></tr>
+    <tr><th>genome</th><td>{{ variant.chrom }}:{{ variant.pos }} {{ variant.ref }}&gt;{{ variant.alt }}</td></tr>
+    <tr><th>gene</th><td>{{ variant.gene }}</td></tr>
+    <tr><th>transcript</th><td>{{ variant.transcript }}</td></tr>
+    <tr><th>HGVS</th><td>{{ variant.hgvs_c }} / {{ variant.hgvs_p }}</td></tr>
+</table>
+
+{% if engine_error %}
+<p style="color:#b00;">⚠ 解析エンジンエラー: {{ engine_error }}</p>
+<p style="color:#555;">本番では <code>~/HUHVar</code>（エンジン）と <code>~/huhvar_data</code>→<code>/data</code>（参照データ）の
+配置が必要です。配置後に再解析してください。</p>
+{% else %}
+
+<h2>分類</h2>
+<ul>
+    <li><strong>ACMG 2015</strong>: {{ display.classification_2015 }}
+        {% if display.rules %}（{{ display.rules }}）{% endif %}</li>
+    <li><strong>Bayesian</strong>: {{ display.classification_bayesian }}
+        （score {{ display.bayesian_score }}）</li>
+</ul>
+{% if display.warnings %}
+<p style="color:#a60;">warnings: {% for w in display.warnings %}{{ w }}{% if not forloop.last %} / {% endif %}{% endfor %}</p>
+{% endif %}
+
+<h2>クライテリア（全 {{ display.criteria|length }} 項目）と手動編集</h2>
+<p style="color:#555;">編集 strength を選んだ項目のみ上書き（merge）して再分類します。
+「（変更なし）」のままなら自動判定を保持します。</p>
+
+<form method="post" action="{% url 'analysis:single_edit' result_id %}">
+    {% csrf_token %}
+    <table border="1" cellpadding="4" cellspacing="0">
+        <thead>
+            <tr>
+                <th>criterion</th><th>判定</th><th>direction</th><th>strength</th><th>points</th>
+                <th>根拠 (evidence)</th><th>編集 strength</th><th>編集 evidence</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for c in display.criteria %}
+            <tr style="{% if c.suppressed %}color:#999;{% elif c.triggered %}font-weight:bold;{% endif %}">
+                <td>{{ c.criterion }}</td>
+                <td>{% if c.suppressed %}suppressed{% elif c.triggered %}met{% else %}not met{% endif %}</td>
+                <td>{{ c.direction }}</td>
+                <td>{{ c.strength }}</td>
+                <td>{{ c.points }}</td>
+                <td>{{ c.evidence }}</td>
+                <td>
+                    <select name="strength_{{ c.criterion }}">
+                        <option value="">（変更なし）</option>
+                        {% for s in strength_choices %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+                    </select>
+                </td>
+                <td><input type="text" name="evidence_{{ c.criterion }}" size="20"></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <p><button type="submit">編集を適用して再分類</button></p>
+</form>
+
+{% if edits %}
+<p>適用済みの手動編集:
+    {% for e in edits %}{{ e.criterion }}={{ e.strength }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+{% endif %}
+
+<p><a href="{% url 'analysis:single_export' result_id %}">結果を JSON でダウンロード</a></p>
+{% endif %}
+
+<p><a href="{% url 'analysis:single_input' %}">← 別の変異を解析</a></p>
+{% endblock %}
