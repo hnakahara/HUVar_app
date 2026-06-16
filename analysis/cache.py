@@ -180,10 +180,15 @@ def cached_classify_batch(in_vcf_path: str, out_tsv_path: str, assembly: str) ->
     - 未キャッシュが1つでもあれば全体を解析（VEP バッチ効率維持）し全件キャッシュ。
       （部分集合 VCF の分割は多アレル等で脆いため、堅実にフル解析する）
     """
-    from .engine import classify_vcf
+    from .engine import EngineUnavailable, classify_vcf
     from .models import VariantResultCache
 
-    variants = _read_variants(in_vcf_path, assembly)
+    try:
+        variants = _read_variants(in_vcf_path, assembly)
+    except Exception as exc:  # noqa: BLE001  cyvcf2 等の読み込み失敗
+        raise EngineUnavailable(
+            f"VCF を読み込めませんでした（VCF 形式を確認してください）: {exc}"
+        ) from exc
     sig = reference_signature(assembly)
     ev = engine_version()
 
