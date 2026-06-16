@@ -24,6 +24,12 @@ def index(request):
 
 
 @login_required
+def help_page(request):
+    """各機能の使い方を説明するガイドページ。"""
+    return render(request, "analysis/help.html")
+
+
+@login_required
 def single_input(request):
     """単一変異の入力 → TransVar 変換（MANE 限定）→ 候補提示。"""
     form = SingleVariantForm(request.POST or None)

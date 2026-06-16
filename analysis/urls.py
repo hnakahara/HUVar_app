@@ -6,6 +6,7 @@ app_name = "analysis"
 
 urlpatterns = [
     path("", views.index, name="index"),
+    path("help/", views.help_page, name="help"),
     # 単一変異
     path("single/", views.single_input, name="single_input"),
     path("single/analyze/", views.single_analyze, name="single_analyze"),
