@@ -10,6 +10,8 @@ fi
 python manage.py makemigrations --noinput
 python manage.py migrate --noinput
 python manage.py collectstatic --noinput
+# 翻訳カタログ(.po)を .mo にコンパイル（i18n: 日本語/英語）
+python manage.py compilemessages
 
 # DEBUG=1（テスト）は runserver、DEBUG=0（本番）は gunicorn(WSGI)
 # WSGI を使う理由: FORCE_SCRIPT_NAME(/acmg) が request.path にも反映され、

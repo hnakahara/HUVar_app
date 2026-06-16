@@ -1,13 +1,14 @@
 {% extends "base.html" %}
-{% block title %}ログイン | HUHVar{% endblock %}
+{% load i18n %}
+{% block title %}{% translate "ログイン" %} | HUHVar{% endblock %}
 {% block content %}
-<h1>ログイン</h1>
+<h1>{% translate "ログイン" %}</h1>
 <form method="post">
     {% csrf_token %}
     {{ form.as_p }}
-    <button type="submit">ログイン</button>
+    <button type="submit">{% translate "ログイン" %}</button>
 </form>
-<p>アカウントをお持ちでない方は
-    <a href="{% url 'accounts:account_request' %}">アカウント発行リクエスト</a>
-    （自己登録はできません。管理者が承認します）。</p>
+<p>{% translate "アカウントをお持ちでない方は" %}
+    <a href="{% url 'accounts:account_request' %}">{% translate "アカウント発行リクエスト" %}</a>
+    {% translate "（自己登録はできません。管理者が承認します）。" %}</p>
 {% endblock %}

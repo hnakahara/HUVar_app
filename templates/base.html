@@ -1,5 +1,7 @@
+{% load i18n %}
+{% get_current_language as LANGUAGE_CODE %}
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="{{ LANGUAGE_CODE|default:'ja' }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,8 +12,18 @@
         <strong>HUHVar ACMG Classifier</strong>
         {% if user.is_authenticated %}
             | {{ user.get_username }}
-            <a href="{% url 'accounts:logout' %}">ログアウト</a>
+            <a href="{% url 'accounts:logout' %}">{% translate "ログアウト" %}</a>
         {% endif %}
+        <span style="float:right;">
+            <form action="{% url 'set_language' %}" method="post" style="display:inline;">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.path }}">
+                <select name="language" onchange="this.form.submit()">
+                    <option value="ja" {% if LANGUAGE_CODE == 'ja' %}selected{% endif %}>日本語</option>
+                    <option value="en" {% if LANGUAGE_CODE == 'en' %}selected{% endif %}>English</option>
+                </select>
+            </form>
+        </span>
     </header>
     <hr>
     {% if messages %}

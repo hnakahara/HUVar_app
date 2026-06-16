@@ -1,0 +1,51 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: HUHVar_app\n"
+"Report-Msgid-Bugs-To: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "ログアウト"
+msgstr "Log out"
+
+msgid "ログイン"
+msgstr "Log in"
+
+msgid "アカウントをお持ちでない方は"
+msgstr "Don't have an account?"
+
+msgid "アカウント発行リクエスト"
+msgstr "Request an account"
+
+msgid "（自己登録はできません。管理者が承認します）。"
+msgstr "(Self-registration is disabled; an administrator approves requests.)"
+
+msgid "新規ユーザーは自己登録できません。以下を送信し、管理者の承認をお待ちください。"
+msgstr "New users cannot self-register. Submit the form below and wait for administrator approval."
+
+msgid "リクエスト送信"
+msgstr "Submit request"
+
+msgid "ログインへ戻る"
+msgstr "Back to login"
+
+msgid "変異の病的性を ACMG 2015 + ClinGen SVI 基準で分類します。"
+msgstr "Classify variant pathogenicity using the ACMG 2015 + ClinGen SVI criteria."
+
+msgid "単一変異解析"
+msgstr "Single variant analysis"
+
+msgid "genome / cDNA / protein、MANE Select 限定"
+msgstr "genome / cDNA / protein; MANE Select only"
+
+msgid "バッチ解析"
+msgstr "Batch analysis"
+
+msgid "VCF アップロード → TSV ダウンロード"
+msgstr "VCF upload → TSV download"
+
+msgid "ジョブ履歴"
+msgstr "Job history"

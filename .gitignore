@@ -10,6 +10,8 @@ venv/
 db.sqlite3
 /staticfiles/
 /media/
+# i18n: .po はコミット、.mo は entrypoint の compilemessages で生成
+*.mo
 
 # Environment / secrets
 .env

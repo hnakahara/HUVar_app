@@ -30,6 +30,7 @@ class MFAEnforcementMiddleware:
                 reverse("accounts:account_request"),
                 reverse("accounts:mfa_setup"),
                 reverse("accounts:mfa_verify"),
+                reverse("set_language"),  # 言語切替は未検証でも許可
             }
             static_prefix = settings.STATIC_URL or "/static/"
             if path not in allowed and not path.startswith(static_prefix):

@@ -38,6 +38,8 @@ MIDDLEWARE = [
     # セキュリティヘッダ（CSP/Permissions-Policy 等）を全レスポンスに付与
     "accounts.middleware.SecurityHeadersMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    # 多言語（日本語/英語 切替）。SessionMiddleware の後・CommonMiddleware の前。
+    "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -104,6 +106,13 @@ LANGUAGE_CODE = "ja"
 TIME_ZONE = "Asia/Tokyo"
 USE_I18N = True
 USE_TZ = True
+
+# 対応言語（既定 ja）。UI 上で切替可能（FR-I18N）。
+LANGUAGES = [
+    ("ja", "日本語"),
+    ("en", "English"),
+]
+LOCALE_PATHS = [BASE_DIR / "locale"]
 
 STATIC_URL = "/acmg/static/"
 STATIC_ROOT = "/static"
