@@ -21,10 +21,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Ensembl VEP 111 + htslib ツール（HUHVar 用。vas とは独立にイメージ内へ） ---
-# micromamba で専用 conda 環境を作る。VEP は env 同梱の perl(DBI/Bio::EnsEMBL 等)で
-# 動く必要があるため、env の bin を PATH 先頭に置く（vep のシェバン env perl が conda
-# perl を拾うように）。この env には python/gunicorn/celery を含めないため、Django 側の
-# システム python:3.11 は引き続き使われる。find_vep_cmd() は which("vep") で検出する。
+# micromamba で専用 conda 環境を作る。conda env には python3.13 が含まれるため、
+# env を PATH 先頭に置くと Django 用のシステム python:3.11 を上書きしてしまう。
+# そこで PATH は末尾追加（システム python 優先）にし、vep だけは専用ラッパー経由で
+# conda の perl(DBI/Bio::EnsEMBL 等)＋ツールで実行する。find_vep_cmd() は which("vep")
+# で /usr/local/bin/vep(ラッパー) を検出する（/usr/local/bin は PATH 前方のため優先）。
 RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest \
     | tar -xj -C /usr/local/bin --strip-components=1 bin/micromamba && \
     micromamba create -y -p /opt/conda/envs/vep \
@@ -32,7 +33,9 @@ RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest \
         ensembl-vep=111 samtools bcftools htslib && \
     micromamba clean -a -y && \
     rm -rf /root/.cache
-ENV PATH="/opt/conda/envs/vep/bin:${PATH}"
+RUN printf '#!/bin/sh\nexport PATH="/opt/conda/envs/vep/bin:$PATH"\nexec /opt/conda/envs/vep/bin/perl /opt/conda/envs/vep/bin/vep "$@"\n' \
+    > /usr/local/bin/vep && chmod +x /usr/local/bin/vep
+ENV PATH="${PATH}:/opt/conda/envs/vep/bin"
 
 COPY requirements.txt /code/
 RUN pip install --upgrade pip && pip install -r requirements.txt
