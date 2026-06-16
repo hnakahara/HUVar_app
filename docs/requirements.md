@@ -22,7 +22,7 @@
 | M2 | 認証・ユーザー管理（MFA 必須・アカウントリクエスト） | 🟢 | 本番実機で確認完了: ログイン→MFA登録(QR)→検証→解析トップ、強制ミドルウェア動作、admin ユーザー追加/承認。QR は data-URI img で表示 |
 | M3 | 入力 & TransVar 変換 & MANE 限定 | 🟢 | 本番実機で確認: MANE map size=19288、TP53:c.742C>T → MANE Select 1件(chr17:7674221G>A/p.R248W)。genome/cDNA/protein・c./p.省略・候補選択 UI 実装済 |
 | M3 | 入力 & TransVar 変換 & MANE 限定 | ⬜ | |
-| M4 | 単一変異解析・結果画面・手動編集 | 🟡 | 実装済(engine.classify_single→run_single 同期実行、全クライテリア表示、strength/evidence 手動編集→supplement merge 再分類、JSON エクスポート)。実機検証は参照データ配置後 |
+| M4 | 単一変異解析・結果画面・手動編集 | 🟡 | 実装済(engine.classify_single→run_single 同期実行、全クライテリア表示、strength/evidence 手動編集→supplement merge 再分類、JSON エクスポート)。本番で導線確認済(入力→TransVar→候補→解析→結果、エンジン/データ未配置のため graceful error 表示)。実解析の実機検証は ~/HUHVar マウント＋/data 配置後 |
 | M5 | バッチ（VCF）解析・TSV ダウンロード・Celery ジョブ | ⬜ | |
 | M6 | 変異結果キャッシュ（DB 登録・参照データ更新で無効化） | ⬜ | |
 | M7 | REST API（VAS 連携・トークン認証） | ⬜ | |
