@@ -158,6 +158,12 @@ CELERY_RESULT_BACKEND = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 CELERY_TASK_ACKS_LATE = True
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1  # 直列処理を担保
 CELERY_TASK_TIME_LIMIT = 60 * 60
+# Redis 接続のレジリエンス（一時切断時の自動再接続・keepalive）
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_BROKER_TRANSPORT_OPTIONS = {"socket_keepalive": True, "health_check_interval": 30}
+CELERY_RESULT_BACKEND_TRANSPORT_OPTIONS = {"socket_keepalive": True, "health_check_interval": 30}
+# 接続断時は実行中タスクを安全に再配信（acks_late と併用。再実行はキャッシュで高速）
+CELERY_WORKER_CANCEL_LONG_RUNNING_TASKS_ON_CONNECTION_LOSS = True
 
 # --- django-axes（ログイン失敗ロックアウト） ---
 AXES_FAILURE_LIMIT = 5
