@@ -167,6 +167,10 @@ SPECTACULAR_SETTINGS = {
         "[➡ APIトークンの発行をリクエストする](/acmg/accounts/token-request/)\n"
     ),
     "VERSION": "1.0.0",
+    # nginx が /acmg を除去してアプリへ渡すため、Swagger UI の「Try it out」が
+    # 正しい公開 URL(/acmg/api/...) を叩くようサーバ接頭辞を明示する。
+    # FORCE_SCRIPT_NAME 未設定（テスト等）の場合はルート("/")。
+    "SERVERS": [{"url": FORCE_SCRIPT_NAME or "/"}],
     "SERVE_INCLUDE_SCHEMA": False,
     # sidecar 同梱の静的資産を使う（外部 CDN を読まず CSP self に準拠）
     "SWAGGER_UI_DIST": "SIDECAR",
