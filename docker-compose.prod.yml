@@ -78,7 +78,7 @@ services:
       - ~/HUHVar:/huhvar:ro
       - /ddrive/data:/data
       - ~/tools:/tools
-    command: sh -c "celery -A config worker --loglevel=info --concurrency=1"
+    command: sh -c "if [ -f /huhvar/pyproject.toml ]; then pip install -e /huhvar; fi && celery -A config worker --loglevel=info --concurrency=1"
     env_file:
       - .env.prod
     depends_on:
