@@ -105,6 +105,15 @@ def _refresh_reference_versions(assembly: str) -> None:
         )
 
 
+# VariantResultCache.ref/alt は varchar(512)。これを超える巨大アレル（大規模 indel/SV）は
+# キャッシュ列・複合インデックスに収まらないため、キャッシュ保存をスキップする（解析自体は実行）。
+_MAX_ALLELE_CACHE_LEN = 512
+
+
+def _cacheable_allele(ref: str, alt: str) -> bool:
+    return len(ref or "") <= _MAX_ALLELE_CACHE_LEN and len(alt or "") <= _MAX_ALLELE_CACHE_LEN
+
+
 def cached_classify_single(assembly: str, chrom: str, pos: int, ref: str, alt: str):
     """キャッシュ参照付きの単一変異分類。戻り値 (display, hit)。
 
@@ -124,8 +133,9 @@ def cached_classify_single(assembly: str, chrom: str, pos: int, ref: str, alt: s
         return row.result_json, True
 
     display = classify_single(assembly, chrom, int(pos), ref, alt)
-    VariantResultCache.objects.update_or_create(**key, defaults={"result_json": display})
-    _refresh_reference_versions(assembly)
+    if _cacheable_allele(ref, alt):
+        VariantResultCache.objects.update_or_create(**key, defaults={"result_json": display})
+        _refresh_reference_versions(assembly)
     return display, False
 
 
@@ -215,6 +225,9 @@ def cached_classify_batch(in_vcf_path: str, out_tsv_path: str, assembly: str) ->
     if uncached:
         fresh = classify_vcf(in_vcf_path, assembly)
         for _key, disp in fresh.items():
+            # 512 文字超の巨大アレルはキャッシュ列に収まらないため保存をスキップ
+            if not _cacheable_allele(disp.get("ref", ""), disp.get("alt", "")):
+                continue
             VariantResultCache.objects.update_or_create(
                 assembly=assembly, chrom=disp.get("chrom", ""),
                 pos=int(disp.get("pos") or 0), ref=disp.get("ref", ""),
