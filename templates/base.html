@@ -15,8 +15,8 @@
             <nav class="topnav">
                 {% if user.is_authenticated %}
                     <span class="user">{{ user.get_username }}</span>
-                    <a class="btn-ghost" href="{% url 'api:swagger-ui' %}">API</a>
                     <a class="btn-ghost" href="{% url 'analysis:help' %}">{% translate "使い方" %}</a>
+                    <a class="btn-ghost" href="{% url 'api:swagger-ui' %}">API</a>
                     <a class="btn-ghost" href="{% url 'accounts:logout' %}">{% translate "ログアウト" %}</a>
                 {% endif %}
                 <form class="lang" action="{% url 'set_language' %}" method="post" style="margin:0;">
