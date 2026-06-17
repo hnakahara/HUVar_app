@@ -159,6 +159,8 @@ REST_FRAMEWORK = {
 SPECTACULAR_SETTINGS = {
     "TITLE": "HUHVar ACMG Classifier API",
     "DESCRIPTION": (
+        "[← アプリのトップへ戻る](/acmg/)　|　"
+        "[使い方ガイド](/acmg/help/)\n\n"
         "外部クライアント向けの REST API（トークン認証）です。"
         "下の各エンドポイントは「Try it out」で試せます（認証が必要なものは "
         "右上の **Authorize** にトークンのキーを貼り付けてください。"
