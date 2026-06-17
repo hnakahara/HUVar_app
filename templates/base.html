@@ -19,6 +19,8 @@
                     <a class="btn-ghost" href="{% url 'api:swagger-ui' %}">API</a>
                     <a class="btn-ghost" href="{% url 'accounts:logout' %}">{% translate "ログアウト" %}</a>
                 {% endif %}
+                <a class="btn-ghost" href="https://github.com/hnakahara/HUHVar_app"
+                   target="_blank" rel="noopener noreferrer">GitHub</a>
                 <form class="lang" action="{% url 'set_language' %}" method="post" style="margin:0;">
                     {% csrf_token %}
                     <input type="hidden" name="next" value="{{ request.path }}">
