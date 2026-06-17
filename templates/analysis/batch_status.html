@@ -17,7 +17,7 @@
     <p style="color:#b00;">⚠ {% translate "解析に失敗しました:" %} {{ job.error }}</p>
 {% else %}
     <p>{% translate "解析中です…（自動更新）" %}</p>
-    <script>setTimeout(function () { location.reload(); }, 3000);</script>
+    <script nonce="{{ request.csp_nonce }}">setTimeout(function () { location.reload(); }, 3000);</script>
 {% endif %}
 
 <p>

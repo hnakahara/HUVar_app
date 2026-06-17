@@ -9,6 +9,8 @@ django_otp.middleware.OTPMiddleware の後段に配置すること（request.use
 """
 from __future__ import annotations
 
+import secrets
+
 from django.conf import settings
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -53,24 +55,39 @@ class SecurityHeadersMiddleware:
     実用的な基準値。将来 nonce 化で 'unsafe-inline' を外して強化可能。
     """
 
-    CSP = (
-        "default-src 'self'; "
-        "img-src 'self' data:; "
-        "style-src 'self' 'unsafe-inline'; "
-        "script-src 'self' 'unsafe-inline'; "
-        "object-src 'none'; "
-        "base-uri 'self'; "
-        "frame-ancestors 'none'"
-    )
+    # Swagger/Redoc(drf-spectacular) はパッケージ側のインライン script を使うため、
+    # その配下のみ script-src に 'unsafe-inline' を許可する（ドキュメントページ・低リスク）。
+    _DOC_PREFIXES = ("/api/docs", "/api/redoc")
 
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
+        # リクエストごとに nonce を発行し、テンプレートから {{ request.csp_nonce }} で参照
+        nonce = secrets.token_urlsafe(16)
+        request.csp_nonce = nonce
         resp = self.get_response(request)
-        resp.setdefault("Content-Security-Policy", self.CSP)
+        resp.setdefault("Content-Security-Policy", self._build_csp(request, nonce))
         resp.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
         resp.setdefault("X-Content-Type-Options", "nosniff")
         resp.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         resp.setdefault("X-Frame-Options", "DENY")
         return resp
+
+    def _build_csp(self, request, nonce: str) -> str:
+        # アプリ画面は script-src を 'self' + nonce に限定（'unsafe-inline' を排除）。
+        if (request.path_info or "").startswith(self._DOC_PREFIXES):
+            script_src = "'self' 'unsafe-inline'"
+        else:
+            script_src = f"'self' 'nonce-{nonce}'"
+        # style 属性(style="...")が多数あり nonce では代替できないため style-src は
+        # 'unsafe-inline' を維持（CSS インジェクションは script に比べ低リスク）。
+        return (
+            "default-src 'self'; "
+            "img-src 'self' data:; "
+            "style-src 'self' 'unsafe-inline'; "
+            f"script-src {script_src}; "
+            "object-src 'none'; "
+            "base-uri 'self'; "
+            "frame-ancestors 'none'"
+        )
