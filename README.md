@@ -1,132 +1,150 @@
 # HUHVar ACMG Classifier
 
-遺伝子バリアントの病的性を **ACMG 2015 + ClinGen SVI** 基準で分類する Web アプリケーション／REST API です。
-単一バリアント解析・VCF バッチ解析・結果キャッシュ・多要素認証・多言語(日本語/英語)・対話的 API ドキュメント(Swagger UI) を備え、Docker Compose で動作します。
+A web application and REST API that classifies the pathogenicity of genetic variants using the
+**ACMG 2015 + ClinGen SVI** criteria. It provides single-variant analysis, VCF batch analysis,
+result caching, multi-factor authentication, internationalization (Japanese/English), and an
+interactive API reference (Swagger UI). It runs via Docker Compose.
 
-> 既存サービス(vas)と同一ドメインの `/acmg` サブパス配下で提供する構成です。
-
----
-
-## 主な機能
-
-- **単一バリアント解析**: genome 座標 / cDNA / protein 表記に対応（`TP53:c.742C>T`、`TP53 R248W` のような空白区切りも可）。TransVar で **MANE Select** に限定して座標変換し、全 ACMG クライテリアと分類(ACMG 2015 / Bayesian)を表示。
-- **手動編集と再分類**: クライテリアの strength・evidence を手動で上書きして再分類（結果は DB に保存せず画面表示のみ）。結果は **JSON / TSV** でダウンロード可能。
-- **バッチ解析(VCF)**: VCF をアップロードして Celery で直列処理し、全クライテリア列付き TSV を出力。ジョブ履歴・保持期間(既定1時間)つき。
-- **結果キャッシュ**: 自動判定結果を DB に保存し、参照データ更新まで再利用（バッチは全件キャッシュ済みならエンジン非実行で即時 TSV 生成）。
-- **REST API**: トークン認証の API。`/api/docs`(Swagger UI)・`/api/redoc`・`/api/schema` を公開。API トークンの発行リクエストフォームつき。
-- **認証・セキュリティ**: ログイン + **MFA(TOTP) 必須**、ログイン失敗ロックアウト(django-axes)、CSP(nonce)/各種セキュリティヘッダ、公開フォームの IP レート制限・ハニーポット、監査ログ、管理者へのメール通知。
-- **多言語(i18n)**: 日本語 / 英語 切替。
+> The app is served under the `/acmg` sub-path of the same domain shared with an existing service (vas).
 
 ---
 
-## アーキテクチャ
+## Features
 
-Docker Compose による 6 サービス構成（コンテナ名は `huhvar-` プレフィックス）:
+- **Single-variant analysis**: Accepts genome coordinates / cDNA / protein notation
+  (e.g. `TP53:c.742C>T`, or space-separated `TP53 R248W`). Coordinates are converted with TransVar
+  **limited to MANE Select**, then all ACMG criteria and the classification (ACMG 2015 / Bayesian) are shown.
+- **Manual editing & re-classification**: Override each criterion's strength/evidence and re-classify
+  (results are shown on screen only and are **not** persisted). Results can be downloaded as **JSON / TSV**.
+- **Batch analysis (VCF)**: Upload a VCF, processed serially via Celery, producing a TSV with all
+  criteria columns. Includes job history and an artifact retention period (default 1 hour).
+- **Result cache**: Automated results are stored in the DB and reused until reference data changes
+  (a batch whose variants are all cached is served instantly without invoking the engine).
+- **REST API**: Token-authenticated API. `/api/docs` (Swagger UI), `/api/redoc`, and `/api/schema`
+  are exposed, with a form to request an API token.
+- **Authentication & security**: Login + **mandatory MFA (TOTP)**, login lockout (django-axes),
+  CSP (nonce) and security headers, IP rate limiting and honeypot on public forms, audit logging,
+  and admin email notifications.
+- **i18n**: Japanese / English switching.
 
-| サービス | 役割 |
-|----------|------|
+---
+
+## Architecture
+
+A six-service Docker Compose stack (container names are prefixed with `huhvar-`):
+
+| Service | Role |
+|---------|------|
 | `db` | PostgreSQL 16 |
-| `redis` | Celery ブローカー＋キャッシュ（要パスワード） |
-| `app` | Django（gunicorn/WSGI、本番） |
-| `worker` | Celery ワーカー（VCF バッチを `concurrency=1` で直列処理） |
-| `transvar` | TransVar 変換マイクロサービス（Python 3.9・FastAPI） |
-| `web` | nginx（開発用フロント。本番は外部 nginx を流用） |
+| `redis` | Celery broker + cache (password required) |
+| `app` | Django (gunicorn/WSGI in production) |
+| `worker` | Celery worker (processes VCF batches serially with `concurrency=1`) |
+| `transvar` | TransVar conversion microservice (Python 3.9 / FastAPI) |
+| `web` | nginx (front proxy for development; production reuses an external nginx) |
 
-**技術スタック**: Django 4.2 / Django REST Framework / drf-spectacular / Celery / Redis / PostgreSQL / django-otp / django-axes / WhiteNoise / Docker。
+**Tech stack**: Django 4.2 / Django REST Framework / drf-spectacular / Celery / Redis / PostgreSQL /
+django-otp / django-axes / WhiteNoise / Docker.
 
-### 外部依存（マウント前提）
+### External dependencies (mounted)
 
-解析エンジンと参照データはイメージに同梱せず、ボリュームマウントします（`docker-compose*.yml` 参照）:
+The analysis engine and reference data are not bundled into the image; they are mounted as volumes
+(see `docker-compose*.yml`):
 
-- `~/HUHVar` → `/huhvar` … 解析エンジン `acmg_classifier`（`pip install -e` で導入）
-- `/ddrive/data` → `/data` … 参照データ（FASTA / MANE / スコア等）
-- `~/tools` → `/tools` … TransVar 設定・参照
+- `~/HUHVar` → `/huhvar` … the `acmg_classifier` analysis engine (installed via `pip install -e`)
+- `/ddrive/data` → `/data` … reference data (FASTA / MANE / scores, etc.)
+- `~/tools` → `/tools` … TransVar configuration and references
 
 ---
 
-## セットアップ
+## Setup
 
-### 前提
+### Prerequisites
 - Docker / Docker Compose
-- 上記「外部依存」の配置（解析を実行する場合）
+- The external dependencies above (when running analyses)
 
-### 1. 環境変数ファイルを用意
+### 1. Create environment files
 
-ルートに `.env`（開発）/ `.env.prod`（本番）を作成します。主な変数:
+Create `.env` (development) and `.env.prod` (production) in the project root. Key variables:
 
-| 変数 | 説明 |
-|------|------|
-| `SECRET_KEY` | Django シークレットキー（**本番では必ず強い値を設定**） |
-| `DJANGO_SETTINGS_MODULE` | `config.settings.test`（開発）/ `config.settings.prod`（本番） |
-| `DEBUG` | `1`=開発 / `0`=本番 |
-| `DJANGO_ALLOWED_HOSTS` | 許可ホスト（カンマ区切り） |
-| `FORCE_SCRIPT_NAME` | サブパス提供時の接頭辞（例 `/acmg`） |
-| `POSTGRES_NAME` / `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_HOST` / `POSTGRES_PORT` | DB 接続 |
-| `REDIS_URL` | 例 `redis://:<password>@redis:6379/0`（**パスワード必須**） |
-| `REDIS_PASSWORD` | Redis のパスワード |
-| `CACHE_URL` | 任意。未指定時は `REDIS_URL` から DB を `1` に差し替えて使用 |
-| `TRANSVAR_SERVICE_URL` | 既定 `http://transvar:5000` |
-| `JOB_ARTIFACT_RETENTION_HOURS` | バッチ成果物の保持時間（既定 `1`） |
-| `ADMIN_ADDRESS` | 通知メールの宛先 |
-| `GMAIL_ADDRESS` / `GMAIL_PASS` | Gmail SMTP 送信（`GMAIL_PASS` は**アプリパスワード**） |
+| Variable | Description |
+|----------|-------------|
+| `SECRET_KEY` | Django secret key (**must be a strong value in production**) |
+| `DJANGO_SETTINGS_MODULE` | `config.settings.test` (dev) / `config.settings.prod` (prod) |
+| `DEBUG` | `1` for development, `0` for production |
+| `DJANGO_ALLOWED_HOSTS` | Allowed hosts (comma-separated) |
+| `FORCE_SCRIPT_NAME` | Sub-path prefix when served under a path (e.g. `/acmg`) |
+| `POSTGRES_NAME` / `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_HOST` / `POSTGRES_PORT` | Database connection |
+| `REDIS_URL` | e.g. `redis://:<password>@redis:6379/0` (**password required**) |
+| `REDIS_PASSWORD` | Redis password |
+| `CACHE_URL` | Optional. If unset, derived from `REDIS_URL` with the DB switched to `1` |
+| `TRANSVAR_SERVICE_URL` | Default `http://transvar:5000` |
+| `JOB_ARTIFACT_RETENTION_HOURS` | Retention time for batch artifacts (default `1`) |
+| `ADMIN_ADDRESS` | Recipient for notification emails |
+| `GMAIL_ADDRESS` / `GMAIL_PASS` | Gmail SMTP sending (`GMAIL_PASS` is an **app password**) |
 
-> `.env*` は秘密情報を含むため**コミットしないでください**（`.gitignore` 済み）。値の雛形は `.env.example` / `.env.prod.example` を参照。
+> `.env*` files contain secrets and **must not be committed** (already in `.gitignore`).
+> See `.env.example` / `.env.prod.example` for templates.
 
-### 2. 起動
+### 2. Start
 
-**開発（HTTP, ポート 28080）**
+**Development (HTTP, port 28080)**
 ```bash
 docker compose up -d --build
 # → http://localhost:28080/acmg/
 ```
 
-**本番（HTTPS・外部 nginx 経由で /acmg 配下）**
+**Production (HTTPS, served under /acmg via an external nginx)**
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-起動時に `entrypoint.sh` が `migrate` / `collectstatic` / `compilemessages` を自動実行します。
+On startup, `entrypoint.sh` automatically runs `migrate` / `collectstatic` / `compilemessages`.
 
-### 3. 管理者ユーザー作成
+### 3. Create an administrator
 ```bash
 docker compose exec app python manage.py createsuperuser
 ```
-新規ユーザーは自己登録できません。利用者は発行リクエストを送信し、管理者が Django admin で承認・作成します。
+New users cannot self-register: they submit an account request, and an administrator approves/creates
+the account from the Django admin.
 
 ---
 
-## 使い方
+## Usage
 
-- **Web**: トップから単一/バッチ解析。初回ログイン時に MFA(認証アプリで QR 読取り) を設定。アプリ内「使い方」ページに各機能の手順あり。
-- **API ドキュメント**: `/acmg/api/docs/`（Swagger UI）。右上の **Authorize** にトークンのキーを入力（`Token ` 接頭辞は自動付与）。
-- **API トークン**: 管理者が発行。利用者は Swagger ページのリンクから発行リクエスト可能。
-- **主なエンドポイント**: `GET /api/health/`, `GET /api/whoami/`, `POST /api/classify/`, `POST /api/jobs/`, `GET /api/jobs/<id>/`, `GET /api/jobs/<id>/result.tsv`。
+- **Web**: Run single/batch analysis from the home page. On first login, set up MFA (scan the QR code
+  with an authenticator app). The in-app "Help" page documents each feature.
+- **API reference**: `/acmg/api/docs/` (Swagger UI). Click **Authorize** at the top right and enter your
+  token key (the `Token ` prefix is added automatically).
+- **API token**: Issued by an administrator. Users can request one from the link on the Swagger page.
+- **Main endpoints**: `GET /api/health/`, `GET /api/whoami/`, `POST /api/classify/`, `POST /api/jobs/`,
+  `GET /api/jobs/<id>/`, `GET /api/jobs/<id>/result.tsv`.
 
 ---
 
-## テスト
+## Tests
 ```bash
 docker compose exec app python manage.py test
 ```
 
 ---
 
-## ディレクトリ構成（抜粋）
+## Project layout (excerpt)
 
 ```
-config/        Django プロジェクト設定（settings: base/test/prod, celery, urls）
-accounts/      認証・ユーザー・MFA・アカウント/トークン発行リクエスト・通知・CSP
-analysis/      単一/バッチ解析・結果・キャッシュ・エンジン連携・Celery タスク
-api/           REST API（ビュー・シリアライザ・OpenAPI）
-transvar_client/  TransVar サービスへの HTTP クライアント
-containers/    各サービスの Dockerfile / nginx 設定
-templates/ static/ locale/  画面・静的資産・翻訳カタログ
-docs/          要件定義 等
+config/        Django project settings (settings: base/test/prod, celery, urls)
+accounts/      Auth, users, MFA, account/token requests, notifications, CSP
+analysis/      Single/batch analysis, results, cache, engine integration, Celery tasks
+api/           REST API (views, serializers, OpenAPI)
+transvar_client/  HTTP client for the TransVar service
+containers/    Dockerfiles / nginx config per service
+templates/ static/ locale/  Pages, static assets, translation catalogs
+docs/          Requirements, etc.
 ```
 
 ---
 
-## ライセンス / 注意
+## License / Notes
 
-- 本ツールは研究・検証用途です。臨床判断にそのまま用いないでください。
-- 解析エンジン(`acmg_classifier`)・参照データ・TransVar 参照は別途用意・配置が必要です。
+- This tool is for research and validation purposes. Do not use its output directly for clinical decisions.
+- The analysis engine (`acmg_classifier`), reference data, and TransVar references must be provided and
+  mounted separately.
