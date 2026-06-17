@@ -200,11 +200,14 @@ SPECTACULAR_SETTINGS = {
 }""",
 }
 
-# --- キャッシュ（Redis）: レート制限などに使用。Celery とは別 DB(1) ---
+# --- キャッシュ（Redis）: レート制限・DRF throttling 等に使用。Celery とは別 DB(1) ---
+# 認証情報(パスワード)は REDIS_URL を踏襲し、末尾の DB 番号のみ 1 に差し替える。
+_REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
+CACHE_URL = os.environ.get("CACHE_URL") or (_REDIS_URL.rsplit("/", 1)[0] + "/1")
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": os.environ.get("CACHE_URL", "redis://redis:6379/1"),
+        "LOCATION": CACHE_URL,
     }
 }
 
