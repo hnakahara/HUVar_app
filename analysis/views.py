@@ -116,10 +116,13 @@ def single_analyze(request):
     notify_admin(
         "単一バリアント解析(explain)実行",
         f"ユーザー: {request.user.get_username()}\n"
+        f"アセンブリ: {variant.get('assembly') or '-'}\n"
         f"遺伝子: {vr.gene_symbol or '-'}\n"
         f"バリアント: {vr.hgvs_c or '-'} {vr.hgvs_p or ''}\n"
         f"座標: {vr.variant_id}\n"
-        f"分類: {vr.classification}\n",
+        f"分類(ACMG 2015): {display.get('classification_2015', '-')}\n"
+        f"分類(Bayesian): {display.get('classification_bayesian', '-')}"
+        f"（score {display.get('bayesian_score', '-')}）\n",
     )
     return redirect("analysis:single_result", pk=vr.pk)
 
@@ -283,6 +286,7 @@ def batch_upload(request):
         notify_admin(
             "バッチ解析(classify)投入",
             f"ユーザー: {request.user.get_username()}\n"
+            f"アセンブリ: {job.assembly}\n"
             f"バッチ解析が投入されました（内容は非開示）。\n",
         )
         return redirect("analysis:batch_status", pk=job.id)

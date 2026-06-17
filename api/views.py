@@ -146,10 +146,13 @@ class ClassifyView(APIView):
         notify_admin(
             "API 単一バリアント解析(classify)実行",
             f"ユーザー: {request.user.get_username()}\n"
+            f"アセンブリ: {variant.get('assembly') or '-'}\n"
             f"遺伝子: {variant.get('gene') or '-'}\n"
             f"バリアント: {variant.get('hgvs_c') or '-'} {variant.get('hgvs_p') or ''}\n"
             f'座標: {variant["chrom"]}:{variant["pos"]}:{variant["ref"]}:{variant["alt"]}\n'
-            f"分類: {display.get('classification_bayesian', '-')}\n",
+            f"分類(ACMG 2015): {display.get('classification_2015', '-')}\n"
+            f"分類(Bayesian): {display.get('classification_bayesian', '-')}"
+            f"（score {display.get('bayesian_score', '-')}）\n",
         )
         return Response({"variant": variant, **display})
 
@@ -199,6 +202,7 @@ class JobCreateView(APIView):
         notify_admin(
             "API バッチ解析(jobs)投入",
             f"ユーザー: {request.user.get_username()}\n"
+            f"アセンブリ: {assembly}\n"
             f"API バッチ解析が投入されました（内容は非開示）。\n",
         )
         return Response({
