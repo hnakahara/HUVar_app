@@ -161,7 +161,8 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": (
         "外部クライアント向けの REST API（トークン認証）です。"
         "下の各エンドポイントは「Try it out」で試せます（認証が必要なものは "
-        "右上の **Authorize** に `Token <発行されたトークン>` を設定してください）。\n\n"
+        "右上の **Authorize** にトークンのキーを貼り付けてください。"
+        "`Token ` の接頭辞は自動で付与されます）。\n\n"
         "### APIトークンの取得\n"
         "トークンは管理者が発行します。"
         "[➡ APIトークンの発行をリクエストする](/acmg/accounts/token-request/)\n"
@@ -178,6 +179,23 @@ SPECTACULAR_SETTINGS = {
     "REDOC_DIST": "SIDECAR",
     # スキーマ/ドキュメントはデモ用に公開
     "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
+    # Authorize にトークンのキーのみ入力されたら送信時に自動で "Token " を付与する。
+    # 文字列で渡すと drf-spectacular がそのまま JS 設定として挿入する（...swaggerSettings は
+    # 組み込みの CSRF 用 requestInterceptor の後に spread されるため上書きになる→CSRF も補完）。
+    "SWAGGER_UI_SETTINGS": r"""{
+    "persistAuthorization": true,
+    "requestInterceptor": (request) => {
+        const a = request.headers && request.headers["Authorization"];
+        if (a && !/^(Token|Bearer)\s/i.test(a)) {
+            request.headers["Authorization"] = "Token " + a;
+        }
+        if (request.method && request.method.toUpperCase() !== "GET") {
+            const m = document.cookie.match(/(?:^|;\s*)(?:huhvar_)?csrftoken=([^;]+)/);
+            if (m) { request.headers["X-CSRFToken"] = decodeURIComponent(m[1]); }
+        }
+        return request;
+    }
+}""",
 }
 
 # --- Celery（Redis ブローカー・直列処理） ---
