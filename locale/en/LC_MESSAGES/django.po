@@ -51,6 +51,12 @@ msgstr "VCF upload → TSV download"
 msgid "ジョブ履歴"
 msgstr "Job history"
 
+msgid "API ドキュメント（Swagger）"
+msgstr "API documentation (Swagger)"
+
+msgid "外部連携・デモ"
+msgstr "External integration / demo"
+
 # --- single_input ---
 msgid "genome coordinate / cDNA / protein のいずれかを入力してください（c. / p. は省略可）。cDNA・protein は MANE Select に限定して座標変換します。"
 msgstr "Enter a genome coordinate / cDNA / protein (the c. / p. prefix is optional). cDNA and protein are converted using MANE Select transcripts only."

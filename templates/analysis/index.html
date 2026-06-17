@@ -10,6 +10,8 @@
     <li><a href="{% url 'analysis:batch_upload' %}">{% translate "バッチ解析" %}</a>
         （{% translate "VCF アップロード → TSV ダウンロード" %}）
         ｜ <a href="{% url 'analysis:batch_list' %}">{% translate "ジョブ履歴" %}</a></li>
+    <li><a href="{% url 'api:swagger-ui' %}">{% translate "API ドキュメント（Swagger）" %}</a>
+        （{% translate "外部連携・デモ" %}）</li>
 </ul>
 <p><a href="{% url 'analysis:help' %}">{% translate "各機能の使い方ガイドはこちら" %}</a></p>
 {% endblock %}
