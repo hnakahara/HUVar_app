@@ -44,9 +44,9 @@
         </thead>
         <tbody>
         {% for c in display.criteria %}
-            <tr class="{% if c.suppressed %}row-suppressed{% elif c.triggered %}row-met{% else %}row-not{% endif %}">
+            <tr class="{% if c.suppressed %}row-suppressed{% elif c.triggered and c.strength != 'NotMet' %}row-met{% else %}row-not{% endif %}">
                 <td>{{ c.criterion }}</td>
-                <td>{% if c.suppressed %}<span class="tag tag-suppressed">suppressed</span>{% elif c.triggered %}<span class="tag tag-met">MET</span>{% else %}<span class="tag tag-not">not met</span>{% endif %}</td>
+                <td>{% if c.suppressed %}<span class="tag tag-suppressed">suppressed</span>{% elif c.triggered and c.strength != 'NotMet' %}<span class="tag tag-met">MET</span>{% else %}<span class="tag tag-not">not met</span>{% endif %}</td>
                 <td>{{ c.direction }}</td>
                 <td>{{ c.strength }}</td>
                 <td>{{ c.points }}</td>

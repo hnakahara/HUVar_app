@@ -144,8 +144,12 @@ def classify_single(
         variant_id = f"{chrom}:{pos}:{ref}:{alt}"
 
     # 既定マニュアルエビデンス(eRepo) ＋ ユーザー手動編集 を merge（cfg.supplement_mode=MERGE）
+    # ユーザーが編集したクライテリアは eRepo より優先する（編集した項目のみ eRepo を除外）。
     manual = _load_manual_for_variant(cfg, variant_id)
     user = _build_supplement(supplement_entries, variant_id) or []
+    if user:
+        edited = {u.criterion for u in user}
+        manual = [m for m in manual if getattr(m, "criterion", None) not in edited]
     supplement = (list(manual) + list(user)) or None
 
     try:
