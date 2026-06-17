@@ -1,10 +1,13 @@
 import csv
 import io
 import json
+import logging
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 
 from accounts.notifications import notify_admin
 from transvar_client.client import TransvarError
@@ -15,6 +18,11 @@ from .engine import STRENGTH_CHOICES, EngineUnavailable, classify_single
 from .forms import BatchVariantForm, SingleVariantForm
 from .models import AnalysisJob, AuditLog, VariantResult
 from .tasks import cleanup_expired_jobs, run_batch_classification
+
+logger = logging.getLogger(__name__)
+
+# 参照データ等の内部パスを露出しないため、クライアントには汎用文を返す
+_ENGINE_ERROR_MSG = "解析エンジンが一時的に利用できません。時間をおいて再度お試しください。"
 
 
 @login_required
@@ -88,8 +96,9 @@ def single_analyze(request):
             variant["ref"], variant["alt"],
         )
     except (EngineUnavailable, ValueError) as exc:
+        logger.warning("single_analyze engine error: %s", exc)
         return render(request, "analysis/single_result.html", {
-            "variant": variant, "engine_error": str(exc),
+            "variant": variant, "engine_error": _ENGINE_ERROR_MSG,
             "strength_choices": STRENGTH_CHOICES,
         })
 
@@ -168,10 +177,11 @@ def single_edit(request, pk: int):
             variant["ref"], variant["alt"], supplement_entries=entries,
         )
     except (EngineUnavailable, ValueError) as exc:
+        logger.warning("single_edit engine error: %s", exc)
         return render(request, "analysis/single_result.html", {
             "result_id": vr.pk, "variant": variant,
             "display": data.get("display", {}), "edits": entries,
-            "engine_error": str(exc), "strength_choices": STRENGTH_CHOICES,
+            "engine_error": _ENGINE_ERROR_MSG, "strength_choices": STRENGTH_CHOICES,
         })
 
     # 手動編集による再分類はデータベースに保存しない（その場で表示するのみ）。
@@ -272,6 +282,15 @@ def batch_upload(request):
     """VCF アップロード → ジョブ作成 → Celery 投入 → ステータス画面へ。"""
     form = BatchVariantForm(request.POST or None, request.FILES or None)
     if request.method == "POST" and form.is_valid():
+        # 月あたりの Web バッチ実行上限（ユーザーごと、既定 50）
+        limit = getattr(request.user, "web_batch_monthly_limit", 50)
+        month_start = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        used = AuditLog.objects.filter(
+            user=request.user, action="batch_submit", created_at__gte=month_start,
+        ).count()
+        if used >= limit:
+            messages.error(request, f"今月のバッチ実行上限（{limit} 回/月）に達しています。")
+            return render(request, "analysis/batch_upload.html", {"form": form})
         job = AnalysisJob.objects.create(
             owner=request.user,
             kind=AnalysisJob.Kind.BATCH,

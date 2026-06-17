@@ -21,6 +21,11 @@ class User(AbstractUser):
         default=5,
         help_text="API バッチ(jobs)の月あたり実行回数の上限。",
     )
+    # Web バッチ(VCF)の月あたり実行上限（ユーザーごとに変更可）
+    web_batch_monthly_limit = models.PositiveIntegerField(
+        default=50,
+        help_text="Web バッチ(VCF)の月あたり実行回数の上限。",
+    )
 
     @property
     def is_administrator(self) -> bool:

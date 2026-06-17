@@ -14,7 +14,9 @@
 
 {% if engine_error %}
 <p style="color:#b00;">⚠ {% translate "解析エンジンエラー:" %} {{ engine_error }}</p>
+{% if user.is_staff %}
 <p style="color:var(--muted);">{% translate "本番では ~/HUHVar（エンジン）と ~/huhvar_data→/data（参照データ）の配置が必要です。配置後に再解析してください。" %}</p>
+{% endif %}
 {% else %}
 
 <h2>{% translate "分類" %}</h2>

@@ -16,7 +16,7 @@ class CustomUserAdmin(UserAdmin):
     list_filter = ("role", "mfa_exempt", "is_active", "is_staff")
     fieldsets = UserAdmin.fieldsets + (
         ("HUHVar", {"fields": ("role", "institution", "mfa_exempt",
-                               "api_batch_monthly_limit")}),
+                               "api_batch_monthly_limit", "web_batch_monthly_limit")}),
     )
 
     def get_queryset(self, request):

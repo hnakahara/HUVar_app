@@ -22,3 +22,8 @@ import os  # noqa: E402
 
 if "EMAIL_BACKEND" not in os.environ:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+# テストは Redis 非依存にする（レート制限はローカルメモリで動作）
+CACHES = {
+    "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
+}

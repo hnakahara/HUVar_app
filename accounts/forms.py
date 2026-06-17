@@ -6,6 +6,8 @@ from .models import AccountRequest, TokenRequest
 
 class AccountRequestForm(forms.ModelForm):
     email_confirm = forms.EmailField(label="Email (confirm)")
+    # ボットよけのハニーポット（人間には非表示。入力があれば拒否）
+    website = forms.CharField(required=False, widget=forms.HiddenInput, label="")
 
     class Meta:
         model = AccountRequest
@@ -30,6 +32,8 @@ class AccountRequestForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
+        if cleaned.get("website"):
+            raise forms.ValidationError("送信できませんでした。")
         email = cleaned.get("email")
         email_confirm = cleaned.get("email_confirm")
         if email and email_confirm and email != email_confirm:
@@ -41,6 +45,8 @@ class TokenRequestForm(forms.ModelForm):
     """API トークン発行リクエストフォーム。メール確認入力つき。"""
 
     email_confirm = forms.EmailField(label="Email (confirm)")
+    # ボットよけのハニーポット（人間には非表示。入力があれば拒否）
+    website = forms.CharField(required=False, widget=forms.HiddenInput, label="")
 
     class Meta:
         model = TokenRequest
@@ -59,6 +65,8 @@ class TokenRequestForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
+        if cleaned.get("website"):
+            raise forms.ValidationError("送信できませんでした。")
         email = cleaned.get("email")
         email_confirm = cleaned.get("email_confirm")
         if email and email_confirm and email != email_confirm:

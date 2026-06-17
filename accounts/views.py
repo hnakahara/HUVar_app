@@ -7,6 +7,7 @@ import qrcode.image.svg
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
 from django.core.mail import send_mail
 from django.shortcuts import redirect, render
 
@@ -17,9 +18,32 @@ from .forms import AccountRequestForm, TokenRequestForm
 from .notifications import notify_admin
 
 
+def _client_ip(request) -> str:
+    xff = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR", "")
+
+
+def _rate_limited(request, action: str, limit: int = 5, window: int = 600) -> bool:
+    """同一 IP の action 送信を window 秒で limit 回までに制限（超過で True）。
+
+    キャッシュ障害時は制限せず通す（可用性優先）。公開フォームのスパム抑止用。
+    """
+    key = f"rl:{action}:{_client_ip(request)}"
+    try:
+        cache.add(key, 0, window)
+        return cache.incr(key) > limit
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def account_request(request):
     """新規ユーザーは自己登録できないため、発行リクエストのみ送信する。"""
     if request.method == "POST":
+        if _rate_limited(request, "account_request"):
+            messages.error(request, "リクエストが多すぎます。しばらく時間をおいて再度お試しください。")
+            return render(request, "accounts/account_request.html", {"form": AccountRequestForm()})
         form = AccountRequestForm(request.POST)
         if form.is_valid():
             obj = form.save()
@@ -49,6 +73,9 @@ def account_request(request):
 def token_request(request):
     """API トークン発行リクエストを送信する（administrator が承認時に発行）。"""
     if request.method == "POST":
+        if _rate_limited(request, "token_request"):
+            messages.error(request, "リクエストが多すぎます。しばらく時間をおいて再度お試しください。")
+            return render(request, "accounts/token_request.html", {"form": TokenRequestForm()})
         form = TokenRequestForm(request.POST)
         if form.is_valid():
             obj = form.save()

@@ -200,6 +200,14 @@ SPECTACULAR_SETTINGS = {
 }""",
 }
 
+# --- キャッシュ（Redis）: レート制限などに使用。Celery とは別 DB(1) ---
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": os.environ.get("CACHE_URL", "redis://redis:6379/1"),
+    }
+}
+
 # --- Celery（Redis ブローカー・直列処理） ---
 CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 CELERY_RESULT_BACKEND = os.environ.get("REDIS_URL", "redis://redis:6379/0")

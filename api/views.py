@@ -4,6 +4,8 @@
 Django admin で発行/失効する（公開のトークン取得エンドポイントは設けない）。
 レート制限は nginx(limit_req) ＋ DRF throttling(既定 user 60/min)。
 """
+import logging
+
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
@@ -33,6 +35,8 @@ from .serializers import (
     JobStatusResponseSerializer,
     WhoAmISerializer,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class HealthView(APIView):
@@ -138,7 +142,10 @@ class ClassifyView(APIView):
                 variant["ref"], variant["alt"],
             )
         except (EngineUnavailable, ValueError) as exc:
-            return Response({"error": str(exc)}, status=503)
+            logger.warning("API classify engine error: %s", exc)
+            return Response(
+                {"error": "解析エンジンが一時的に利用できません。時間をおいて再度お試しください。"},
+                status=503)
 
         AuditLog.objects.create(
             user=request.user, action="api_classify",
