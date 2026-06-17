@@ -7,6 +7,13 @@ interactive API reference (Swagger UI). It runs via Docker Compose.
 
 > The app is served under the `/acmg` sub-path of the same domain shared with an existing service (vas).
 
+## Live instance
+
+- App: <https://1603-027.a.hiroshima-u.ac.jp/acmg/>
+- API reference (Swagger UI): <https://1603-027.a.hiroshima-u.ac.jp/acmg/api/docs/>
+
+Sign-in (and an API token, issued by an administrator) is required for most features.
+
 ---
 
 ## Features
