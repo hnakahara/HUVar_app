@@ -122,6 +122,12 @@ def single_analyze(request):
     )
     AuditLog.objects.create(user=request.user, action="single_analyze",
                             detail=vr.variant_id)
+    met_criteria = [
+        f"{c['criterion']}({c['strength']})"
+        for c in display.get("criteria", [])
+        if c.get("triggered")
+    ]
+    met_summary = ", ".join(met_criteria) if met_criteria else "なし"
     notify_admin(
         "単一バリアント解析(explain)実行",
         f"ユーザー: {request.user.get_username()}\n"
@@ -131,7 +137,8 @@ def single_analyze(request):
         f"座標: {vr.variant_id}\n"
         f"分類(ACMG 2015): {display.get('classification_2015', '-')}\n"
         f"分類(Bayesian): {display.get('classification_bayesian', '-')}"
-        f"（score {display.get('bayesian_score', '-')}）\n",
+        f"（score {display.get('bayesian_score', '-')}）\n"
+        f"Met クライテリア: {met_summary}\n",
     )
     return redirect("analysis:single_result", pk=vr.pk)
 
