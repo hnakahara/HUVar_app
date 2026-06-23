@@ -1,8 +1,8 @@
 # 本番環境（A 方式: vas の nginx を単一フロントとして流用）
-# - 公開ポートは持たない。vas の nginx が /acmg/ を huhvar-app:8000 へプロキシする。
+# - 公開ポートは持たない。vas の nginx が /acmg/ を huvar-app:8000 へプロキシする。
 # - 静的ファイルは WhiteNoise がアプリ自身で配信（vas 側の静的設定・ボリューム共有は不要）。
-# - huhvar-app を vas のネットワーク(external)へ参加させ、vas nginx から到達可能にする。
-# - サービス名 acmgapp（コンテナ名 huhvar-app）。共有ネットワーク上で vas の "app" 別名と衝突させない。
+# - huvar-app を vas のネットワーク(external)へ参加させ、vas nginx から到達可能にする。
+# - サービス名 acmgapp（コンテナ名 huvar-app）。共有ネットワーク上で vas の "app" 別名と衝突させない。
 #
 # 前提: vas を `docker compose -f docker-compose.prod.yml up` で起動しており、
 #       その default ネットワーク名が vas_default であること（`docker network ls` で確認）。
@@ -10,14 +10,14 @@
 
 services:
   db:
-    container_name: huhvar-postgres
+    container_name: huvar-postgres
     build:
       context: .
       dockerfile: containers/postgres/Dockerfile
     volumes:
-      - ~/huhvar_db_data:/var/lib/postgresql/data
+      - ~/huvar_db_data:/var/lib/postgresql/data
     healthcheck:
-      test: pg_isready -U "${POSTGRES_USER:-huhvar}" || exit 1
+      test: pg_isready -U "${POSTGRES_USER:-huvar}" || exit 1
       interval: 10s
       timeout: 5s
       retries: 5
@@ -27,7 +27,7 @@ services:
     restart: always
 
   redis:
-    container_name: huhvar-redis
+    container_name: huvar-redis
     image: redis:7-alpine
     # パスワードはコンテナ内 env(REDIS_PASSWORD) から取得する。
     # compose の ${...} 展開（.env 依存）に頼らないため $$ でシェル展開させる。
@@ -42,14 +42,14 @@ services:
     restart: always
 
   acmgapp:
-    container_name: huhvar-app
-    image: huhvar-app:latest
+    container_name: huvar-app
+    image: huvar-app:latest
     build:
       context: .
       dockerfile: containers/django/Dockerfile
     volumes:
       - .:/code
-      - ~/HUHVar:/huhvar:ro
+      - ~/HUVar:/huvar:ro
       - /ddrive/data:/data
       - ~/tools:/tools
     expose:
@@ -68,17 +68,17 @@ services:
     restart: always
 
   worker:
-    container_name: huhvar-worker
-    image: huhvar-app:latest
+    container_name: huvar-worker
+    image: huvar-app:latest
     build:
       context: .
       dockerfile: containers/django/Dockerfile
     volumes:
       - .:/code
-      - ~/HUHVar:/huhvar:ro
+      - ~/HUVar:/huvar:ro
       - /ddrive/data:/data
       - ~/tools:/tools
-    command: sh -c "if [ -f /huhvar/pyproject.toml ]; then pip install -e /huhvar; fi && celery -A config worker --loglevel=info --concurrency=1"
+    command: sh -c "if [ -f /huvar/pyproject.toml ]; then pip install -e /huvar; fi && celery -A config worker --loglevel=info --concurrency=1"
     env_file:
       - .env.prod
     depends_on:
@@ -87,7 +87,7 @@ services:
     restart: always
 
   transvar:
-    container_name: huhvar-transvar
+    container_name: huvar-transvar
     build:
       context: .
       dockerfile: containers/transvar/Dockerfile

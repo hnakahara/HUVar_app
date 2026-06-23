@@ -11,7 +11,7 @@ from django.utils import timezone
 
 @shared_task(bind=True)
 def run_batch_classification(self, job_id: int) -> str:
-    """VCF を HUHVar(run_pipeline) で解析し、全クライテリア列の TSV を生成する。"""
+    """VCF を HUVar(run_pipeline) で解析し、全クライテリア列の TSV を生成する。"""
     from .cache import cached_classify_batch
     from .engine import EngineUnavailable
     from .models import AnalysisJob

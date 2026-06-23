@@ -52,7 +52,7 @@ def account_request(request):
             )
             if admin_address:
                 send_mail(
-                    subject="[HUHVar] 新規アカウント発行リクエスト",
+                    subject="[HUVar] 新規アカウント発行リクエスト",
                     message=(
                         f"ユーザー名: {obj.full_name}\n"
                         f"メール: {obj.email}\n"

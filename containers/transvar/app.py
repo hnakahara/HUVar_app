@@ -19,7 +19,7 @@ from typing import List, Optional
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-app = FastAPI(title="HUHVar TransVar service")
+app = FastAPI(title="HUVar TransVar service")
 
 # アセンブリ名 → TransVar refversion / 設定ファイル
 _ASSEMBLY_TO_REFVERSION = {

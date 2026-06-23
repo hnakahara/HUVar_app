@@ -79,8 +79,8 @@ ASGI_APPLICATION = "config.asgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("POSTGRES_NAME", "huhvar"),
-        "USER": os.environ.get("POSTGRES_USER", "huhvar"),
+        "NAME": os.environ.get("POSTGRES_NAME", "huvar"),
+        "USER": os.environ.get("POSTGRES_USER", "huvar"),
         "PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
         "HOST": os.environ.get("POSTGRES_HOST", "db"),
         "PORT": os.environ.get("POSTGRES_PORT", "5432"),
@@ -157,7 +157,7 @@ REST_FRAMEWORK = {
 
 # --- OpenAPI / Swagger UI（drf-spectacular） ---
 SPECTACULAR_SETTINGS = {
-    "TITLE": "HUHVar ACMG Classifier API",
+    "TITLE": "HUVar ACMG Classifier API",
     "DESCRIPTION": (
         "[← アプリのトップへ戻る](/acmg/)　|　"
         "[使い方ガイド](/acmg/help/)\n\n"
@@ -192,7 +192,7 @@ SPECTACULAR_SETTINGS = {
             request.headers["Authorization"] = "Token " + a;
         }
         if (request.method && request.method.toUpperCase() !== "GET") {
-            const m = document.cookie.match(/(?:^|;\s*)(?:huhvar_)?csrftoken=([^;]+)/);
+            const m = document.cookie.match(/(?:^|;\s*)(?:huvar_)?csrftoken=([^;]+)/);
             if (m) { request.headers["X-CSRFToken"] = decodeURIComponent(m[1]); }
         }
         return request;
@@ -240,7 +240,7 @@ LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "accounts:mfa_setup"
 
 # --- MFA（TOTP）---
-OTP_TOTP_ISSUER = "HUHVar ACMG Classifier"
+OTP_TOTP_ISSUER = "HUVar ACMG Classifier"
 
 # --- メール（Gmail SMTP）/ 管理者通知 ---
 # ADMIN_ADDRESS 宛にアカウント発行リクエスト・ログイン・解析実行を通知する

@@ -20,7 +20,7 @@ def notify_admin(subject: str, message: str) -> None:
         return
     try:
         send_mail(
-            subject=f"[HUHVar] {subject}",
+            subject=f"[HUVar] {subject}",
             message=message,
             from_email=None,
             recipient_list=[address],

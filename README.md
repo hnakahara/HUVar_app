@@ -1,4 +1,4 @@
-# HUHVar ACMG Classifier
+# HUVar ACMG Classifier
 
 A web application and REST API that classifies the pathogenicity of genetic variants using the
 **ACMG 2015 + ClinGen SVI** criteria. It provides single-variant analysis, VCF batch analysis,
@@ -38,7 +38,7 @@ Sign-in (and an API token, issued by an administrator) is required for most feat
 
 ## Architecture
 
-A six-service Docker Compose stack (container names are prefixed with `huhvar-`):
+A six-service Docker Compose stack (container names are prefixed with `huvar-`):
 
 | Service | Role |
 |---------|------|
@@ -57,7 +57,7 @@ django-otp / django-axes / WhiteNoise / Docker.
 The analysis engine and reference data are not bundled into the image; they are mounted as volumes
 (see `docker-compose*.yml`):
 
-- `~/HUHVar` → `/huhvar` … the `acmg_classifier` analysis engine (installed via `pip install -e`)
+- `~/HUVar` → `/huvar` … the `acmg_classifier` analysis engine (installed via `pip install -e`)
 - `/ddrive/data` → `/data` … reference data (FASTA / MANE / scores, etc.)
 - `~/tools` → `/tools` … TransVar configuration and references
 

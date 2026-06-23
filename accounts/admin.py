@@ -15,7 +15,7 @@ class CustomUserAdmin(UserAdmin):
                     "n_api_classify", "n_api_jobs", "is_active", "is_staff")
     list_filter = ("role", "mfa_exempt", "is_active", "is_staff")
     fieldsets = UserAdmin.fieldsets + (
-        ("HUHVar", {"fields": ("role", "institution", "mfa_exempt",
+        ("HUVar", {"fields": ("role", "institution", "mfa_exempt",
                                "api_batch_monthly_limit", "web_batch_monthly_limit")}),
     )
 

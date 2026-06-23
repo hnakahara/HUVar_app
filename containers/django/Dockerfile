@@ -1,4 +1,4 @@
-# app / worker 共用イメージ（Python 3.11 — HUHVar の requires-python >=3.11 を満たす）
+# app / worker 共用イメージ（Python 3.11 — HUVar の requires-python >=3.11 を満たす）
 FROM python:3.11
 
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# --- Ensembl VEP 111 + htslib ツール（HUHVar 用。vas とは独立にイメージ内へ） ---
+# --- Ensembl VEP 111 + htslib ツール（HUVar 用。vas とは独立にイメージ内へ） ---
 # micromamba で専用 conda 環境を作る。conda env には python3.13 が含まれるため、
 # env を PATH 先頭に置くと Django 用のシステム python:3.11 を上書きしてしまう。
 # そこで PATH は末尾追加（システム python 優先）にし、vep だけは専用ラッパー経由で

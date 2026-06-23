@@ -5,7 +5,7 @@ from celery import Celery
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.test")
 
-app = Celery("huhvar")
+app = Celery("huvar")
 # settings の CELERY_ 接頭辞を取り込む
 app.config_from_object("django.conf:settings", namespace="CELERY")
 app.autodiscover_tasks()

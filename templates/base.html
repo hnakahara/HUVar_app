@@ -5,13 +5,13 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}HUHVar ACMG Classifier{% endblock %}</title>
+    <title>{% block title %}HUVar ACMG Classifier{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
 <body>
     <header class="topbar">
         <div class="topbar-inner">
-            <a class="brand" href="{% url 'analysis:index' %}">HUHVar <span>ACMG Classifier</span></a>
+            <a class="brand" href="{% url 'analysis:index' %}">HUVar <span>ACMG Classifier</span></a>
             <nav class="topnav">
                 {% if user.is_authenticated %}
                     <span class="user">{{ user.get_username }}</span>
@@ -19,7 +19,7 @@
                     <a class="btn-ghost" href="{% url 'api:swagger-ui' %}">API</a>
                     <a class="btn-ghost" href="{% url 'accounts:logout' %}">{% translate "ログアウト" %}</a>
                 {% endif %}
-                <a class="btn-ghost" href="https://github.com/hnakahara/HUHVar_app"
+                <a class="btn-ghost" href="https://github.com/hnakahara/HUVar_app"
                    target="_blank" rel="noopener noreferrer">GitHub</a>
                 <form class="lang" action="{% url 'set_language' %}" method="post" style="margin:0;">
                     {% csrf_token %}

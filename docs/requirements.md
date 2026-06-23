@@ -1,9 +1,9 @@
-# HUHVar GUI アプリケーション 要件定義書
+# HUVar GUI アプリケーション 要件定義書
 
 **版**: v0.3（ドラフト）
 **作成日**: 2026-06-15
 **最終更新**: 2026-06-15
-**対象ディレクトリ**: `C:\Users\Nakahara\workspace\HUHVar_app`
+**対象ディレクトリ**: `C:\Users\Nakahara\workspace\HUVar_app`
 
 ---
 
@@ -17,7 +17,7 @@
 
 | # | フェーズ | 状態 | 備考 |
 |---|----------|------|------|
-| M0 | 技術検証スパイク（TransVar 3.9 コンテナ / HUHVar 3.11 同居） | ⬜ | docker build / compose up は実サーバーで要検証 |
+| M0 | 技術検証スパイク（TransVar 3.9 コンテナ / HUVar 3.11 同居） | ⬜ | docker build / compose up は実サーバーで要検証 |
 | M1 | docker compose 基盤（db/redis/app/worker/transvar/web・環境分離） | 🟢 | WSL で `docker compose up` 起動確認済（db/redis/app/web 健全・migrate・/acmg 配信・ログイン・admin 動作）。本番 HTTPS=443/HTTP=80 に確定 |
 | M2 | 認証・ユーザー管理（MFA 必須・アカウントリクエスト） | 🟢 | 本番実機で確認完了: ログイン→MFA登録(QR)→検証→解析トップ、強制ミドルウェア動作、admin ユーザー追加/承認。QR は data-URI img で表示 |
 | M3 | 入力 & TransVar 変換 & MANE 限定 | 🟢 | 本番実機で確認: MANE map size=19288、TP53:c.742C>T → MANE Select 1件(chr17:7674221G>A/p.R248W)。genome/cDNA/protein・c./p.省略・候補選択 UI 実装済 |
@@ -50,7 +50,7 @@
 
 ## 1. 目的・背景
 
-`HUHVar`（パッケージ名 `acmg-classifier` / ACMG 2015 + ClinGen SVI 準拠の完全ローカル型バリアント病的性分類ツール）を、Web ブラウザから操作できる GUI として公開する。将来的に `vas` から API 経由で解析結果を取得できるようにする。全世界の医療機関に向けて公開するため、強固なセキュリティを必須とする。
+`HUVar`（パッケージ名 `acmg-classifier` / ACMG 2015 + ClinGen SVI 準拠の完全ローカル型バリアント病的性分類ツール）を、Web ブラウザから操作できる GUI として公開する。将来的に `vas` から API 経由で解析結果を取得できるようにする。全世界の医療機関に向けて公開するため、強固なセキュリティを必須とする。
 
 ## 2. 対象ツールの現状整理（調査結果）
 
@@ -65,7 +65,7 @@
 | 手動上書き | `--supplement` TSV（列: `variant_id, criterion, strength, evidence`）と `--evidence CRITERION:STRENGTH[:NOTE]`、`merge` / `manual-only` モード |
 | 出力 | TSV / JSON / リッチコンソールレポート |
 
-**重要**: HUHVar のエンジン層は「全クライテリアの根拠表示」「重み（strength）含む手動編集」「VCF→TSV」を **すでに内部的にサポート** している。GUI 層はこれらをラップし、不足機能（cDNA/protein 入力、TransVar 変換、MANE 限定、認証、API、キャッシュ）を追加する位置づけ。
+**重要**: HUVar のエンジン層は「全クライテリアの根拠表示」「重み（strength）含む手動編集」「VCF→TSV」を **すでに内部的にサポート** している。GUI 層はこれらをラップし、不足機能（cDNA/protein 入力、TransVar 変換、MANE 限定、認証、API、キャッシュ）を追加する位置づけ。
 
 ## 3. システム構成
 
@@ -91,7 +91,7 @@
             ┌──────────────┐  │  MANE Select 限定    │
             │ worker       │  │  設定: /tools/transvar│
             │ (Celery)     │  └──────────────────────┘
-            │ HUHVar engine│
+            │ HUVar engine│
             │ Python 3.11  │  ← ジョブを順番に処理（concurrency=1）
             └──────────────┘
 ```
@@ -103,24 +103,24 @@
 
 | サービス | 役割 | ランタイム | container_name | ホスト公開 |
 |----------|------|-----------|----------------|-----------|
-| `db` | PostgreSQL 16（業務データ＋変異キャッシュ） | postgres:16 | `huhvar-postgres` | 公開しない |
-| `redis` | Celery ブローカー / 結果バックエンド | redis | `huhvar-redis` | 公開しない |
-| `app` | Django 4.2（Web/API） | **Python 3.11** | `huhvar-app` | `expose: 8000`（非公開） |
-| `worker` | Celery ワーカー（HUHVar 解析実行） | **Python 3.11**（app と同一イメージ） | `huhvar-worker` | なし |
-| `transvar` | cDNA/protein↔genome 変換サービス | **Python 3.9** + transvar 2.5.10 | `huhvar-transvar` | `expose: 5000`（内部のみ） |
-| `web` | nginx（TLS 終端・静的配信・レート制限） | nginx | `huhvar-web` | **test: 28080 / prod: 28443・28080** |
+| `db` | PostgreSQL 16（業務データ＋変異キャッシュ） | postgres:16 | `huvar-postgres` | 公開しない |
+| `redis` | Celery ブローカー / 結果バックエンド | redis | `huvar-redis` | 公開しない |
+| `app` | Django 4.2（Web/API） | **Python 3.11** | `huvar-app` | `expose: 8000`（非公開） |
+| `worker` | Celery ワーカー（HUVar 解析実行） | **Python 3.11**（app と同一イメージ） | `huvar-worker` | なし |
+| `transvar` | cDNA/protein↔genome 変換サービス | **Python 3.9** + transvar 2.5.10 | `huvar-transvar` | `expose: 5000`（内部のみ） |
+| `web` | nginx（TLS 終端・静的配信・レート制限） | nginx | `huvar-web` | **test: 28080 / prod: 28443・28080** |
 
 - **ジョブ処理**: バッチ（VCF）は Redis をブローカーに Celery で **順番に処理**（ワーカーは concurrency=1 の直列実行）。**単一変異解析は同期実行（即応答）** とし、Celery を経由しない。
 - **TransVar サービス**: Python 3.9 ベースの軽量 HTTP サービス（FastAPI/Flask 等）。エンドポイント例 `POST /convert`（入力: cDNA/protein/genome + assembly、出力: 解決済み genome coordinate・transcript・HGVS c./p.・MANE 候補リスト）、`GET /health`、`GET /refversion`（参照データの版情報）。
 - ファイル分割: `docker-compose.yml`（テスト）／`docker-compose.prod.yml`（本番）。環境変数: `.env` / `.env.prod`（リポジトリ非追跡）。
-- ボリューム: `~/huhvar_db_data`、HUHVar 解析データ、**TransVar 設定・参照（vas と同一の `~/tools` → `/tools/transvar/...` をマウント）**、ログ、tmp を用意。
+- ボリューム: `~/huvar_db_data`、HUVar 解析データ、**TransVar 設定・参照（vas と同一の `~/tools` → `/tools/transvar/...` をマウント）**、ログ、tmp を用意。
 
 ### 3.3 バージョン方針（vas 整合）
 
 | コンポーネント | バージョン | 配置 | 備考 |
 |----------------|-----------|------|------|
 | Django | 4.2（vas 同一） | app/worker | 3.11 で動作 |
-| Python（app/worker） | **3.11** | app/worker | HUHVar の `>=3.11` 要件を満たす |
+| Python（app/worker） | **3.11** | app/worker | HUVar の `>=3.11` 要件を満たす |
 | Python（transvar） | **3.9** | transvar | TransVar 検証済みバージョン |
 | PostgreSQL | 16（vas 同一） | db | |
 | Redis | 安定版 | redis | Celery ブローカー |
@@ -172,7 +172,7 @@
 - **FR-CONV-2**: cDNA・protein を入力に用いる場合、対応トランスクリプトは **MANE Select を優先**する。ただし MANE Select に該当が無い変異（別アイソフォーム番号、例 SCN5A:p.E1784K 等）も解析できるよう、**MANE で座標が得られない場合は TransVar の候補トランスクリプトを提示してユーザーが選択**できる（genome 座標へ解決できれば解析可能）。genome 入力も同様（MANE 優先・無ければ候補提示）。候補は genome 座標で重複排除。
 - **FR-CONV-3**: protein 入力は複数の塩基変化に対応し得るため、**複数候補が出る場合はユーザーに候補を提示し選択させる**（選択 UI）。
 - **FR-CONV-4**: 変換結果（解決された CHROM/POS/REF/ALT・transcript・HGVS c./p.）を解析前にユーザーへ提示。
-- **FR-CONV-5**: **GRCh37 / GRCh38 両対応**。ユーザーがアセンブリを指定可能とし、TransVar・HUHVar の両方に正しく伝播させる。
+- **FR-CONV-5**: **GRCh37 / GRCh38 両対応**。ユーザーがアセンブリを指定可能とし、TransVar・HUVar の両方に正しく伝播させる。
 
 ### 4.4 単一変異解析・結果画面（FR-SINGLE）
 
@@ -186,15 +186,15 @@
 ### 4.5 バッチ（VCF）解析（FR-BATCH）
 
 - **FR-BATCH-1**: VCF アップロード → `classify` 相当を **Celery ジョブとして投入し順番に処理**。進捗表示。
-- **FR-BATCH-2**: 完了後、結果を **TSV でダウンロード**（HUHVar の `tsv_writer` 出力を踏襲。全クライテリアの triggered/strength/evidence 列を含む）。
+- **FR-BATCH-2**: 完了後、結果を **TSV でダウンロード**（HUVar の `tsv_writer` 出力を踏襲。全クライテリアの triggered/strength/evidence 列を含む）。
 - **FR-BATCH-3**: ジョブ履歴の一覧・再ダウンロード（ユーザー単位）。
 - **FR-BATCH-4**: アップロードサイズ上限・行数上限・タイムアウトを設定。
 
 ### 4.6 変異結果キャッシュ（FR-CACHE）
 
 - **FR-CACHE-1**: 一度解析した変異の分類結果（自動判定）を **DB に登録（永続キャッシュ）** する。キーは「正規化変異（assembly + CHROM + POS + REF + ALT）＋ 解析エンジン版 ＋ 参照データ版署名」。
-- **FR-CACHE-2**: 2 回目以降の同一変異リクエストは、**参照データが未更新であれば DB のキャッシュから返す**（HUHVar を再実行しない）。単一変異・バッチ内の各変異の双方に適用。
-- **FR-CACHE-3**: **使用している参照データ（HUHVar の参照配列・OpenSpliceAI モデル・phyloP bigWig・遺伝子リスト等、および TransVar 参照）のいずれかが更新された場合、キャッシュを無効化**し、次回アクセス時に再解析する。更新検知は **参照データ各ファイルの「ハッシュ ＋ サイズ ＋ 更新日時（mtime）」を組み合わせた版署名** で行う。いずれかが変化したら無効化する。
+- **FR-CACHE-2**: 2 回目以降の同一変異リクエストは、**参照データが未更新であれば DB のキャッシュから返す**（HUVar を再実行しない）。単一変異・バッチ内の各変異の双方に適用。
+- **FR-CACHE-3**: **使用している参照データ（HUVar の参照配列・OpenSpliceAI モデル・phyloP bigWig・遺伝子リスト等、および TransVar 参照）のいずれかが更新された場合、キャッシュを無効化**し、次回アクセス時に再解析する。更新検知は **参照データ各ファイルの「ハッシュ ＋ サイズ ＋ 更新日時（mtime）」を組み合わせた版署名** で行う。いずれかが変化したら無効化する。
 - **FR-CACHE-4**: ユーザーの **手動編集結果（CriterionEdit）はキャッシュとは別管理**とし、自動判定キャッシュを上書きしない（編集はユーザー/ジョブに紐づく）。
 
 > 注: 本キャッシュ（自動判定結果）は参照データ更新まで永続保持する。NFR-OPS-3 の「保持期間 1 時間」は **ジョブ成果物（アップロード VCF・生成 TSV・ジョブ単位の結果ファイル）** に適用される別物である。
@@ -254,17 +254,17 @@
 | redis | 非公開（ネットワーク内のみ） | 同左 |
 | db（PostgreSQL） | **ホスト非公開**（ネットワーク内のみ） | 同左 |
 
-- コンテナ名は `huhvar-` プレフィックスで vas と分離（内部衝突回避）。テスト用ホストポートは vas の 20080 と衝突しない 28080 を使用。
-- **本番は A 方式（単一フロント nginx 統合）で確定**：vas の既存 nginx（80/443 を bind）が単一フロントとなり、`/acmg/` を `huhvar-app:8000` へプロキシする。**HUHVar 本番スタックはホストポートを公開しない**（自前 web nginx は廃止）。ポート衝突は発生しない。
-  - vas nginx 設定（`vas/containers/nginx/conf.d/default.conf`）に `upstream acmg_app { server huhvar-app:8000; }` と `location /acmg/`・`location /acmg/api/` を追記済み。
-  - `huhvar-app` は vas のネットワーク（external `vas_default`）へ参加。vas 上の `app` 別名と衝突しないよう HUHVar の本番サービス名は `acmgapp`（コンテナ名 `huhvar-app`）とする。
+- コンテナ名は `huvar-` プレフィックスで vas と分離（内部衝突回避）。テスト用ホストポートは vas の 20080 と衝突しない 28080 を使用。
+- **本番は A 方式（単一フロント nginx 統合）で確定**：vas の既存 nginx（80/443 を bind）が単一フロントとなり、`/acmg/` を `huvar-app:8000` へプロキシする。**HUVar 本番スタックはホストポートを公開しない**（自前 web nginx は廃止）。ポート衝突は発生しない。
+  - vas nginx 設定（`vas/containers/nginx/conf.d/default.conf`）に `upstream acmg_app { server huvar-app:8000; }` と `location /acmg/`・`location /acmg/api/` を追記済み。
+  - `huvar-app` は vas のネットワーク（external `vas_default`）へ参加。vas 上の `app` 別名と衝突しないよう HUVar の本番サービス名は `acmgapp`（コンテナ名 `huvar-app`）とする。
   - 静的ファイルは **WhiteNoise** がアプリ配信（vas 側の静的設定・ボリューム共有は不要）。`FORCE_SCRIPT_NAME=/acmg` は WhiteNoise が自動で静的プレフィックスから除去。
   - 反映には vas の web イメージ再ビルド＆再起動が必要（運用手順）。
 
 ### 5.4 性能・運用（NFR-OPS）
 
 - **NFR-OPS-1**: 解析は **Celery + Redis** による非同期ジョブで **順番に処理**（直列）。大規模 VCF でもタイムアウトしないよう nginx/gunicorn のタイムアウトを調整（vas は 3600s）。
-- **NFR-OPS-2**: HUHVar 参照データ（配列・OpenSpliceAI モデル・phyloP bigWig 等、数 GB）と TransVar 参照（`/tools/transvar`、vas と共用）はボリュームで提供。GRCh37/GRCh38 両アセンブリ分を用意。
+- **NFR-OPS-2**: HUVar 参照データ（配列・OpenSpliceAI モデル・phyloP bigWig 等、数 GB）と TransVar 参照（`/tools/transvar`、vas と共用）はボリュームで提供。GRCh37/GRCh38 両アセンブリ分を用意。
 - **NFR-OPS-3**: **ジョブ成果物（アップロード VCF・生成 TSV・ジョブ単位の結果ファイル）の保持期間は 1 時間**。経過後は自動削除（現状はジョブ一覧アクセス時に随時クリーンアップ。将来 Celery beat 化可）。※ 変異単位の自動判定キャッシュ（FR-CACHE）は対象外で、参照データ更新まで永続保持。
 - **NFR-OPS-4**: ログ収集、ヘルスチェック（DB `pg_isready`、redis `PING`、transvar `/health`）。
 
@@ -275,19 +275,19 @@
 - `AccountRequest`（アカウント発行リクエスト: 氏名・所属・メール・目的・状態）
 - `AnalysisJob`（種別: single/batch、入力、assembly、ステータス、Celery タスク ID、結果ファイル、所有者、作成日時、**成果物有効期限 = 作成 +1 時間**）
 - `VariantResultCache`（変異キャッシュ: 正規化変異キー〔assembly, chrom, pos, ref, alt〕＋ エンジン版 ＋ **参照データ版署名**、分類結果 JSON、作成/更新日時。FR-CACHE）
-- `ReferenceDataVersion`（使用中参照データ〔HUHVar 各データ・TransVar〕の版署名 = ファイルごとの ハッシュ＋サイズ＋mtime。更新検知とキャッシュ無効化に使用）
+- `ReferenceDataVersion`（使用中参照データ〔HUVar 各データ・TransVar〕の版署名 = ファイルごとの ハッシュ＋サイズ＋mtime。更新検知とキャッシュ無効化に使用）
 - `VariantResult`（単一変異の最終結果・分類・スコア。ジョブ/ユーザー紐づけ）
 - `CriterionEdit`（手動編集: criterion・strength・evidence・編集者・日時）— supplement 相当
 - `AuditLog`
 
-## 7. ディレクトリ構成案（HUHVar_app）
+## 7. ディレクトリ構成案（HUVar_app）
 
 ```
-HUHVar_app/
+HUVar_app/
 ├── docker-compose.yml          # テスト（HTTP 28080）
 ├── docker-compose.prod.yml     # 本番（HTTPS 28443）
 ├── .env / .env.prod
-├── requirements.txt            # Django4.2, psycopg2, celery, redis, HUHVar(acmg-classifier) ほか（app/worker 用）
+├── requirements.txt            # Django4.2, psycopg2, celery, redis, HUVar(acmg-classifier) ほか（app/worker 用）
 ├── containers/
 │   ├── django/   (Dockerfile, entrypoint.sh)       # Python 3.11（app/worker 共用イメージ）
 │   ├── transvar/ (Dockerfile, app.py)              # Python 3.9 + transvar 2.5.10
@@ -304,7 +304,7 @@ HUHVar_app/
     └── requirements.md         # 本書
 ```
 
-> 注: HUHVar 解析データ（数 GB）と TransVar 参照（`/tools/transvar`、vas と共用）はホストパスからボリュームマウントし、リポジトリには含めない。
+> 注: HUVar 解析データ（数 GB）と TransVar 参照（`/tools/transvar`、vas と共用）はホストパスからボリュームマウントし、リポジトリには含めない。
 
 ## 8. 未確定・要確認事項
 
@@ -335,11 +335,11 @@ HUHVar_app/
 | v0.4 | 2026-06-15 | 参照データ版署名を「ファイルごとの ハッシュ＋サイズ＋mtime」に確定／単一変異解析は同期実行（即応答）・バッチのみ Celery に確定。全項目確定 |
 | v0.5 | 2026-06-15 | M1 基盤実装着手。docker compose(test/prod)・各 Dockerfile・entrypoint・nginx(/acmg)・transvar サービス雛形・Django プロジェクト(config 設定分割/celery)・accounts/analysis/api/transvar_client アプリ・データモデル・テンプレートを作成。全 Python ファイル構文検証 OK。進捗トラッカー更新（M1/M2/関連 FR を 🟡） |
 | v0.6 | 2026-06-15 | M1 を WSL で起動検証（migrate・/acmg 配信・ログイン・admin・ユーザー追加/承認）。修正: libpq-dev 追加(psycopg2 ビルド)・axes バックエンド名(AxesStandaloneBackend)・テスト用 CSRF_TRUSTED_ORIGINS(localhost:28080)・compose version 行削除。本番 HTTPS=443/HTTP=80 に確定。M1 を 🟢 に更新 |
-| v0.7 | 2026-06-15 | 本番を A 方式（vas nginx を単一フロントに流用）で確定。HUHVar 本番 compose を改修（自前 web 廃止・ホストポート非公開・サービス名 acmgapp・external network vas_default 参加）。WhiteNoise 導入でアプリ静的配信。vas nginx に upstream acmg_app と /acmg/・/acmg/api/ ロケーションを追記。HUHVar 本番 nginx conf(default.prod.conf)は A 方式では未使用 |
+| v0.7 | 2026-06-15 | 本番を A 方式（vas nginx を単一フロントに流用）で確定。HUVar 本番 compose を改修（自前 web 廃止・ホストポート非公開・サービス名 acmgapp・external network vas_default 参加）。WhiteNoise 導入でアプリ静的配信。vas nginx に upstream acmg_app と /acmg/・/acmg/api/ ロケーションを追記。HUVar 本番 nginx conf(default.prod.conf)は A 方式では未使用 |
 | v0.8 | 2026-06-15 | M2: MFA 必須化を実装。MFAEnforcementMiddleware(OTP未検証の認証ユーザーを遮断)・TOTP 登録(QR/SVG・Pillow不要)・検証フロー・LOGIN_REDIRECT_URL=mfa_setup・OTP_TOTP_ISSUER 追加。accounts に middleware/mfa views/urls/テンプレート追加。構文検証 OK。実機検証待ち |
-| v0.9 | 2026-06-15 | GitHub リポジトリ hnakahara/HUHVar_app(Private) 作成・初期コミット push(.env系は除外)。本番 A 方式を実機疎通確認: vas nginx → huhvar-app 経由で https://<domain>/acmg/api/health/ が {"status":"ok"} を返却。ポート無衝突の単一フロント構成が稼働 |
-| v0.10 | 2026-06-15 | 本番ログイン後に next が /acmg 抜き(/)になり vas ルートへ飛ぶ不具合を修正。原因は ASGI+FORCE_SCRIPT_NAME 不整合(reverse は /acmg 付き・ASGIRequest.path は root_path 未設定で裸)。本番起動を WSGI(gunicorn config.wsgi)へ変更。あわせて vas とドメイン共有のためクッキーを分離(SESSION/CSRF_COOKIE_NAME=huhvar_*、PATH=/acmg/)。別件: prod の ${REDIS_PASSWORD} 未解決と SECRET_KEY 内 $ の compose 展開警告は要対処(--env-file .env.prod 運用＋$を含まない秘密へ再生成) |
-| v0.11 | 2026-06-15 | redis 認証修正: requirepass/healthcheck をコンテナ env(env_file)から取得($$ シェル展開)し compose の ${REDIS_PASSWORD} 依存を排除(worker の AUTH エラー解消)。500 の原因を特定: nginx が /acmg をストリップ転送しつつ SCRIPT_NAME ヘッダを送ると gunicorn(WSGI) が PATH_INFO 分割で IndexError。全 nginx 設定(vas/HUHVar test/prod)から proxy_set_header SCRIPT_NAME を削除し FORCE_SCRIPT_NAME に一本化 |
+| v0.9 | 2026-06-15 | GitHub リポジトリ hnakahara/HUVar_app(Private) 作成・初期コミット push(.env系は除外)。本番 A 方式を実機疎通確認: vas nginx → huvar-app 経由で https://<domain>/acmg/api/health/ が {"status":"ok"} を返却。ポート無衝突の単一フロント構成が稼働 |
+| v0.10 | 2026-06-15 | 本番ログイン後に next が /acmg 抜き(/)になり vas ルートへ飛ぶ不具合を修正。原因は ASGI+FORCE_SCRIPT_NAME 不整合(reverse は /acmg 付き・ASGIRequest.path は root_path 未設定で裸)。本番起動を WSGI(gunicorn config.wsgi)へ変更。あわせて vas とドメイン共有のためクッキーを分離(SESSION/CSRF_COOKIE_NAME=huvar_*、PATH=/acmg/)。別件: prod の ${REDIS_PASSWORD} 未解決と SECRET_KEY 内 $ の compose 展開警告は要対処(--env-file .env.prod 運用＋$を含まない秘密へ再生成) |
+| v0.11 | 2026-06-15 | redis 認証修正: requirepass/healthcheck をコンテナ env(env_file)から取得($$ シェル展開)し compose の ${REDIS_PASSWORD} 依存を排除(worker の AUTH エラー解消)。500 の原因を特定: nginx が /acmg をストリップ転送しつつ SCRIPT_NAME ヘッダを送ると gunicorn(WSGI) が PATH_INFO 分割で IndexError。全 nginx 設定(vas/HUVar test/prod)から proxy_set_header SCRIPT_NAME を削除し FORCE_SCRIPT_NAME に一本化 |
 | v0.12 | 2026-06-15 | M2 を 🟢(本番実機で MFA 確認完了)。MFA QR を data-URI img 化。M3 着手: TransVar サービス /convert を本実装(vas 移植: canno/panno/ganno --refseq --gseq、MANE summary で MANE Select 限定、protein 3→1字、genome は g. 補完、複数候補返却)。Django 単一変異入力フロー(SingleVariantForm→transvar_client→候補選択 single_resolve→確認 single_analyze)とテンプレート追加。解析実行(run_single 連携)は M4 |
 | v0.13 | 2026-06-16 | 多言語対応(i18n: 日本語/英語 切替)要件を追加(FR-I18N-1..6)。Django 標準 i18n(LocaleMiddleware/gettext/{% translate %}/set_language)、既定 ja、/acmg 整合、専門略語は原文・UI 文言を翻訳対象。マイルストーン M9 として計画(実装は後続) |
 | v0.14 | 2026-06-16 | M3 完了(🟢)。MANE summary の列名が vas 配置版で RefSeq_nuc_major のため map が空だった不具合を修正(RefSeq_nuc→major/minor フォールバック)。本番実機で TP53:c.742C>T→MANE Select 1件(chr17:7674221G>A/p.R248W) を確認。FR-CONV 🟢、FR-IN 🟡(VCF は M5) |
@@ -350,7 +350,7 @@ HUHVar_app/
 | v0.18 | 2026-06-16 | M8 実装(🟡)。SecurityHeadersMiddleware(CSP/Permissions-Policy/X-Content-Type-Options/Referrer-Policy/X-Frame-Options を全レスポンスに付与、フロント nginx 非依存)。監査ログ: 認証イベント(signals: login/login_failed/logout)＋解析/編集/バッチ/API 操作を AuditLog 記録。API アップロード検証(.vcf/.vcf.gz・50MB)。CI(.github security.yml: ruff/bandit/pip-audit)。SECRET_KEY は $ 非含有を注記。M8 本番でヘッダ/監査ログ確認済。REDIS_PASSWORD の $ 起因の compose 警告は $ 無し再生成で解消(.env 注記追加) |
 | v0.19 | 2026-06-16 | M9 着手(🟡)。i18n: LocaleMiddleware・LANGUAGES(ja/en)・LOCALE_PATHS、config.urls に set_language、base ヘッダに言語切替セレクタ(/acmg・FORCE_SCRIPT_NAME 整合、MFA 未検証でも set_language 許可)。base/index/login/account_request を {% translate %} 化、locale/en の django.po 整備。Dockerfile に gettext 追加、entrypoint で compilemessages、.mo は gitignore |
 | v0.20 | 2026-06-16 | M9 を 🟢。残りの全ユーザー向け解析画面(single_input/single_resolve/single_result/batch_upload/batch_status/batch_list)を {% translate %} 化し en .po を拡充。本番ビルドで日英切替を確認(/acmg/single 含む)。ビューのフラッシュメッセージ/admin は軽微残として継続 |
-| v0.21 | 2026-06-16 | 実解析の本番投入。app/worker イメージに ensembl-vep=111＋samtools/bcftools/htslib を micromamba で内蔵(vas と独立)、vep は専用ラッパーで conda perl 実行(システム python:3.11 維持)。参照データを /ddrive/data→/data にマウント。エンジンは app/worker 双方で pip install -e /huhvar(worker は command 上書きで entrypoint を通らないため command に追加)。M4(単一)・M5(バッチ)・M7(API) を本番実データで検証完了し 🟢。FR-IN/SINGLE/BATCH/API も 🟢 |
+| v0.21 | 2026-06-16 | 実解析の本番投入。app/worker イメージに ensembl-vep=111＋samtools/bcftools/htslib を micromamba で内蔵(vas と独立)、vep は専用ラッパーで conda perl 実行(システム python:3.11 維持)。参照データを /ddrive/data→/data にマウント。エンジンは app/worker 双方で pip install -e /huvar(worker は command 上書きで entrypoint を通らないため command に追加)。M4(単一)・M5(バッチ)・M7(API) を本番実データで検証完了し 🟢。FR-IN/SINGLE/BATCH/API も 🟢 |
 | v0.22 | 2026-06-16 | M6(🟡) 変異結果キャッシュ。analysis/cache.py: cached_classify_single が VariantResultCache を参照(キー=assembly/chrom/pos/ref/alt/engine_version/refdata_signature)。署名は参照ファイルの size+mtime＋エンジン版の SHA-256 で、更新時に自動無効化。ReferenceDataVersion を admin 可視化用に更新。単一 web(single_analyze)/API(classify) に組込み。手動編集は非キャッシュ。バッチ per-variant は run_pipeline 一括のため未対応 |
 | v0.23 | 2026-06-16 | M6 を 🟢。バッチキャッシュ実装: cached_classify_batch が VCF を read_vcf で列挙→VariantResultCache 照合。全件キャッシュ済みならエンジン非実行で TSV 即生成、未済が1件でもあればフル解析(VEPバッチ効率維持)し全件キャッシュ。engine.classify_vcf 追加、_to_display に変異情報追加。バッチ TSV は display dict から自前生成(全クライテリア列)。tasks は cached_classify_batch を使用 |
 | v0.24 | 2026-06-16 | MANE 非該当変異の解析対応(FR-CONV-2 緩和)。TransVar /convert を「MANE Select 優先・無ければ全候補transcriptへフォールバック(is_mane_select=false)」に変更し genome 座標で重複排除。結果画面に MANE 列＋非MANE 選択注記を追加。単一(web/API)は候補選択→genome 座標で解析できるため MANE に無い変異も解析可能 |

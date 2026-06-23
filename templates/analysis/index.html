@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% load i18n %}
-{% block title %}HUHVar ACMG Classifier{% endblock %}
+{% block title %}HUVar ACMG Classifier{% endblock %}
 {% block content %}
-<h1>HUHVar ACMG Classifier</h1>
+<h1>HUVar ACMG Classifier</h1>
 <p>{% translate "バリアントの病的性を ACMG 2015 + ClinGen SVI 基準で分類します。" %}</p>
 <ul>
     <li><a href="{% url 'analysis:single_input' %}">{% translate "単一バリアント解析" %}</a>

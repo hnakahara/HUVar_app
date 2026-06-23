@@ -1,7 +1,7 @@
-"""HUHVar 解析エンジン（acmg_classifier）連携。
+"""HUVar 解析エンジン（acmg_classifier）連携。
 
 単一変異は同期実行（FR-SINGLE-1）。エンジンは app/worker イメージに
-`pip install -e /huhvar` で導入される前提（entrypoint）。未導入・参照データ未配置でも
+`pip install -e /huvar` で導入される前提（entrypoint）。未導入・参照データ未配置でも
 Django が 500 にならないよう、import とデータ参照は関数内で行い EngineUnavailable を送出する。
 """
 from __future__ import annotations
@@ -14,7 +14,7 @@ from typing import List, Optional
 # 手動編集 UI 用の strength 選択肢（Indeterminate は除外）
 STRENGTH_CHOICES = ["VeryStrong", "Strong", "ThreePoint", "Moderate", "Supporting", "NotMet"]
 
-# HUHVar 参照データ。entrypoint で /data にマウントする想定（ACMG_DATA_DIR で上書き可）。
+# HUVar 参照データ。entrypoint で /data にマウントする想定（ACMG_DATA_DIR で上書き可）。
 DATA_DIR = os.environ.get("ACMG_DATA_DIR", "/data")
 
 

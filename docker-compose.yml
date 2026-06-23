@@ -1,17 +1,17 @@
 # テスト環境（HTTP 28080）
 # 6 サービス構成: db / redis / app / worker / transvar / web
-# コンテナ名は vas と分離するため huhvar- プレフィックスを付与。
+# コンテナ名は vas と分離するため huvar- プレフィックスを付与。
 
 services:
   db:
-    container_name: huhvar-postgres
+    container_name: huvar-postgres
     build:
       context: .
       dockerfile: containers/postgres/Dockerfile
     volumes:
-      - ~/huhvar_db_data:/var/lib/postgresql/data
+      - ~/huvar_db_data:/var/lib/postgresql/data
     healthcheck:
-      test: pg_isready -U "${POSTGRES_USER:-huhvar}" || exit 1
+      test: pg_isready -U "${POSTGRES_USER:-huvar}" || exit 1
       interval: 10s
       timeout: 5s
       retries: 5
@@ -20,7 +20,7 @@ services:
       - .env
 
   redis:
-    container_name: huhvar-redis
+    container_name: huvar-redis
     image: redis:7-alpine
     # パスワードはコンテナ内 env(REDIS_PASSWORD) から取得する。
     # compose の ${...} 展開（.env 依存）に頼らないため $$ でシェル展開させる。
@@ -34,16 +34,16 @@ services:
       retries: 5
 
   app:
-    container_name: huhvar-app
-    image: huhvar-app:latest
+    container_name: huvar-app
+    image: huvar-app:latest
     build:
       context: .
       dockerfile: containers/django/Dockerfile
     volumes:
       - .:/code
       - static_volume:/static
-      - ~/HUHVar:/huhvar:ro          # HUHVar 解析エンジンのソース（pip install -e）
-      - /ddrive/data:/data          # HUHVar 参照データ
+      - ~/HUVar:/huvar:ro          # HUVar 解析エンジンのソース（pip install -e）
+      - /ddrive/data:/data          # HUVar 参照データ
       - ~/tools:/tools               # TransVar 参照（vas と共用、エンジン側参照用）
     expose:
       - "8000"
@@ -57,18 +57,18 @@ services:
         condition: service_healthy
 
   worker:
-    container_name: huhvar-worker
-    image: huhvar-app:latest
+    container_name: huvar-worker
+    image: huvar-app:latest
     build:
       context: .
       dockerfile: containers/django/Dockerfile
     volumes:
       - .:/code
-      - ~/HUHVar:/huhvar:ro
+      - ~/HUVar:/huvar:ro
       - /ddrive/data:/data
       - ~/tools:/tools
     # Celery 直列処理（concurrency=1）
-    command: sh -c "if [ -f /huhvar/pyproject.toml ]; then pip install -e /huhvar; fi && celery -A config worker --loglevel=info --concurrency=1"
+    command: sh -c "if [ -f /huvar/pyproject.toml ]; then pip install -e /huvar; fi && celery -A config worker --loglevel=info --concurrency=1"
     env_file:
       - .env
     depends_on:
@@ -76,7 +76,7 @@ services:
       - redis
 
   transvar:
-    container_name: huhvar-transvar
+    container_name: huvar-transvar
     build:
       context: .
       dockerfile: containers/transvar/Dockerfile
@@ -88,7 +88,7 @@ services:
       - .env
 
   web:
-    container_name: huhvar-web
+    container_name: huvar-web
     build:
       context: .
       dockerfile: containers/nginx/Dockerfile

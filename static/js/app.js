@@ -1,4 +1,4 @@
-// HUHVar 共通フロントスクリプト（CSP nonce 化に伴い、インライン属性ハンドラを外部化）。
+// HUVar 共通フロントスクリプト（CSP nonce 化に伴い、インライン属性ハンドラを外部化）。
 document.addEventListener("DOMContentLoaded", function () {
   // 言語セレクタ: 変更で所属フォームを自動送信
   document.querySelectorAll("select[data-autosubmit]").forEach(function (el) {
