@@ -22,7 +22,7 @@ class EngineUnavailable(RuntimeError):
     """エンジン未導入・参照データ未配置・解析失敗を表す。"""
 
 
-def _build_config(assembly: str):
+def _build_config(assembly: str, openspliceai_flanking_size: Optional[int] = None):
     from acmg_classifier.config import Config
     from acmg_classifier.models.enums import Assembly
 
@@ -30,7 +30,11 @@ def _build_config(assembly: str):
         asm = Assembly(assembly)
     except ValueError as exc:
         raise EngineUnavailable(f"未対応のアセンブリ: {assembly}") from exc
-    return Config(data_dir=Path(DATA_DIR), assembly=asm)
+    kwargs = {}
+    # 単一バリアント解析のみ高感度な flanking を指定（batch は既定 80nt のまま）。
+    if openspliceai_flanking_size is not None:
+        kwargs["openspliceai_flanking_size"] = openspliceai_flanking_size
+    return Config(data_dir=Path(DATA_DIR), assembly=asm, **kwargs)
 
 
 # アセンブリ → eRepo マニュアルクライテリアのファイル接尾辞
@@ -132,7 +136,8 @@ def classify_single(
             f"解析エンジン(acmg_classifier)が利用できません: {exc}"
         ) from exc
 
-    cfg = _build_config(assembly)
+    # 単一バリアントは OpenSpliceAI を高感度設定（2000nt）で実行する。batch は既定 80nt。
+    cfg = _build_config(assembly, openspliceai_flanking_size=2000)
     # 変異キー（chrom 正規化込み）を算出してマニュアル照合・supplement に使う
     try:
         from acmg_classifier.models.enums import Assembly

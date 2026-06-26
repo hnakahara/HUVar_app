@@ -19,6 +19,7 @@ from typing import Tuple
 _TRACKED_ATTRS = [
     "genome_fasta",
     "gnomad_duckdb",
+    "gnomad_noncancer_duckdb",
     "gnomad_constraint_tsv",
     "clinvar_vcf",
     "clinvar_sqlite",
