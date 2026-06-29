@@ -37,8 +37,25 @@ def _build_config(assembly: str, openspliceai_flanking_size: Optional[int] = Non
     return Config(data_dir=Path(DATA_DIR), assembly=asm, **kwargs)
 
 
-# アセンブリ → eRepo マニュアルクライテリアのファイル接尾辞
+# アセンブリ → eRepo マニュアルクライテリアのファイル接尾辞 / パーマリンク表記
 _HGVER = {"GRCh38": "hg38", "GRCh37": "hg19"}
+# パーマリンク URL のトークン → 内部 Assembly 値。hg / GRCh どちらの表記も受理。
+_ASSEMBLY_TOKENS = {
+    "hg38": "GRCh38", "grch38": "GRCh38",
+    "hg19": "GRCh37", "grch37": "GRCh37",
+}
+
+
+def assembly_to_hg(assembly: str) -> str:
+    """内部 Assembly 値（GRCh38/GRCh37）→ パーマリンク表記（hg38/hg19）。
+    未知の値はそのまま返す。"""
+    return _HGVER.get(assembly, assembly)
+
+
+def parse_assembly_token(token: str) -> Optional[str]:
+    """パーマリンクの assembly トークン（hg38/hg19/GRCh38/GRCh37、大小無視）を
+    内部 Assembly 値へ。未対応は None。"""
+    return _ASSEMBLY_TOKENS.get((token or "").strip().lower())
 
 
 def manual_criteria_path(cfg):
@@ -189,9 +206,14 @@ def classify_single(
         raise EngineUnavailable(f"解析に失敗しました: {exc}") from exc
 
     display = _to_display(conservative)
-    gene = _gene_from_ann(ann)
-    if gene and not display.get("gene_symbol"):
-        display["gene_symbol"] = gene
+    # 座標URL経由など variant メタ(gene/transcript/HGVS)が未設定のとき、
+    # アノテーションの primary consequence から補完する（run_single 由来は空のため）。
+    pc = getattr(ann, "primary_consequence", None)
+    if pc is not None:
+        for key in ("gene_symbol", "transcript_id", "hgvs_c", "hgvs_p"):
+            if not display.get(key):
+                display[key] = getattr(pc, key, "") or ""
+    gene = display.get("gene_symbol", "")
 
     # 多疾患遺伝子のみ CSpec 別に事前評価（同一 annotation を再利用、TSV 差し替えのみ）。
     multispec = multispec_tsv_path(cfg)

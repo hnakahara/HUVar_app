@@ -10,6 +10,8 @@ urlpatterns = [
     # 単一変異
     path("single/", views.single_input, name="single_input"),
     path("single/analyze/", views.single_analyze, name="single_analyze"),
+    # 座標パーマリンク（Franklin風）: chrom-pos-ref-alt-assembly
+    path("single/v/<str:locus>/", views.single_variant, name="single_variant"),
     path("single/result/<int:pk>/", views.single_result, name="single_result"),
     path("single/result/<int:pk>/cspec/<str:cspec_id>/", views.single_cspec, name="single_cspec"),
     path("single/result/<int:pk>/edit/", views.single_edit, name="single_edit"),

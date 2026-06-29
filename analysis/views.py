@@ -2,11 +2,13 @@ import csv
 import io
 import json
 import logging
+import re
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 
 from accounts.notifications import notify_admin
@@ -14,7 +16,13 @@ from transvar_client.client import TransvarError
 from transvar_client.client import convert as transvar_convert
 
 from .cache import cached_classify_single
-from .engine import STRENGTH_CHOICES, EngineUnavailable, classify_single
+from .engine import (
+    STRENGTH_CHOICES,
+    EngineUnavailable,
+    assembly_to_hg,
+    classify_single,
+    parse_assembly_token,
+)
 from .forms import BatchVariantForm, SingleVariantForm
 from .models import AnalysisJob, AuditLog, VariantResult
 from .tasks import cleanup_expired_jobs, run_batch_classification
@@ -83,6 +91,121 @@ def _variant_from_post(request) -> dict:
     }
 
 
+_ALLELE_RE = re.compile(r"^[ACGTN]+$", re.IGNORECASE)
+
+
+def _parse_locus(locus: str):
+    """パーマリンク locus 'chrom-pos-ref-alt-assembly' を解析する純粋関数。
+
+    ref/alt は塩基列で '-' を含まないため末尾固定分割(rsplit)が安全。
+    成功で (chrom, pos:int, ref, alt, assembly:内部値) を、不正なら None を返す。
+    例: 'chr3-52576541-C-T-hg38' -> ('chr3', 52576541, 'C', 'T', 'GRCh38')
+    """
+    parts = (locus or "").rsplit("-", 4)
+    if len(parts) != 5:
+        return None
+    chrom, pos, ref, alt, asm_token = parts
+    assembly = parse_assembly_token(asm_token)
+    # chrom に '-' が残る = 余分な区切りを含む不正入力（rsplit が先頭に残す）。
+    if not assembly or not chrom or "-" in chrom:
+        return None
+    try:
+        pos_i = int(pos)
+    except (TypeError, ValueError):
+        return None
+    if pos_i <= 0:
+        return None
+    ref, alt = ref.upper(), alt.upper()
+    if not (_ALLELE_RE.match(ref) and _ALLELE_RE.match(alt)):
+        return None
+    return chrom, pos_i, ref, alt, assembly
+
+
+def _permalink_from_variant(request, variant: dict) -> str:
+    """variant dict から共有用の座標パーマリンク（絶対URL）を組み立てる。
+    必要項目が欠ける場合は空文字。"""
+    if not variant:
+        return ""
+    if any(variant.get(k) in (None, "") for k in ("assembly", "chrom", "pos", "ref", "alt")):
+        return ""
+    hg = assembly_to_hg(str(variant["assembly"]))
+    locus = f'{variant["chrom"]}-{variant["pos"]}-{variant["ref"]}-{variant["alt"]}-{hg}'
+    return request.build_absolute_uri(reverse("analysis:single_variant", args=[locus]))
+
+
+@login_required
+def single_variant(request, locus: str):
+    """座標パーマリンク（chrom-pos-ref-alt-assembly）から直接解析して表示する。
+
+    アドレスバーは座標URLのまま。結果は VariantResult に get_or_create し、
+    編集/CSpec切替/export は従来どおり pk ベースで動作する。
+    """
+    parsed = _parse_locus(locus)
+    if not parsed:
+        raise Http404("不正なバリアント座標です。")
+    chrom, pos, ref, alt, assembly = parsed
+
+    try:
+        display, _hit = cached_classify_single(assembly, chrom, pos, ref, alt)
+    except (EngineUnavailable, ValueError) as exc:
+        logger.warning("single_variant engine error: %s", exc)
+        return render(request, "analysis/single_result.html", {
+            "variant": {"assembly": assembly, "chrom": chrom, "pos": pos,
+                        "ref": ref, "alt": alt},
+            "engine_error": _ENGINE_ERROR_MSG,
+            "strength_choices": STRENGTH_CHOICES,
+        })
+
+    variant = {
+        "assembly": assembly, "chrom": chrom, "pos": pos, "ref": ref, "alt": alt,
+        "gene": display.get("gene_symbol", ""),
+        "transcript": display.get("transcript_id", ""),
+        "hgvs_c": display.get("hgvs_c", ""),
+        "hgvs_p": display.get("hgvs_p", ""),
+    }
+    variant_id = f"{chrom}:{pos}:{ref}:{alt}"
+    result_json = {"variant": variant, "display": display, "edits": []}
+
+    vr = (VariantResult.objects
+          .filter(job__owner=request.user, variant_id=variant_id)
+          .order_by("-id").first())
+    if vr is None:
+        job = AnalysisJob.objects.create(
+            owner=request.user, kind=AnalysisJob.Kind.SINGLE, assembly=assembly,
+            input_text=f"{chrom}:{pos}{ref}>{alt}", status=AnalysisJob.Status.DONE,
+        )
+        vr = VariantResult.objects.create(
+            job=job, variant_id=variant_id, gene_symbol=variant["gene"],
+            transcript_id=variant["transcript"], hgvs_c=variant["hgvs_c"],
+            hgvs_p=variant["hgvs_p"], classification=display["classification_bayesian"],
+            bayesian_score=display["bayesian_score"], result_json=result_json,
+        )
+        AuditLog.objects.create(user=request.user, action="single_variant",
+                                detail=variant_id)
+    else:
+        # 既存結果を最新 display で更新（参照データ更新を反映、pk は安定）。
+        vr.gene_symbol = variant["gene"]
+        vr.transcript_id = variant["transcript"]
+        vr.hgvs_c = variant["hgvs_c"]
+        vr.hgvs_p = variant["hgvs_p"]
+        vr.classification = display["classification_bayesian"]
+        vr.bayesian_score = display["bayesian_score"]
+        vr.result_json = result_json
+        vr.save()
+
+    return render(request, "analysis/single_result.html", {
+        "result_id": vr.pk,
+        "variant": variant,
+        "display": display,
+        "edits": [],
+        "strength_choices": STRENGTH_CHOICES,
+        "available_cspecs": display.get("available_cspecs", []),
+        "active_cspec": "",
+        "permalink": _permalink_from_variant(request, variant),
+        "export_json": json.dumps(result_json, ensure_ascii=False),
+    })
+
+
 @login_required
 def single_analyze(request):
     """選択された変異（解決済み genome 座標）を ACMG 解析し、結果を保存して表示する。"""
@@ -148,15 +271,17 @@ def single_result(request, pk: int):
     vr = get_object_or_404(VariantResult, pk=pk, job__owner=request.user)
     data = vr.result_json or {}
     display = data.get("display", {}) or {}
+    variant = data.get("variant", {})
     return render(request, "analysis/single_result.html", {
         "result_id": vr.pk,
-        "variant": data.get("variant", {}),
+        "variant": variant,
         "display": display,
         "edits": data.get("edits", []),
         "strength_choices": STRENGTH_CHOICES,
         # 多疾患遺伝子(RYR1/ACTA1/VWF)のみ非空。保守的(既定)が active。
         "available_cspecs": display.get("available_cspecs", []),
         "active_cspec": "",
+        "permalink": _permalink_from_variant(request, variant),
         # 画面に表示中の内容をそのままエクスポートできるよう JSON を埋め込む
         "export_json": json.dumps(data, ensure_ascii=False),
     })
@@ -194,6 +319,7 @@ def single_cspec(request, pk: int, cspec_id: str):
         "strength_choices": STRENGTH_CHOICES,
         "available_cspecs": available,
         "active_cspec": active,
+        "permalink": _permalink_from_variant(request, variant),
         "export_json": json.dumps(export_data, ensure_ascii=False),
     })
 
@@ -240,6 +366,7 @@ def single_edit(request, pk: int):
         "display": display,
         "edits": entries,
         "strength_choices": STRENGTH_CHOICES,
+        "permalink": _permalink_from_variant(request, variant),
         # 未保存の編集結果をそのままエクスポートできるよう JSON を埋め込む
         "export_json": json.dumps(edited, ensure_ascii=False),
     })
