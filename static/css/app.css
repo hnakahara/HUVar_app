@@ -290,6 +290,44 @@ li { margin: .25em 0; }
 .badge-benign { background: rgba(52, 211, 153, .15); color: #6ee7b7; border-color: rgba(52, 211, 153, .4); }
 .badge-vus { background: rgba(148, 163, 184, .14); color: #cbd5e1; border-color: rgba(148, 163, 184, .3); }
 
+/* ---- CSpec（判定基準）切替 ---- */
+.cspec-switch {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  padding: 12px 18px;
+  margin: 1.2em 0;
+}
+.cspec-switch .cspec-label { color: #f1f5ff; font-weight: 700; }
+.cspec-switch .cspec-hint { color: var(--muted); font-size: .86rem; margin: .2em 0 .7em; }
+.cspec-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.cspec-chip {
+  font-family: var(--mono);
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+  background: rgba(148, 163, 184, .06);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 14px;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+.cspec-chip:hover {
+  background: rgba(34, 211, 238, .12);
+  border-color: var(--border-strong);
+  color: #fff;
+  text-decoration: none;
+}
+.cspec-chip.active {
+  background: linear-gradient(90deg, rgba(34, 211, 238, .22), rgba(52, 211, 153, .22));
+  border-color: var(--border-strong);
+  color: #eaf9ff;
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, .25);
+}
+.cspec-current { color: var(--muted); font-size: .84rem; margin: .7em 0 0; }
+
 /* ---- クライテリア判定タグ ---- */
 .tag {
   display: inline-block; padding: 2px 10px; border-radius: 999px;
