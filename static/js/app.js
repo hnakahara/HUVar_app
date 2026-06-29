@@ -29,4 +29,37 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   }
+
+  // data-copy ボタン: 指定 id の要素テキストをクリップボードへコピー。
+  // navigator.clipboard は secure context (HTTPS/localhost) のみのため、
+  // HTTP 環境では execCommand("copy") にフォールバックする。
+  document.querySelectorAll("button[data-copy]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var src = document.getElementById(btn.getAttribute("data-copy"));
+      if (!src) return;
+      var text = src.textContent;
+      var flash = function () {
+        var orig = btn.textContent;
+        btn.textContent = "✓";
+        setTimeout(function () { btn.textContent = orig; }, 1200);
+      };
+      var fallback = function () {
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.top = "0";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        try { document.execCommand("copy"); flash(); } catch (e) { /* noop */ }
+        document.body.removeChild(ta);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(flash).catch(fallback);
+      } else {
+        fallback();
+      }
+    });
+  });
 });
