@@ -147,14 +147,54 @@ def single_analyze(request):
 def single_result(request, pk: int):
     vr = get_object_or_404(VariantResult, pk=pk, job__owner=request.user)
     data = vr.result_json or {}
+    display = data.get("display", {}) or {}
     return render(request, "analysis/single_result.html", {
         "result_id": vr.pk,
         "variant": data.get("variant", {}),
-        "display": data.get("display", {}),
+        "display": display,
         "edits": data.get("edits", []),
         "strength_choices": STRENGTH_CHOICES,
+        # 多疾患遺伝子(RYR1/ACTA1/VWF)のみ非空。保守的(既定)が active。
+        "available_cspecs": display.get("available_cspecs", []),
+        "active_cspec": "",
         # 画面に表示中の内容をそのままエクスポートできるよう JSON を埋め込む
         "export_json": json.dumps(data, ensure_ascii=False),
+    })
+
+
+@login_required
+def single_cspec(request, pk: int, cspec_id: str):
+    """保存済み結果を特定 CSpec（疾患/病型）の事前計算結果に切り替えて表示する。
+
+    再解析は行わず、single_analyze 時に同梱した cspec_evaluations から取り出すだけ。
+    cspec_id が空 / "conservative" のときは保守的(既定)評価に戻す。
+    """
+    vr = get_object_or_404(VariantResult, pk=pk, job__owner=request.user)
+    data = vr.result_json or {}
+    variant = data.get("variant", {})
+    base_display = data.get("display", {}) or {}
+    available = base_display.get("available_cspecs", []) or []
+
+    if cspec_id in ("", "conservative"):
+        display = base_display
+        active = ""
+    else:
+        evals = base_display.get("cspec_evaluations", {}) or {}
+        display = evals.get(cspec_id)
+        if display is None:
+            raise Http404("指定された CSpec の結果がありません。")
+        active = cspec_id
+
+    export_data = {"variant": variant, "display": display, "edits": []}
+    return render(request, "analysis/single_result.html", {
+        "result_id": vr.pk,
+        "variant": variant,
+        "display": display,
+        "edits": [],
+        "strength_choices": STRENGTH_CHOICES,
+        "available_cspecs": available,
+        "active_cspec": active,
+        "export_json": json.dumps(export_data, ensure_ascii=False),
     })
 
 

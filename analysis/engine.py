@@ -82,6 +82,18 @@ def _build_supplement(entries: Optional[List[dict]], variant_id: str):
     return out or None
 
 
+def _gene_from_ann(ann) -> str:
+    """アノテーションの primary consequence から遺伝子シンボルを取り出す。
+    CSpec(多疾患)判定のキー。取れなければ空文字。"""
+    pc = getattr(ann, "primary_consequence", None)
+    return (getattr(pc, "gene_symbol", "") if pc else "") or ""
+
+
+def multispec_tsv_path(cfg):
+    """CSpec 別閾値テーブル(disease_prevalence_multispec.tsv)のパス。"""
+    return cfg.data_dir / "shared" / "disease_prevalence_multispec.tsv"
+
+
 def _to_display(result) -> dict:
     """ClassificationResult -> テンプレート/DB 用の素の dict。
 
@@ -128,9 +140,17 @@ def classify_single(
     """単一変異を ACMG 分類し、全クライテリア＋分類結果を dict で返す。
 
     supplement_entries: [{criterion, strength, evidence}] 手動編集（merge）。
+
+    RYR1/ACTA1/VWF など複数 CSpec を持つ遺伝子では、保守的（既定）評価に加えて
+    各 CSpec での評価も事前計算して同梱する（アノテーションは1回のみ実行し、判定
+    層だけ CSpec 別の閾値テーブルで再評価する）。返り値 dict に以下を追加:
+      - available_cspecs: [{cspec_id, label, source_gn}]（無ければ []）
+      - cspec_evaluations: {cspec_id: display}（保守的版と同じ形）
+      - active_cspec: 既定は ""（保守的）。表示切替は保存済み結果から行う。
     """
     try:
-        from acmg_classifier.pipeline.pipeline import run_single
+        from acmg_classifier.pipeline.pipeline import annotate_one, classify_annotated
+        from acmg_classifier.criteria.cspec_overlay import available_cspecs, overlaid_config
     except Exception as exc:  # noqa: BLE001  (ImportError 等)
         raise EngineUnavailable(
             f"解析エンジン(acmg_classifier)が利用できません: {exc}"
@@ -157,8 +177,10 @@ def classify_single(
         manual = [m for m in manual if getattr(m, "criterion", None) not in edited]
     supplement = (list(manual) + list(user)) or None
 
+    # アノテーション（重い処理）は1回だけ。判定は保守的版＋各 CSpec 版で使い回す。
     try:
-        result = run_single(chrom, int(pos), ref, alt, cfg, supplement=supplement)
+        variant, ann = annotate_one(chrom, int(pos), ref, alt, cfg)
+        conservative = classify_annotated(variant, ann, cfg, supplement=supplement)
     except FileNotFoundError as exc:
         raise EngineUnavailable(
             f"参照データが見つかりません（{DATA_DIR} 配下を確認してください）: {exc}"
@@ -166,7 +188,27 @@ def classify_single(
     except Exception as exc:  # noqa: BLE001
         raise EngineUnavailable(f"解析に失敗しました: {exc}") from exc
 
-    return _to_display(result)
+    display = _to_display(conservative)
+    gene = _gene_from_ann(ann)
+    if gene and not display.get("gene_symbol"):
+        display["gene_symbol"] = gene
+
+    # 多疾患遺伝子のみ CSpec 別に事前評価（同一 annotation を再利用、TSV 差し替えのみ）。
+    multispec = multispec_tsv_path(cfg)
+    cspecs = available_cspecs(gene, multispec)
+    cspec_evaluations: dict = {}
+    for cs in cspecs:
+        try:
+            with overlaid_config(cfg, multispec, gene, cs["cspec_id"]) as c2:
+                r = classify_annotated(variant, ann, c2, supplement=supplement)
+            cspec_evaluations[cs["cspec_id"]] = _to_display(r)
+        except Exception:  # noqa: BLE001  CSpec 評価の失敗は保守的結果を壊さない
+            continue
+    # 実際に評価できた CSpec のみ提示する。
+    display["available_cspecs"] = [c for c in cspecs if c["cspec_id"] in cspec_evaluations]
+    display["cspec_evaluations"] = cspec_evaluations
+    display["active_cspec"] = ""
+    return display
 
 
 def classify_batch(vcf_path: str, output_tsv_path: str, assembly: str) -> int:

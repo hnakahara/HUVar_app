@@ -79,6 +79,12 @@ def _tracked_paths(assembly: str):
             out.append(("erepo_manual", mp))
     except Exception:  # noqa: BLE001
         pass
+    # CSpec 別閾値テーブル。更新時に cspec_evaluations を含むキャッシュを無効化する。
+    try:
+        from .engine import multispec_tsv_path
+        out.append(("multispec", multispec_tsv_path(cfg)))
+    except Exception:  # noqa: BLE001
+        pass
     return out
 
 

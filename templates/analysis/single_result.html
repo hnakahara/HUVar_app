@@ -19,6 +19,31 @@
 {% endif %}
 {% else %}
 
+{% if available_cspecs %}
+<div class="cspec-switch" style="margin:12px 0;padding:8px 12px;border:1px solid var(--border,#ccc);border-radius:6px;background:var(--surface,#f7f7f7);">
+    <strong>{% translate "CSpec（疾患・遺伝形式）" %}:</strong>
+    <span style="color:var(--muted);">{% translate "この遺伝子は複数の ClinGen 専門家パネル基準を持ちます。判定基準を切り替えられます。" %}</span>
+    <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;">
+        <a href="{% url 'analysis:single_result' result_id %}"
+           class="badge {% if not active_cspec %}badge-path{% else %}badge-vus{% endif %}"
+           style="text-decoration:none;{% if not active_cspec %}font-weight:bold;{% endif %}">
+           {% translate "保守的（全病型を包含・既定）" %}</a>
+        {% for cs in available_cspecs %}
+        <a href="{% url 'analysis:single_cspec' result_id cs.cspec_id %}"
+           class="badge {% if active_cspec == cs.cspec_id %}badge-path{% else %}badge-vus{% endif %}"
+           style="text-decoration:none;{% if active_cspec == cs.cspec_id %}font-weight:bold;{% endif %}"
+           title="{{ cs.source_gn }}">{{ cs.label }}</a>
+        {% endfor %}
+    </div>
+    {% if active_cspec %}
+    <p style="margin:6px 0 0;color:var(--muted);">
+        {% translate "現在の判定基準:" %} <strong>{% for cs in available_cspecs %}{% if cs.cspec_id == active_cspec %}{{ cs.label }}（{{ cs.source_gn }}）{% endif %}{% endfor %}</strong></p>
+    {% else %}
+    <p style="margin:6px 0 0;color:var(--muted);">{% translate "現在の判定基準: 保守的集約（複数 CSpec の最も保守的な閾値）" %}</p>
+    {% endif %}
+</div>
+{% endif %}
+
 <h2>{% translate "分類" %}</h2>
 <ul>
     <li><strong>ACMG 2015</strong>:
