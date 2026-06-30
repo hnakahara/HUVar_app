@@ -1,9 +1,14 @@
 # HUVar ACMG Classifier
 
-A web application and REST API that classifies the pathogenicity of genetic variants using the
-**ACMG 2015 + ClinGen SVI** criteria. It provides single-variant analysis, VCF batch analysis,
-result caching, multi-factor authentication, internationalization (Japanese/English), and an
-interactive API reference (Swagger UI). It runs via Docker Compose.
+A web application and REST API that **visualizes** the
+[HUVar](https://github.com/hnakahara/HUVar) `acmg_classifier` engine, classifying the pathogenicity
+of genetic variants using the **ACMG 2015 + ClinGen SVI** criteria. It provides single-variant
+analysis, VCF batch analysis, result caching, multi-factor authentication, internationalization
+(Japanese/English), and an interactive API reference (Swagger UI). It runs via Docker Compose.
+
+> This app is the web/visualization front end; the classification logic itself lives in the
+> separate [HUVar](https://github.com/hnakahara/HUVar) repository (mounted as the `acmg_classifier`
+> analysis engine).
 
 > The app is served under the `/acmg` sub-path of the same domain shared with an existing service (vas).
 
@@ -21,6 +26,15 @@ Sign-in (and an API token, issued by an administrator) is required for most feat
 - **Single-variant analysis**: Accepts genome coordinates / cDNA / protein notation
   (e.g. `TP53:c.742C>T`, or space-separated `TP53 R248W`). Coordinates are converted with TransVar
   **limited to MANE Select**, then all ACMG criteria and the classification (ACMG 2015 / Bayesian) are shown.
+  Single-variant analysis runs OpenSpliceAI in a **high-sensitivity setting (2000 nt flanking)**
+  (batch analysis keeps the default 80 nt).
+- **CSpec (disease-specific) switching**: For genes with multiple ClinGen VCEP specifications
+  (e.g. `RYR1` / `ACTA1` / `VWF`), the conservative (default) evaluation plus each CSpec evaluation
+  are pre-computed in a single annotation pass. The result page lets you switch the displayed
+  disease/CSpec without re-running the engine.
+- **Coordinate permalink (Franklin-style)**: Each result has a shareable URL of the form
+  `single/v/<chrom>-<pos>-<ref>-<alt>-<assembly>/` that re-runs (or reuses the cached) analysis
+  directly from the coordinates.
 - **Manual editing & re-classification**: Override each criterion's strength/evidence and re-classify
   (results are shown on screen only and are **not** persisted). Results can be downloaded as **JSON / TSV**.
 - **Batch analysis (VCF)**: Upload a VCF, processed serially via Celery, producing a TSV with all
@@ -31,8 +45,11 @@ Sign-in (and an API token, issued by an administrator) is required for most feat
   are exposed, with a form to request an API token.
 - **Authentication & security**: Login + **mandatory MFA (TOTP)**, login lockout (django-axes),
   CSP (nonce) and security headers, IP rate limiting and honeypot on public forms, audit logging,
-  and admin email notifications.
+  and admin email notifications (login / analysis events, including the assembly, both
+  ACMG 2015 / Bayesian classifications, and the list of **Met criteria**).
 - **i18n**: Japanese / English switching.
+- **Header link to source**: The page header links to the upstream
+  [HUVar](https://github.com/hnakahara/HUVar) repository.
 
 ---
 
@@ -131,21 +148,6 @@ the account from the Django admin.
 ## Tests
 ```bash
 docker compose exec app python manage.py test
-```
-
----
-
-## Project layout (excerpt)
-
-```
-config/        Django project settings (settings: base/test/prod, celery, urls)
-accounts/      Auth, users, MFA, account/token requests, notifications, CSP
-analysis/      Single/batch analysis, results, cache, engine integration, Celery tasks
-api/           REST API (views, serializers, OpenAPI)
-transvar_client/  HTTP client for the TransVar service
-containers/    Dockerfiles / nginx config per service
-templates/ static/ locale/  Pages, static assets, translation catalogs
-docs/          Requirements, etc.
 ```
 
 ---
