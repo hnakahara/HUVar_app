@@ -159,6 +159,27 @@ msgstr "Analyze a new VCF"
 msgid "解析結果"
 msgstr "Analysis result"
 
+msgid "パーマリンク"
+msgstr "Permalink"
+
+msgid "コピー"
+msgstr "Copy"
+
+msgid "CSpec（疾患・遺伝形式）"
+msgstr "CSpec (disease / inheritance)"
+
+msgid "この遺伝子は複数の ClinGen 専門家パネル基準を持ちます。判定基準を切り替えられます。"
+msgstr "This gene has multiple ClinGen expert panel specifications. You can switch the classification criteria."
+
+msgid "保守的（全病型を包含・既定）"
+msgstr "Conservative (covers all disease types; default)"
+
+msgid "現在の判定基準:"
+msgstr "Current criteria:"
+
+msgid "現在の判定基準: 保守的集約（複数 CSpec の最も保守的な閾値）"
+msgstr "Current criteria: conservative aggregate (the most conservative thresholds across multiple CSpecs)"
+
 msgid "ACMG 解析結果"
 msgstr "ACMG analysis result"
 
