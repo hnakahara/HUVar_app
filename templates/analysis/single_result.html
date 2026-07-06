@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load i18n %}
+{% load i18n_extras %}
 {% block title %}{% translate "解析結果" %} | HUVar{% endblock %}
 {% block content %}
 <h1>{% translate "ACMG 解析結果" %}</h1>
@@ -38,12 +39,12 @@
         {% for cs in available_cspecs %}
         <a href="{% url 'analysis:single_cspec' result_id cs.cspec_id %}"
            class="cspec-chip{% if active_cspec == cs.cspec_id %} active{% endif %}"
-           title="{{ cs.source_gn }}">{{ cs.label }}</a>
+           title="{{ cs.source_gn }}">{{ cs.label|tr }}</a>
         {% endfor %}
     </div>
     {% if active_cspec %}
     <p class="cspec-current">{% translate "現在の判定基準:" %}
-        <strong>{% for cs in available_cspecs %}{% if cs.cspec_id == active_cspec %}{{ cs.label }}（{{ cs.source_gn }}）{% endif %}{% endfor %}</strong></p>
+        <strong>{% for cs in available_cspecs %}{% if cs.cspec_id == active_cspec %}{{ cs.label|tr }}（{{ cs.source_gn }}）{% endif %}{% endfor %}</strong></p>
     {% else %}
     <p class="cspec-current">{% translate "現在の判定基準: 保守的集約（複数 CSpec の最も保守的な閾値）" %}</p>
     {% endif %}
