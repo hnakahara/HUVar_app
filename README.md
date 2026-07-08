@@ -1,4 +1,4 @@
-# HUVar ACMG Classifier
+# HUVar ACMG Classifier Graphical User Interface
 
 A web application and REST API that **visualizes** the
 [HUVar](https://github.com/hnakahara/HUVar) `acmg_classifier` engine, classifying the pathogenicity
@@ -21,6 +21,34 @@ Sign-in (and an API token, issued by an administrator) is required for most feat
 
 ---
 
+## Input / Output
+
+### Input
+
+| Mode | Accepted input |
+|------|----------------|
+| **Single-variant** | One variant as **genome coordinate** (e.g. `chr17:7674221G>A`), **cDNA** (e.g. `TP53:c.742C>T` / `TP53 742C>T`), or **protein** (e.g. `TP53 R248W`). The `c.` / `p.` prefix is optional; input type can be auto-detected or specified explicitly. |
+| **Assembly** | `GRCh38` (default) or `GRCh37`, selectable for every analysis. |
+| **Batch (VCF)** | A **`.vcf` or `.vcf.gz`** file. **Maximum upload size: 50 MB** (aligned with the nginx `client_max_body_size` limit; larger files are rejected). |
+| **CSpec** | For supported genes, the displayed disease/CSpec can be switched on the result page (see below). |
+
+### Output
+
+| Mode | Output |
+|------|--------|
+| **Single-variant** | All ACMG criteria with their met/unmet state and strength, the **ACMG 2015** classification and the **Bayesian (point-based)** classification, the resolved coordinate/assembly, and the affected gene/transcript. Downloadable as **JSON** or **TSV**. |
+| **Batch (VCF)** | A **TSV** file with one row per variant containing all criteria columns and both classifications. Retrieved from job history; artifacts are retained for a configurable period (default **1 hour**). |
+| **API** | `POST /api/classify/` returns the classification as JSON; `GET /api/jobs/<id>/result.tsv` returns the batch TSV. |
+
+### CSpec (disease-specific) switching for supported genes
+
+Genes with multiple ClinGen VCEP specifications — for example **`RYR1`**, **`ACTA1`**, and **`VWF`** —
+are evaluated with the conservative (default) thresholds **and** each disease-specific CSpec in a single
+annotation pass. On the single-variant result page you can **switch the displayed disease/CSpec** without
+re-running the engine. Genes without a CSpec are simply shown with the default evaluation.
+
+---
+
 ## Features
 
 - **Single-variant analysis**: Accepts genome coordinates / cDNA / protein notation
@@ -37,8 +65,9 @@ Sign-in (and an API token, issued by an administrator) is required for most feat
   directly from the coordinates.
 - **Manual editing & re-classification**: Override each criterion's strength/evidence and re-classify
   (results are shown on screen only and are **not** persisted). Results can be downloaded as **JSON / TSV**.
-- **Batch analysis (VCF)**: Upload a VCF, processed serially via Celery, producing a TSV with all
-  criteria columns. Includes job history and an artifact retention period (default 1 hour).
+- **Batch analysis (VCF)**: Upload a VCF (**`.vcf` / `.vcf.gz`, max 50 MB**), processed serially via
+  Celery, producing a TSV with all criteria columns. Includes job history and an artifact retention
+  period (default 1 hour).
 - **Result cache**: Automated results are stored in the DB and reused until reference data changes
   (a batch whose variants are all cached is served instantly without invoking the engine).
 - **REST API**: Token-authenticated API. `/api/docs` (Swagger UI), `/api/redoc`, and `/api/schema`
