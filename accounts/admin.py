@@ -9,14 +9,26 @@ from .models import AccountRequest, TokenRequest, User
 
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
-    # Web と API を別カウントで表示
+    # Web と API を別カウントで表示。上限・残り回数は一覧から直接編集できる。
     list_display = ("username", "email", "role", "institution", "mfa_exempt",
                     "n_login", "n_explain", "n_classify",
-                    "n_api_classify", "n_api_jobs", "is_active", "is_staff")
+                    "n_api_classify", "n_api_jobs",
+                    "api_single_monthly_limit", "api_single_remaining",
+                    "api_batch_monthly_limit", "api_batch_remaining",
+                    "is_active", "is_staff")
+    # 一覧上で上限・残り回数を直接編集可能にする
+    list_editable = ("api_single_monthly_limit", "api_single_remaining",
+                     "api_batch_monthly_limit", "api_batch_remaining")
     list_filter = ("role", "mfa_exempt", "is_active", "is_staff")
     fieldsets = UserAdmin.fieldsets + (
-        ("HUVar", {"fields": ("role", "institution", "mfa_exempt",
-                               "api_batch_monthly_limit", "web_batch_monthly_limit")}),
+        ("HUVar", {"fields": ("role", "institution", "mfa_exempt")}),
+        ("API 利用上限（月次・トークンごと）", {
+            "fields": ("api_single_monthly_limit", "api_single_remaining",
+                       "api_batch_monthly_limit", "api_batch_remaining",
+                       "api_usage_period", "web_batch_monthly_limit"),
+            "description": "上限・残り回数は自由に編集できます。残り回数は毎月初回の "
+                           "API 呼び出し時に上限へ自動リセットされます。",
+        }),
     )
 
     def get_queryset(self, request):
