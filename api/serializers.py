@@ -48,6 +48,10 @@ class ClassifyResponseSerializer(serializers.Serializer):
     warnings = serializers.ListField(child=serializers.CharField(), required=False)
     criteria = serializers.ListField(
         child=serializers.DictField(), help_text="全クライテリアの判定詳細。")
+    clinvar = serializers.DictField(
+        required=False,
+        help_text="ClinVar 分類サマリ（同一座標の exact-match）。該当が無ければ空 dict。"
+        "significance / review_status / star_rating / variation_id / records を含む。")
 
 
 class WhoAmISerializer(serializers.Serializer):

@@ -111,10 +111,40 @@ def multispec_tsv_path(cfg):
     return cfg.data_dir / "shared" / "disease_prevalence_multispec.tsv"
 
 
-def _to_display(result) -> dict:
+def _clinvar_display(ann) -> dict:
+    """AnnotationData から ClinVar 分類サマリを抽出する（JSON/TSV 出力用）。
+
+    exact-match（同一 chrom:pos:ref:alt）の ClinVar VCF レコードを対象にする。
+    複数提出者が食い違う場合は star_rating 最大のレコードを代表値とする
+    （3-star のエキスパートパネル判定が 1-star の食い違い提出より優先）。
+    ClinVar に該当が無ければ空 dict を返す。"""
+    records = list(getattr(ann, "clinvar_vcf", None) or []) if ann is not None else []
+    if not records:
+        return {}
+    best = max(records, key=lambda r: getattr(r, "star_rating", 0))
+    return {
+        "significance": best.clinical_significance,
+        "review_status": best.review_status,
+        "star_rating": best.star_rating,
+        "variation_id": best.variation_id or "",
+        "records": [
+            {
+                "significance": r.clinical_significance,
+                "review_status": r.review_status,
+                "star_rating": r.star_rating,
+                "variation_id": r.variation_id or "",
+            }
+            for r in records
+        ],
+    }
+
+
+def _to_display(result, ann=None) -> dict:
     """ClassificationResult -> テンプレート/DB 用の素の dict。
 
-    criteria は全クライテリア（not_met 含む）。points は @property のため個別取得。"""
+    criteria は全クライテリア（not_met 含む）。points は @property のため個別取得。
+    ann は ClinVar サマリ抽出用の AnnotationData（省略時は result.annotation を使う。
+    classify_annotated 由来の result は annotation を持たないため呼び出し側で渡す）。"""
     criteria = []
     for r in result.criteria_results:
         criteria.append({
@@ -126,6 +156,7 @@ def _to_display(result) -> dict:
             "suppressed": r.suppressed,
             "points": r.points,
         })
+    clinvar_ann = ann if ann is not None else getattr(result, "annotation", None)
     return {
         # 変異情報（run_pipeline 由来の結果には設定される。run_single では空）
         "variant_id": getattr(result, "variant_id", "") or "",
@@ -143,6 +174,7 @@ def _to_display(result) -> dict:
         "classification_bayesian": result.classification_bayesian.value,
         "warnings": list(result.warnings or []),
         "criteria": criteria,
+        "clinvar": _clinvar_display(clinvar_ann),
     }
 
 
@@ -205,7 +237,7 @@ def classify_single(
     except Exception as exc:  # noqa: BLE001
         raise EngineUnavailable(f"解析に失敗しました: {exc}") from exc
 
-    display = _to_display(conservative)
+    display = _to_display(conservative, ann)
     # 座標URL経由など variant メタ(gene/transcript/HGVS)が未設定のとき、
     # アノテーションの primary consequence から補完する（run_single 由来は空のため）。
     pc = getattr(ann, "primary_consequence", None)
@@ -223,7 +255,7 @@ def classify_single(
         try:
             with overlaid_config(cfg, multispec, gene, cs["cspec_id"]) as c2:
                 r = classify_annotated(variant, ann, c2, supplement=supplement)
-            cspec_evaluations[cs["cspec_id"]] = _to_display(r)
+            cspec_evaluations[cs["cspec_id"]] = _to_display(r, ann)
         except Exception:  # noqa: BLE001  CSpec 評価の失敗は保守的結果を壊さない
             continue
     # 実際に評価できた CSpec のみ提示する。

@@ -88,9 +88,15 @@ def _tracked_paths(assembly: str):
     return out
 
 
+# display dict の構造版。出力スキーマ（列/フィールド）を変えたら +1 する。
+# 変更すると既存キャッシュが無効化され、次回アクセス時に新スキーマで再計算される。
+# v2: ClinVar 分類サマリ（clinvar キー）を追加。
+_DISPLAY_SCHEMA_VERSION = 2
+
+
 def reference_signature(assembly: str) -> str:
-    """参照データ版署名（SHA-256）。size+mtime+エンジン版から算出。"""
-    parts = [f"engine={engine_version()}"]
+    """参照データ版署名（SHA-256）。size+mtime+エンジン版+出力スキーマ版から算出。"""
+    parts = [f"engine={engine_version()}", f"schema={_DISPLAY_SCHEMA_VERSION}"]
     for label, path in _tracked_paths(assembly):
         name, size, mtime = _stat_token(path)
         parts.append(f"{label}:{name}:{size}:{int(mtime)}")
@@ -153,7 +159,8 @@ def cached_classify_single(assembly: str, chrom: str, pos: int, ref: str, alt: s
 _TSV_BASE_COLS = [
     "variant_id", "chrom", "pos", "ref", "alt", "gene_symbol", "transcript_id",
     "hgvs_c", "hgvs_p", "classification_2015", "rules", "bayesian_score",
-    "classification_bayesian", "warnings",
+    "classification_bayesian", "clinvar_significance", "clinvar_review_status",
+    "clinvar_stars", "clinvar_variation_id", "warnings",
 ]
 
 
@@ -182,12 +189,15 @@ def _write_batch_tsv(out_path: str, displays: list) -> None:
         w.writerow(header)
         for d in rows:
             crit_map = {c["criterion"]: c for c in d.get("criteria", [])}
+            clinvar = d.get("clinvar") or {}
             row = [
                 d.get("variant_id", ""), d.get("chrom", ""), d.get("pos", ""),
                 d.get("ref", ""), d.get("alt", ""), d.get("gene_symbol", ""),
                 d.get("transcript_id", ""), d.get("hgvs_c", ""), d.get("hgvs_p", ""),
                 d.get("classification_2015", ""), d.get("rules", ""),
                 d.get("bayesian_score", ""), d.get("classification_bayesian", ""),
+                clinvar.get("significance", ""), clinvar.get("review_status", ""),
+                clinvar.get("star_rating", ""), clinvar.get("variation_id", ""),
                 " / ".join(d.get("warnings", [])),
             ]
             for c in crit_order:

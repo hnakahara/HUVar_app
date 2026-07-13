@@ -387,6 +387,7 @@ def _result_to_tsv(data: dict) -> str:
     warnings = display.get("warnings") or []
     if isinstance(warnings, (list, tuple)):
         warnings = " / ".join(str(x) for x in warnings)
+    clinvar = display.get("clinvar") or {}
     meta = [
         ("assembly", variant.get("assembly", "")),
         ("genome", genome),
@@ -398,6 +399,10 @@ def _result_to_tsv(data: dict) -> str:
         ("rules", display.get("rules", "")),
         ("classification_bayesian", display.get("classification_bayesian", "")),
         ("bayesian_score", display.get("bayesian_score", "")),
+        ("clinvar_significance", clinvar.get("significance", "")),
+        ("clinvar_review_status", clinvar.get("review_status", "")),
+        ("clinvar_stars", clinvar.get("star_rating", "")),
+        ("clinvar_variation_id", clinvar.get("variation_id", "")),
         ("warnings", warnings),
     ]
     for k, v in meta:
