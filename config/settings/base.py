@@ -263,3 +263,53 @@ EMAIL_TIMEOUT = int(os.environ.get("EMAIL_TIMEOUT", "10"))
 # 送信元は Gmail アカウント（Gmail は From のなりすましを許可しないため）
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "") or EMAIL_HOST_USER
 SERVER_EMAIL = os.environ.get("SERVER_EMAIL", "") or DEFAULT_FROM_EMAIL
+
+# --- エラー通知（サーバーエラー時に管理者へメール） ---
+# 未処理の 500 エラー等を Django 標準の AdminEmailHandler が ADMINS 宛に通知する。
+# 送信元は SERVER_EMAIL、宛先は ADMIN_ADDRESS。DEBUG=True の間は送信されない。
+ADMINS = [("HUVar Admin", ADMIN_ADDRESS)] if ADMIN_ADDRESS else []
+MANAGERS = ADMINS
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "filters": {
+        # DEBUG=False のときのみ通知（Django 標準の挙動）
+        "require_debug_false": {
+            "()": "django.utils.log.RequireDebugFalse",
+        },
+    },
+    "formatters": {
+        "verbose": {
+            "format": "[{asctime}] {levelname} {name} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+        # 未処理例外・サーバーエラーを管理者へメール通知
+        "mail_admins": {
+            "level": "ERROR",
+            "class": "django.utils.log.AdminEmailHandler",
+            "filters": ["require_debug_false"],
+            "include_html": True,
+        },
+    },
+    # ルート: アプリ側の logger.exception(...) / logger.error(...)（api, analysis 等）を
+    # 全て捕捉して管理者へ通知する。
+    "root": {
+        "handlers": ["console", "mail_admins"],
+        "level": "INFO",
+    },
+    "loggers": {
+        # リクエスト処理中の 5xx / 未処理例外（ルートへ伝播させず二重送信を防ぐ）
+        "django.request": {
+            "handlers": ["console", "mail_admins"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+    },
+}
