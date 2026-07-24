@@ -16,21 +16,13 @@
 <table border="1" cellpadding="6" cellspacing="0">
     <thead>
         <tr>
-            <th></th><th>gene</th><th>transcript</th><th>MANE</th><th>genome</th>
-            <th>HGVS c.</th><th>HGVS p.</th><th>region</th><th></th>
+            <th></th><th></th><th>gene</th><th>transcript</th><th>MANE</th><th>genome</th>
+            <th>HGVS c.</th><th>HGVS p.</th><th>region</th>
         </tr>
     </thead>
     <tbody>
     {% for c in candidates %}
         <tr>
-            <td>{{ forloop.counter }}</td>
-            <td>{{ c.gene }}</td>
-            <td>{{ c.transcript }}</td>
-            <td>{% if c.is_mane_select %}✓{% endif %}</td>
-            <td>{{ c.chrom }}:{{ c.pos }} {{ c.ref }}&gt;{{ c.alt }}</td>
-            <td>{{ c.hgvs_c }}</td>
-            <td>{{ c.hgvs_p }}</td>
-            <td>{{ c.region }}</td>
             <td>
                 <form method="post" action="{% url 'analysis:single_analyze' %}">
                     {% csrf_token %}
@@ -46,6 +38,14 @@
                     <button type="submit">{% translate "このバリアントで解析" %}</button>
                 </form>
             </td>
+            <td>{{ forloop.counter }}</td>
+            <td>{{ c.gene }}</td>
+            <td>{{ c.transcript }}</td>
+            <td>{% if c.is_mane_select %}✓{% endif %}</td>
+            <td>{{ c.chrom }}:{{ c.pos }} {{ c.ref }}&gt;{{ c.alt }}</td>
+            <td>{{ c.hgvs_c }}</td>
+            <td>{{ c.hgvs_p }}</td>
+            <td>{{ c.region }}</td>
         </tr>
     {% endfor %}
     </tbody>
