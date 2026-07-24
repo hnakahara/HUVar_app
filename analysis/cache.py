@@ -97,7 +97,9 @@ def _tracked_paths(assembly: str):
 # display dict の構造版。出力スキーマ（列/フィールド）を変えたら +1 する。
 # 変更すると既存キャッシュが無効化され、次回アクセス時に新スキーマで再計算される。
 # v2: ClinVar 分類サマリ（clinvar キー）を追加。
-_DISPLAY_SCHEMA_VERSION = 2
+# v3: エンジンの GRCh37 MANE フォールバックで transcript 選択（HGVS/PVS1 等）が変わるため、
+#     既存キャッシュ（非MANEで評価済み）を無効化して再計算させる。
+_DISPLAY_SCHEMA_VERSION = 3
 
 
 def reference_signature(assembly: str) -> str:
