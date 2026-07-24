@@ -43,7 +43,9 @@ def engine_version() -> str:
 
 
 def _stat_token(path) -> Tuple[str, int, float]:
-    """(name, size, mtime) を返す。存在しなければ size=-1。"""
+    """(name, size, mtime) を返す。存在しない/None なら size=-1。"""
+    if path is None:
+        return "", -1, 0.0
     name = str(path)
     try:
         st = os.stat(path)
@@ -59,9 +61,13 @@ def _tracked_paths(assembly: str):
     out = []
     for attr in _TRACKED_ATTRS:
         try:
-            out.append((attr, getattr(cfg, attr)))
+            p = getattr(cfg, attr)
         except Exception:  # noqa: BLE001  属性が無い版もある
             continue
+        # GRCh37 では None を返す属性がある（例: gnomad_noncancer_duckdb は GRCh38 専用）。
+        # None を os.stat に渡すと TypeError → 500 になるため署名対象から除外する。
+        if p is not None:
+            out.append((attr, p))
     # ディレクトリ系（存在すれば mtime/サイズで検知）
     try:
         out.append(("data_shared", cfg.data_dir / "shared"))
