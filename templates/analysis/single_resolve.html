@@ -12,6 +12,7 @@
 <p style="color:#a60;">⚠ {% translate "MANE Select に該当が無いため、候補トランスクリプトから選択してください（非 MANE）。" %}</p>
 {% endif %}
 
+<div class="table-scroll">
 <table border="1" cellpadding="6" cellspacing="0">
     <thead>
         <tr>
@@ -49,6 +50,7 @@
     {% endfor %}
     </tbody>
 </table>
+</div>
 
 <p><a href="{% url 'analysis:single_input' %}">{% translate "← 入力に戻る" %}</a></p>
 {% endblock %}

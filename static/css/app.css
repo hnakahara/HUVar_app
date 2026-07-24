@@ -250,6 +250,11 @@ thead th {
 tbody tr:nth-child(even) { background: rgba(148, 163, 184, .03); }
 tbody tr:hover { background: rgba(34, 211, 238, .07); }
 table button { padding: 6px 12px; font-size: .8rem; }
+/* 横長データ（大きな deletion の塩基列・HGVS）でテーブルがカード幅を超えても
+   .card の overflow:hidden で末尾列(操作ボタン)が切り落とされないよう、
+   テーブル専用の横スクロール領域を設ける。長い連続塩基列は折り返す。 */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-scroll td { overflow-wrap: anywhere; }
 
 /* ---- Messages / alerts ---- */
 .messages { margin-bottom: 16px; display: grid; gap: 8px; }
