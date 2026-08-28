@@ -150,7 +150,12 @@ def cached_classify_single(assembly: str, chrom: str, pos: int, ref: str, alt: s
                engine_version=ev, refdata_signature=sig)
 
     row = VariantResultCache.objects.filter(**key).first()
-    if row is not None:
+    # 単一経路とバッチ経路(cached_classify_batch)はこのキャッシュを共有するが、
+    # バッチの result_json には CSpec 事前評価(available_cspecs/cspec_evaluations)が
+    # 含まれない。その行をそのまま返すと多疾患遺伝子(RYR1/ACTA1/VWF)で解析後画面の
+    # CSpec 切替が出ないため、単一解析として不完全な行はミス扱いにして再計算し、
+    # 下の update_or_create で完全な内容へ上書きする（機能導入前の旧行も同様に更新）。
+    if row is not None and "available_cspecs" in (row.result_json or {}):
         return row.result_json, True
 
     display = classify_single(assembly, chrom, int(pos), ref, alt)
