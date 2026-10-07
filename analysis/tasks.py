@@ -57,6 +57,15 @@ def cleanup_expired_jobs() -> int:
     expired = AnalysisJob.objects.filter(expires_at__lt=timezone.now())
     count = 0
     for job in expired:
+        # 結果 TSV に添付した使用データ版情報(JSON)も削除する
+        try:
+            if job.result_file:
+                from .cache import provenance_path
+                side = provenance_path(job.result_file.path)
+                if os.path.exists(side):
+                    os.remove(side)
+        except Exception:  # noqa: BLE001
+            pass
         for f in (job.input_file, job.result_file):
             try:
                 if f:

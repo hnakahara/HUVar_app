@@ -13,6 +13,7 @@
 
 {% if job.status == "done" %}
     <p><a href="{% url 'analysis:batch_download' job.id %}">{% translate "結果 TSV をダウンロード" %}</a></p>
+    <p><a href="{% url 'analysis:batch_provenance' job.id %}">{% translate "使用データの版情報（JSON）をダウンロード" %}</a></p>
 {% elif job.status == "failed" %}
     <p style="color:#b00;">⚠ {% translate "解析に失敗しました:" %} {{ job.error }}</p>
 {% else %}

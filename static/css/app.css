@@ -363,3 +363,39 @@ tbody tr.row-not > td:first-child { color: #8b9ab8; }
 ::-webkit-scrollbar-track { background: var(--bg-2); }
 ::-webkit-scrollbar-thumb { background: #1e2c44; border-radius: 8px; border: 2px solid var(--bg-2); }
 ::-webkit-scrollbar-thumb:hover { background: #2a3c5c; }
+
+
+/* ---- VCEP 既分類バナー（Genome Medicine 改訂） ---- */
+.vcep-banner {
+  background: rgba(251, 191, 36, .08);
+  border: 1px solid rgba(251, 191, 36, .45);
+  border-left: 4px solid var(--warn);
+  border-radius: 10px;
+  padding: 12px 18px;
+  margin: 1.2em 0;
+}
+.vcep-banner .vcep-title { font-weight: 700; color: #fde68a; margin: 0 0 .5em; }
+.vcep-banner .vcep-call { margin: 0 0 .6em; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.vcep-banner .vcep-meta { border-collapse: collapse; font-size: .88rem; }
+.vcep-banner .vcep-meta th { text-align: left; color: var(--muted); font-weight: 600; padding: 2px 14px 2px 0; border: 0; background: none; }
+.vcep-banner .vcep-meta td { padding: 2px 0; border: 0; background: none; word-break: break-word; }
+.vcep-banner .vcep-note { margin: .7em 0 0; font-size: .88rem; color: #fde68a; }
+.vcep-banner .vcep-snap { color: var(--muted); }
+
+/* ---- ClinVar パネル / 版情報 ---- */
+.clinvar-panel th { text-align: left; }
+details.provenance { margin: 1.2em 0; font-size: .86rem; }
+details.provenance summary { cursor: pointer; color: var(--muted); }
+details.provenance td { word-break: break-word; }
+
+/* ---- クライテリア由来バッジ ---- */
+.src {
+  display: inline-block; padding: 1px 8px; border-radius: 999px;
+  font-family: var(--mono); font-size: .72rem; font-weight: 700; white-space: nowrap;
+  border: 1px solid var(--border);
+}
+.src-erepo { background: rgba(251, 191, 36, .18); color: #fcd34d; border-color: rgba(251, 191, 36, .4); }
+.src-ep { background: rgba(129, 140, 248, .18); color: #c7d2fe; border-color: rgba(129, 140, 248, .4); }
+.src-tm { background: rgba(34, 211, 238, .12); color: #a5f3fc; border-color: rgba(34, 211, 238, .35); }
+.src-user { background: rgba(248, 113, 113, .15); color: #fca5a5; border-color: rgba(248, 113, 113, .4); }
+.src-auto { background: rgba(148, 163, 184, .1); color: #94a3b8; }

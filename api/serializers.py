@@ -47,11 +47,24 @@ class ClassifyResponseSerializer(serializers.Serializer):
     classification_bayesian = serializers.CharField()
     warnings = serializers.ListField(child=serializers.CharField(), required=False)
     criteria = serializers.ListField(
-        child=serializers.DictField(), help_text="全クライテリアの判定詳細。")
+        child=serializers.DictField(), help_text="全クライテリアの判定詳細。各要素の source は由来"
+        "（automated / erepo / expert_panel / text_mining / user、Met でなければ空）。")
     clinvar = serializers.DictField(
         required=False,
         help_text="ClinVar 分類サマリ（同一座標の exact-match）。該当が無ければ空 dict。"
         "significance / review_status / star_rating / variation_id / records を含む。")
+    vcep = serializers.DictField(
+        required=False,
+        help_text="ClinGen VCEP による既存分類（eRepo スナップショット）。該当が無ければ空 dict。"
+        "assertion / expert_panel / disease / approval_date / met_codes / erepo_url / snapshot を含む。"
+        "専門家パネルの分類は通常この自動判定より優先される。")
+    automated_only = serializers.DictField(
+        required=False, allow_null=True,
+        help_text="eRepo・ClinVar エキスパートパネル由来のクライテリアを除いた自動判定のみの結果"
+        "（同じ形式）。除外対象が無い場合は null。")
+    provenance = serializers.DictField(
+        required=False,
+        help_text="使用データの版情報（HUVar 版、ClinVar リリース日、VEP、gnomAD、ClinGen など）。")
 
 
 class WhoAmISerializer(serializers.Serializer):

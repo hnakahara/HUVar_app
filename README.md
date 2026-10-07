@@ -36,9 +36,20 @@ Sign-in (and an API token, issued by an administrator) is required for most feat
 
 | Mode | Output |
 |------|--------|
-| **Single-variant** | All ACMG criteria with their met/unmet state and strength, the **ACMG 2015** classification and the **Bayesian (point-based)** classification, the resolved coordinate/assembly, and the affected gene/transcript. Downloadable as **JSON** or **TSV**. |
-| **Batch (VCF)** | A **TSV** file with one row per variant containing all criteria columns and both classifications. Retrieved from job history; artifacts are retained for a configurable period (default **1 hour**). |
+| **Single-variant** | All ACMG criteria with their met/unmet state, strength and **source** (automated, ClinGen eRepo, ClinVar expert panel, ClinVar text mining, or your own edit), the **ACMG 2015** classification and the **Bayesian (point-based)** classification, the resolved coordinate/assembly, the affected gene/transcript, the **ClinVar** classification and review status, the existing **VCEP classification** when there is one, and the **data versions** used. Downloadable as **JSON** or **TSV**. |
+| **Batch (VCF)** | A **TSV** file with one row per variant containing all criteria columns (with a `<criterion>_source` column), both classifications, ClinVar and the VCEP classification (`vcep_classification`, `vcep_expert_panel`, `vcep_approval_date`, `erepo_url`), plus a JSON file of the data versions used. Retrieved from job history; artifacts are retained for a configurable period (default **1 hour**). |
 | **API** | `POST /api/classify/` returns the classification as JSON; `GET /api/jobs/<id>/result.tsv` returns the batch TSV. |
+
+### Variants already classified by a ClinGen VCEP
+
+When the queried variant has been classified by a ClinGen Variant Curation Expert
+Panel (eRepo snapshot bundled with HUVar), the result page shows a notice at the
+top with the VCEP classification, the expert panel, the disease, the approval date,
+the criteria the panel applied and a link to the eRepo record. **The expert
+classification should generally take precedence over the automated result.**
+Criteria taken from the eRepo or from a ClinVar expert-panel record are labelled as
+such, and a switch shows the result **without** them (HUVar's automated evaluation
+only).
 
 ### CSpec (disease-specific) switching for supported genes
 

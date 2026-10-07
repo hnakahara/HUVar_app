@@ -27,6 +27,10 @@ _TRACKED_ATTRS = [
     "esm1b_sqlite",
     "revel_tsv",
     "repeatmasker_bed",
+    # Genome Medicine 改訂で追加された参照（PVS1 / 遺伝子-疾患妥当性 / PP2）
+    "clingen_dosage_tsv",
+    "clingen_gene_validity_csv",
+    "pp2_gene_stats_tsv",
 ]
 
 
@@ -85,6 +89,18 @@ def _tracked_paths(assembly: str):
             out.append(("erepo_manual", mp))
     except Exception:  # noqa: BLE001
         pass
+    # エンジン同梱の eRepo 分類スナップショット（VCEP 既分類の表示・PS1/PM5 比較変異）。
+    # パッケージ版が同じでも同梱データ更新でキャッシュを無効化する。
+    try:
+        from acmg_classifier.local_db.erepo_db import _table
+        out.append(("erepo_classifications", _table(cfg.assembly.value)))
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from acmg_classifier.criteria.vcep_comparators import _RULES
+        out.append(("vcep_comparator_rules", _RULES))
+    except Exception:  # noqa: BLE001
+        pass
     # CSpec 別閾値テーブル。更新時に cspec_evaluations を含むキャッシュを無効化する。
     try:
         from .engine import multispec_tsv_path
@@ -99,7 +115,9 @@ def _tracked_paths(assembly: str):
 # v2: ClinVar 分類サマリ（clinvar キー）を追加。
 # v3: エンジンの GRCh37 MANE フォールバックで transcript 選択（HGVS/PVS1 等）が変わるため、
 #     既存キャッシュ（非MANEで評価済み）を無効化して再計算させる。
-_DISPLAY_SCHEMA_VERSION = 3
+# v4: Genome Medicine 改訂。criteria[].source、vcep（VCEP 既分類）、provenance（使用データ版）、
+#     automated_only（eRepo / エキスパートパネル由来を除いた自動判定）を追加。
+_DISPLAY_SCHEMA_VERSION = 4
 
 
 def reference_signature(assembly: str) -> str:
@@ -155,7 +173,7 @@ def cached_classify_single(assembly: str, chrom: str, pos: int, ref: str, alt: s
     # 含まれない。その行をそのまま返すと多疾患遺伝子(RYR1/ACTA1/VWF)で解析後画面の
     # CSpec 切替が出ないため、単一解析として不完全な行はミス扱いにして再計算し、
     # 下の update_or_create で完全な内容へ上書きする（機能導入前の旧行も同様に更新）。
-    if row is not None and "available_cspecs" in (row.result_json or {}):
+    if row is not None and "automated_only" in (row.result_json or {}):
         return row.result_json, True
 
     display = classify_single(assembly, chrom, int(pos), ref, alt)
@@ -173,7 +191,9 @@ _TSV_BASE_COLS = [
     "variant_id", "chrom", "pos", "ref", "alt", "gene_symbol", "transcript_id",
     "hgvs_c", "hgvs_p", "classification_2015", "rules", "bayesian_score",
     "classification_bayesian", "clinvar_significance", "clinvar_review_status",
-    "clinvar_stars", "clinvar_variation_id", "warnings",
+    "clinvar_stars", "clinvar_variation_id",
+    "vcep_classification", "vcep_expert_panel", "vcep_approval_date", "erepo_url",
+    "warnings",
 ]
 
 
@@ -195,7 +215,7 @@ def _write_batch_tsv(out_path: str, displays: list) -> None:
     crit_order = [c["criterion"] for c in rows[0]["criteria"]] if rows else []
     header = list(_TSV_BASE_COLS)
     for c in crit_order:
-        header += [c, f"{c}_strength", f"{c}_evidence"]
+        header += [c, f"{c}_strength", f"{c}_evidence", f"{c}_source"]
 
     with open(out_path, "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh, delimiter="\t")
@@ -211,13 +231,18 @@ def _write_batch_tsv(out_path: str, displays: list) -> None:
                 d.get("bayesian_score", ""), d.get("classification_bayesian", ""),
                 clinvar.get("significance", ""), clinvar.get("review_status", ""),
                 clinvar.get("star_rating", ""), clinvar.get("variation_id", ""),
+                (d.get("vcep") or {}).get("assertion", ""),
+                (d.get("vcep") or {}).get("expert_panel", ""),
+                (d.get("vcep") or {}).get("approval_date", ""),
+                (d.get("vcep") or {}).get("erepo_url", ""),
                 " / ".join(d.get("warnings", [])),
             ]
             for c in crit_order:
                 cc = crit_map.get(c, {})
                 state = ("suppressed" if cc.get("suppressed")
                          else ("met" if cc.get("triggered") else "not_met"))
-                row += [state, cc.get("strength", ""), cc.get("evidence", "")]
+                row += [state, cc.get("strength", ""), cc.get("evidence", ""),
+                        cc.get("source", "")]
             w.writerow(row)
 
 
@@ -268,4 +293,23 @@ def cached_classify_batch(in_vcf_path: str, out_tsv_path: str, assembly: str) ->
 
     ordered = [fresh.get(key) or cached.get(key) for key, *_ in variants]
     _write_batch_tsv(out_tsv_path, ordered)
+    _write_batch_provenance(out_tsv_path, assembly)
     return len([d for d in ordered if d])
+
+
+def provenance_path(out_tsv_path: str) -> str:
+    """バッチ結果 TSV に添付する使用データ版情報（JSON）のパス。"""
+    return f"{out_tsv_path}.provenance.json"
+
+
+def _write_batch_provenance(out_tsv_path: str, assembly: str) -> None:
+    """使用データの版情報を TSV と同じ場所に JSON で保存する（失敗しても解析は止めない）。"""
+    import json
+
+    from .engine import batch_provenance
+    try:
+        prov = batch_provenance(assembly)
+        with open(provenance_path(out_tsv_path), "w", encoding="utf-8") as fh:
+            json.dump(prov, fh, ensure_ascii=False, indent=2, sort_keys=True)
+    except Exception:  # noqa: BLE001
+        pass

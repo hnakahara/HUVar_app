@@ -133,6 +133,18 @@ def _permalink_from_variant(request, variant: dict) -> str:
     return request.build_absolute_uri(reverse("analysis:single_variant", args=[locus]))
 
 
+VIEW_AUTOMATED = "automated"
+
+
+def _apply_view(request, display: dict):
+    """?view=automated のとき「自動判定のみ」（eRepo / ClinVar エキスパートパネル由来を
+    除外）の事前計算結果を返す。戻り値 (表示する display, 現在の view, 切替可否)。"""
+    auto = (display or {}).get("automated_only")
+    if request.GET.get("view") == VIEW_AUTOMATED and auto:
+        return auto, VIEW_AUTOMATED, True
+    return display, "", bool(auto)
+
+
 @login_required
 def single_variant(request, locus: str):
     """座標パーマリンク（chrom-pos-ref-alt-assembly）から直接解析して表示する。
@@ -193,16 +205,20 @@ def single_variant(request, locus: str):
         vr.result_json = result_json
         vr.save()
 
+    shown, view, can_toggle = _apply_view(request, display)
     return render(request, "analysis/single_result.html", {
         "result_id": vr.pk,
         "variant": variant,
-        "display": display,
+        "display": shown,
         "edits": [],
         "strength_choices": STRENGTH_CHOICES,
-        "available_cspecs": display.get("available_cspecs", []),
+        "available_cspecs": display.get("available_cspecs", []) if not view else [],
         "active_cspec": "",
+        "view": view,
+        "can_toggle_erepo": can_toggle,
         "permalink": _permalink_from_variant(request, variant),
-        "export_json": json.dumps(result_json, ensure_ascii=False),
+        "export_json": json.dumps({"variant": variant, "display": shown, "edits": [],
+                                   "view": view or "default"}, ensure_ascii=False),
     })
 
 
@@ -272,18 +288,22 @@ def single_result(request, pk: int):
     data = vr.result_json or {}
     display = data.get("display", {}) or {}
     variant = data.get("variant", {})
+    shown, view, can_toggle = _apply_view(request, display)
+    export = dict(data, display=shown, view=view or "default")
     return render(request, "analysis/single_result.html", {
         "result_id": vr.pk,
         "variant": variant,
-        "display": display,
+        "display": shown,
         "edits": data.get("edits", []),
         "strength_choices": STRENGTH_CHOICES,
         # 多疾患遺伝子(RYR1/ACTA1/VWF)のみ非空。保守的(既定)が active。
-        "available_cspecs": display.get("available_cspecs", []),
+        "available_cspecs": display.get("available_cspecs", []) if not view else [],
         "active_cspec": "",
+        "view": view,
+        "can_toggle_erepo": can_toggle,
         "permalink": _permalink_from_variant(request, variant),
         # 画面に表示中の内容をそのままエクスポートできるよう JSON を埋め込む
-        "export_json": json.dumps(data, ensure_ascii=False),
+        "export_json": json.dumps(export, ensure_ascii=False),
     })
 
 
@@ -388,6 +408,7 @@ def _result_to_tsv(data: dict) -> str:
     if isinstance(warnings, (list, tuple)):
         warnings = " / ".join(str(x) for x in warnings)
     clinvar = display.get("clinvar") or {}
+    vcep = display.get("vcep") or {}
     meta = [
         ("assembly", variant.get("assembly", "")),
         ("genome", genome),
@@ -403,12 +424,29 @@ def _result_to_tsv(data: dict) -> str:
         ("clinvar_review_status", clinvar.get("review_status", "")),
         ("clinvar_stars", clinvar.get("star_rating", "")),
         ("clinvar_variation_id", clinvar.get("variation_id", "")),
+        ("vcep_classification", vcep.get("assertion", "")),
+        ("vcep_expert_panel", vcep.get("expert_panel", "")),
+        ("vcep_disease", vcep.get("disease", "")),
+        ("vcep_approval_date", vcep.get("approval_date", "")),
+        ("erepo_url", vcep.get("erepo_url", "")),
+        ("view", data.get("view", "default")),
         ("warnings", warnings),
     ]
     for k, v in meta:
         w.writerow([f"# {k}", v])
+    # 使用データの版情報（ClinVar リリース日、VEP、gnomAD、ClinGen など）
+    prov = display.get("provenance") or {}
+    if prov.get("huvar_version"):
+        w.writerow(["# huvar_version", prov.get("huvar_version", "")])
+    for name, info in sorted((prov.get("resources") or {}).items()):
+        if isinstance(info, dict):
+            text = "; ".join(f"{k}={v}" for k, v in info.items() if v not in (None, ""))
+        else:
+            text = str(info)
+        w.writerow([f"# data_{name}", text])
 
-    w.writerow(["criterion", "judgment", "direction", "strength", "points", "evidence"])
+    w.writerow(["criterion", "judgment", "direction", "strength", "points", "evidence",
+                "source"])
     for c in display.get("criteria", []) or []:
         if c.get("suppressed"):
             judgment = "suppressed"
@@ -419,6 +457,7 @@ def _result_to_tsv(data: dict) -> str:
         w.writerow([
             c.get("criterion", ""), judgment, c.get("direction", ""),
             c.get("strength", ""), c.get("points", ""), c.get("evidence", ""),
+            c.get("source", ""),
         ])
     return buf.getvalue()
 
@@ -521,4 +560,22 @@ def batch_download(request, pk: int):
         raise Http404("結果がまだありません。")
     resp = FileResponse(job.result_file.open("rb"), content_type="text/tab-separated-values")
     resp["Content-Disposition"] = f'attachment; filename="acmg_batch_{job.id}.tsv"'
+    return resp
+
+
+@login_required
+def batch_provenance(request, pk: int):
+    """バッチ結果に使用したデータの版情報（JSON）をダウンロード。"""
+    import os
+
+    from .cache import provenance_path
+    job = get_object_or_404(AnalysisJob, pk=pk, owner=request.user,
+                            kind=AnalysisJob.Kind.BATCH)
+    if job.status != AnalysisJob.Status.DONE or not job.result_file:
+        raise Http404("結果がまだありません。")
+    side = provenance_path(job.result_file.path)
+    if not os.path.exists(side):
+        raise Http404("版情報がありません。")
+    resp = FileResponse(open(side, "rb"), content_type="application/json")
+    resp["Content-Disposition"] = f'attachment; filename="acmg_batch_{job.id}.provenance.json"'
     return resp

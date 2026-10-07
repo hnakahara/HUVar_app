@@ -21,4 +21,5 @@ urlpatterns = [
     path("batch/jobs/", views.batch_list, name="batch_list"),
     path("batch/jobs/<int:pk>/", views.batch_status, name="batch_status"),
     path("batch/jobs/<int:pk>/download.tsv", views.batch_download, name="batch_download"),
+    path("batch/jobs/<int:pk>/provenance.json", views.batch_provenance, name="batch_provenance"),
 ]

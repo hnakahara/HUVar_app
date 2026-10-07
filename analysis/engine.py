@@ -139,6 +139,57 @@ def _clinvar_display(ann) -> dict:
     }
 
 
+# クライテリアの由来ラベル（結果画面のバッジ・エクスポート用）。
+SOURCE_USER = "user"                # 画面上でユーザーが編集
+SOURCE_EREPO = "erepo"              # 同梱 eRepo マニュアルクライテリア（VCEP 判定）
+SOURCE_EXPERT_PANEL = "expert_panel"  # ClinVar エキスパートパネル（★3以上）の判定
+SOURCE_TEXT_MINING = "text_mining"  # ClinVar 提出テキストの自動抽出（Supporting 上限）
+SOURCE_AUTOMATED = "automated"      # ローカルデータからの自動判定
+
+
+def _annotate_sources(display: dict, erepo_criteria=(), user_criteria=()) -> dict:
+    """display["criteria"] の各要素に source を付与する（in place）。
+
+    Met でないクライテリアは空文字。erepo_criteria / user_criteria は当該変異に
+    供給された supplement のクライテリア名集合。"""
+    erepo = set(erepo_criteria)
+    user = set(user_criteria)
+    for c in display.get("criteria", []) or []:
+        if not c.get("triggered") or c.get("strength") == "NotMet":
+            c["source"] = ""
+            continue
+        crit, ev = c.get("criterion", ""), c.get("evidence", "") or ""
+        if crit in user:
+            c["source"] = SOURCE_USER
+        elif crit in erepo:
+            c["source"] = SOURCE_EREPO
+        elif "[ClinVar expert panel]" in ev:
+            c["source"] = SOURCE_EXPERT_PANEL
+        elif "[ClinVar text mining]" in ev:
+            c["source"] = SOURCE_TEXT_MINING
+        else:
+            c["source"] = SOURCE_AUTOMATED
+    return display
+
+
+def _vcep_record(cfg, chrom, pos, ref, alt) -> dict:
+    """VCEP が分類済みならその情報（eRepo スナップショット）、無ければ {}。"""
+    try:
+        from acmg_classifier.local_db.erepo_db import lookup
+        return lookup(cfg.assembly.value, chrom, int(pos), ref, alt) or {}
+    except Exception:  # noqa: BLE001  旧エンジンでは存在しない
+        return {}
+
+
+def _provenance(cfg) -> dict:
+    """使用データの版情報（acmg_classifier.provenance.collect）。旧エンジンでは {}。"""
+    try:
+        from acmg_classifier.provenance import collect
+        return collect(cfg)
+    except Exception:  # noqa: BLE001
+        return {}
+
+
 def _to_display(result, ann=None) -> dict:
     """ClassificationResult -> テンプレート/DB 用の素の dict。
 
@@ -238,6 +289,29 @@ def classify_single(
         raise EngineUnavailable(f"解析に失敗しました: {exc}") from exc
 
     display = _to_display(conservative, ann)
+    erepo_crits = {m.criterion.value for m in manual}
+    user_crits = {u.criterion.value for u in user}
+    _annotate_sources(display, erepo_crits, user_crits)
+    # VCEP 既分類の表示（Reviewer 3 コメント20）と使用データの版情報
+    display["vcep"] = _vcep_record(cfg, chrom, pos, ref, alt)
+    display["provenance"] = _provenance(cfg)
+
+    # eRepo 由来クライテリアと ClinVar エキスパートパネル由来クライテリアを除いた
+    # 「自動判定のみ」の結果。同一アノテーションを再利用する（ユーザー編集は保持）。
+    if erepo_crits or any(c.get("source") == SOURCE_EXPERT_PANEL for c in display["criteria"]):
+        try:
+            cfg_auto = cfg.model_copy(update={"exclude_self_expert_panel": True})
+            auto = classify_annotated(variant, ann, cfg_auto, supplement=list(user) or None)
+            auto_display = _annotate_sources(_to_display(auto, ann), (), user_crits)
+            for key in ("gene_symbol", "transcript_id", "hgvs_c", "hgvs_p"):
+                auto_display[key] = display.get(key, "")
+            auto_display["vcep"] = display["vcep"]
+            auto_display["provenance"] = display["provenance"]
+            display["automated_only"] = auto_display
+        except Exception:  # noqa: BLE001  自動判定のみ版の失敗は本結果を壊さない
+            display["automated_only"] = None
+    else:
+        display["automated_only"] = None
     # 座標URL経由など variant メタ(gene/transcript/HGVS)が未設定のとき、
     # アノテーションの primary consequence から補完する（run_single 由来は空のため）。
     pc = getattr(ann, "primary_consequence", None)
@@ -255,7 +329,10 @@ def classify_single(
         try:
             with overlaid_config(cfg, multispec, gene, cs["cspec_id"]) as c2:
                 r = classify_annotated(variant, ann, c2, supplement=supplement)
-            cspec_evaluations[cs["cspec_id"]] = _to_display(r, ann)
+            d2 = _annotate_sources(_to_display(r, ann), erepo_crits, user_crits)
+            d2["vcep"] = display["vcep"]
+            d2["provenance"] = display["provenance"]
+            cspec_evaluations[cs["cspec_id"]] = d2
         except Exception:  # noqa: BLE001  CSpec 評価の失敗は保守的結果を壊さない
             continue
     # 実際に評価できた CSpec のみ提示する。
@@ -313,8 +390,25 @@ def classify_vcf(vcf_path: str, assembly: str) -> dict:
     except Exception as exc:  # noqa: BLE001
         raise EngineUnavailable(f"バッチ解析に失敗しました: {exc}") from exc
 
+    erepo_by_var = {}
+    if sup_path is not None:
+        try:
+            from acmg_classifier.io.supplement_reader import read_supplement
+            erepo_by_var = read_supplement(sup_path)
+        except Exception:  # noqa: BLE001
+            erepo_by_var = {}
+    prov = _provenance(cfg)
     out = {}
     for r in results:
         key = getattr(r, "variant_id", None) or f"{r.chrom}:{r.pos}:{r.ref}:{r.alt}"
-        out[key] = _to_display(r)
+        d = _to_display(r)
+        _annotate_sources(d, {e.criterion.value for e in erepo_by_var.get(key, [])})
+        d["vcep"] = _vcep_record(cfg, r.chrom, r.pos, r.ref, r.alt)
+        d["provenance"] = prov
+        out[key] = d
     return out
+
+
+def batch_provenance(assembly: str) -> dict:
+    """バッチ結果に添付する使用データの版情報。"""
+    return _provenance(_build_config(assembly))

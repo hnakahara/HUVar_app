@@ -28,6 +28,36 @@
 {% endif %}
 {% else %}
 
+{% if display.vcep and display.vcep.assertion %}
+<div class="vcep-banner" role="note">
+    <p class="vcep-title">{% translate "この変異は ClinGen の専門家パネル（VCEP）により分類済みです" %}</p>
+    <p class="vcep-call">
+        <span class="badge {% if 'Pathogenic' in display.vcep.assertion %}badge-path{% elif 'Benign' in display.vcep.assertion %}badge-benign{% else %}badge-vus{% endif %}">{{ display.vcep.assertion }}</span>
+        {% if display.vcep.conflict %}<span class="tag tag-suppressed">{% translate "複数の分類あり" %}</span>{% endif %}
+    </p>
+    <table class="vcep-meta">
+        <tr><th>{% translate "専門家パネル" %}</th><td>{% if display.vcep.cspec_url %}<a href="{{ display.vcep.cspec_url }}" target="_blank" rel="noopener">{{ display.vcep.expert_panel }}</a>{% else %}{{ display.vcep.expert_panel }}{% endif %}</td></tr>
+        {% if display.vcep.disease %}<tr><th>{% translate "疾患" %}</th><td>{{ display.vcep.disease }}</td></tr>{% endif %}
+        {% if display.vcep.approval_date %}<tr><th>{% translate "承認日" %}</th><td>{{ display.vcep.approval_date }}</td></tr>{% endif %}
+        {% if display.vcep.met_codes %}<tr><th>{% translate "適用された基準" %}</th><td><code>{{ display.vcep.met_codes }}</code></td></tr>{% endif %}
+        {% if display.vcep.erepo_url %}<tr><th>eRepo</th><td><a href="{{ display.vcep.erepo_url }}" target="_blank" rel="noopener">{% translate "ClinGen Evidence Repository の記録を開く" %}</a></td></tr>{% endif %}
+    </table>
+    <p class="vcep-note">{% translate "専門家パネルによる分類は、通常この自動判定より優先されます。下の結果は参考として確認してください。" %}
+        {% if display.vcep.snapshot %}<span class="vcep-snap">（{% translate "eRepo スナップショット" %} {{ display.vcep.snapshot }}）</span>{% endif %}</p>
+</div>
+{% endif %}
+
+{% if can_toggle_erepo %}
+<div class="cspec-switch">
+    <span class="cspec-label">{% translate "eRepo・専門家パネル由来のクライテリア" %}</span>
+    <p class="cspec-hint">{% translate "VCEP が判定したクライテリア（eRepo / ClinVar エキスパートパネル）を含めるかを切り替えます。除外すると HUVar の自動判定のみの結果になります。" %}</p>
+    <div class="cspec-options">
+        <a href="?" class="cspec-chip{% if not view %} active{% endif %}">{% translate "含める（既定）" %}</a>
+        <a href="?view=automated" class="cspec-chip{% if view == 'automated' %} active{% endif %}">{% translate "除外（自動判定のみ）" %}</a>
+    </div>
+</div>
+{% endif %}
+
 {% if available_cspecs %}
 <div class="cspec-switch">
     <span class="cspec-label">{% translate "CSpec（疾患・遺伝形式）" %}</span>
@@ -60,6 +90,15 @@
         <span class="badge {% if 'Pathogenic' in display.classification_bayesian %}badge-path{% elif 'Benign' in display.classification_bayesian %}badge-benign{% else %}badge-vus{% endif %}">{{ display.classification_bayesian }}</span>
         <span style="color:var(--muted);">（score {{ display.bayesian_score }}）</span></li>
 </ul>
+{% if display.clinvar and display.clinvar.significance %}
+<h2>ClinVar</h2>
+<table class="clinvar-panel">
+    <tr><th>{% translate "分類" %}</th><td>{{ display.clinvar.significance }}</td></tr>
+    <tr><th>{% translate "レビュー状況" %}</th><td>{{ display.clinvar.review_status }}（★{{ display.clinvar.star_rating }}）{% if display.clinvar.star_rating >= 3 %} <span class="tag tag-met">{% translate "エキスパートパネル" %}</span>{% endif %}</td></tr>
+    {% if display.clinvar.variation_id %}<tr><th>Variation ID</th><td><a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/{{ display.clinvar.variation_id }}/" target="_blank" rel="noopener">{{ display.clinvar.variation_id }}</a></td></tr>{% endif %}
+</table>
+{% endif %}
+
 {% if display.warnings %}
 <p style="color:#a60;">warnings: {% for w in display.warnings %}{{ w }}{% if not forloop.last %} / {% endif %}{% endfor %}</p>
 {% endif %}
@@ -73,7 +112,7 @@
         <thead>
             <tr>
                 <th>criterion</th><th>{% translate "判定" %}</th><th>direction</th><th>strength</th><th>points</th>
-                <th>{% translate "根拠 (evidence)" %}</th><th>{% translate "編集 strength" %}</th><th>{% translate "編集 evidence" %}</th>
+                <th>{% translate "根拠 (evidence)" %}</th><th>{% translate "由来" %}</th><th>{% translate "編集 strength" %}</th><th>{% translate "編集 evidence" %}</th>
             </tr>
         </thead>
         <tbody>
@@ -85,6 +124,11 @@
                 <td>{{ c.strength }}</td>
                 <td>{{ c.points }}</td>
                 <td>{{ c.evidence }}</td>
+                <td>{% if c.source == "erepo" %}<span class="src src-erepo" title="{% translate "ClinGen eRepo（VCEP の判定）" %}">eRepo</span>{% if display.vcep.erepo_url %} <a href="{{ display.vcep.erepo_url }}" target="_blank" rel="noopener">↗</a>{% endif %}
+                    {% elif c.source == "expert_panel" %}<span class="src src-ep" title="{% translate "ClinVar のエキスパートパネル（★3以上）の判定" %}">{% translate "専門家パネル" %}</span>
+                    {% elif c.source == "text_mining" %}<span class="src src-tm" title="{% translate "ClinVar 提出テキストから抽出（Supporting まで）" %}">ClinVar</span>
+                    {% elif c.source == "user" %}<span class="src src-user">{% translate "手動編集" %}</span>
+                    {% elif c.source == "automated" %}<span class="src src-auto">{% translate "自動" %}</span>{% endif %}</td>
                 <td>
                     <select name="strength_{{ c.criterion }}">
                         <option value="">{% translate "（変更なし）" %}</option>
@@ -102,6 +146,18 @@
 {% if edits %}
 <p>{% translate "適用済みの手動編集:" %}
     {% for e in edits %}{{ e.criterion }}={{ e.strength }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+{% endif %}
+
+{% if display.provenance and display.provenance.resources %}
+<details class="provenance">
+    <summary>{% translate "使用データの版情報" %}{% if display.provenance.huvar_version %}（HUVar {{ display.provenance.huvar_version }}）{% endif %}</summary>
+    <table>
+        {% for name, info in display.provenance.resources.items %}
+        <tr><th>{{ name }}</th><td>{% for k, v in info.items %}{% if v != None and v != "" %}{{ k }}: {{ v }}{% if not forloop.last %}; {% endif %}{% endif %}{% endfor %}</td></tr>
+        {% endfor %}
+    </table>
+    {% if display.provenance.warnings %}<p style="color:#a60;">{% for w in display.provenance.warnings %}{{ w }}{% if not forloop.last %} / {% endif %}{% endfor %}</p>{% endif %}
+</details>
 {% endif %}
 
 <form method="post" action="{% url 'analysis:single_export' result_id %}">

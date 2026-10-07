@@ -463,3 +463,74 @@ msgstr "← Back to API documentation"
 
 msgid "対話的な API ドキュメント（Swagger UI）を開く"
 msgstr "Open the interactive API documentation (Swagger UI)"
+
+# --- Genome Medicine revision: VCEP banner, sources, data versions ---
+msgid "この変異は ClinGen の専門家パネル（VCEP）により分類済みです"
+msgstr "This variant has been classified by a ClinGen Variant Curation Expert Panel (VCEP)"
+
+msgid "複数の分類あり"
+msgstr "Multiple classifications"
+
+msgid "専門家パネル"
+msgstr "Expert panel"
+
+msgid "疾患"
+msgstr "Disease"
+
+msgid "承認日"
+msgstr "Approval date"
+
+msgid "適用された基準"
+msgstr "Criteria applied"
+
+msgid "ClinGen Evidence Repository の記録を開く"
+msgstr "Open the record in the ClinGen Evidence Repository"
+
+msgid "専門家パネルによる分類は、通常この自動判定より優先されます。下の結果は参考として確認してください。"
+msgstr "The expert panel classification should generally take precedence over this automated result. Use the result below for reference."
+
+msgid "eRepo スナップショット"
+msgstr "eRepo snapshot"
+
+msgid "eRepo・専門家パネル由来のクライテリア"
+msgstr "Criteria from eRepo / expert panels"
+
+msgid "VCEP が判定したクライテリア（eRepo / ClinVar エキスパートパネル）を含めるかを切り替えます。除外すると HUVar の自動判定のみの結果になります。"
+msgstr "Include or exclude the criteria applied by the VCEP (eRepo / ClinVar expert panel). When excluded, the result is based on HUVar's automated evaluation only."
+
+msgid "含める（既定）"
+msgstr "Included (default)"
+
+msgid "除外（自動判定のみ）"
+msgstr "Excluded (automated only)"
+
+msgid "レビュー状況"
+msgstr "Review status"
+
+msgid "エキスパートパネル"
+msgstr "Expert panel"
+
+msgid "由来"
+msgstr "Source"
+
+msgid "ClinGen eRepo（VCEP の判定）"
+msgstr "ClinGen eRepo (VCEP curation)"
+
+msgid "ClinVar のエキスパートパネル（★3以上）の判定"
+msgstr "Applied by a ClinVar expert panel (3 stars or more)"
+
+msgid "ClinVar 提出テキストから抽出（Supporting まで）"
+msgstr "Extracted from ClinVar submission text (up to Supporting)"
+
+msgid "手動編集"
+msgstr "Manual edit"
+
+msgid "自動"
+msgstr "Automated"
+
+msgid "使用データの版情報"
+msgstr "Data versions used"
+
+msgid "使用データの版情報（JSON）をダウンロード"
+msgstr "Download the data versions used (JSON)"
+
