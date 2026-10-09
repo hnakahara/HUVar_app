@@ -31,6 +31,10 @@ def _build_config(assembly: str, openspliceai_flanking_size: Optional[int] = Non
     except ValueError as exc:
         raise EngineUnavailable(f"未対応のアセンブリ: {assembly}") from exc
     kwargs = {}
+    # TP53 の PS3/BS3（VCEP 機能解析フローチャート、NCI TP53 Database 由来）。
+    # データの利用条件は収益化につながる利用を禁止しているためエンジン既定は OFF だが、
+    # 本アプリは非営利の学術公開なので ON にする（HUVAR_TP53_FUNCTIONAL=0 で無効化）。
+    kwargs["use_tp53_functional"] = os.environ.get("HUVAR_TP53_FUNCTIONAL", "1") != "0"
     # 単一バリアント解析のみ高感度な flanking を指定（batch は既定 80nt のまま）。
     if openspliceai_flanking_size is not None:
         kwargs["openspliceai_flanking_size"] = openspliceai_flanking_size

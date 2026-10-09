@@ -27,6 +27,7 @@ _TRACKED_ATTRS = [
     "esm1b_sqlite",
     "revel_tsv",
     "repeatmasker_bed",
+    "tp53_functional_tsv",  # TP53 PS3/BS3（NCI TP53 Database）
     # Genome Medicine 改訂で追加された参照（PVS1 / 遺伝子-疾患妥当性 / PP2）
     "clingen_dosage_tsv",
     "clingen_gene_validity_csv",

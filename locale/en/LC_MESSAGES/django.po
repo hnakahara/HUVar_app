@@ -534,3 +534,8 @@ msgstr "Data versions used"
 msgid "使用データの版情報（JSON）をダウンロード"
 msgstr "Download the data versions used (JSON)"
 
+msgid "6. データ出典"
+msgstr "6. Data sources"
+
+msgid "TP53 の PS3/BS3（機能解析）は ClinGen TP53 VCEP のフローチャートに従い、The TP53 Database（R21, 2025年1月, https://tp53.cancer.gov; de Andrade et al., Cell Death Differ 2022）の Kato 2003、Giacomelli 2018、Kotler 2018、Kawaguchi 2005 のアッセイ分類を用いて判定しています。データは非営利の利用に限られます。"
+msgstr "PS3/BS3 (functional evidence) for TP53 follow the ClinGen TP53 VCEP flowchart, using the assay classes of Kato 2003, Giacomelli 2018, Kotler 2018 and Kawaguchi 2005 from The TP53 Database (R21, Jan 2025, https://tp53.cancer.gov; de Andrade et al., Cell Death Differ 2022). These data are for non-commercial use only."
