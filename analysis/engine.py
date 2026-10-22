@@ -262,6 +262,10 @@ def classify_single(
 
     # 単一バリアントは OpenSpliceAI を高感度設定（2000nt）で実行する。batch は既定 80nt。
     cfg = _build_config(assembly, openspliceai_flanking_size=2000)
+    # 既定でマニュアルエビデンス(eRepo)を適用するため、ClinVar エキスパートパネル
+    # （★3以上）の判定も取り込む（acmg_classifier は curated_evidence=True のときのみ参照）。
+    # 「自動判定のみ」版は下で exclude_self_expert_panel=True により除外する。
+    cfg = cfg.model_copy(update={"curated_evidence": True})
     # 変異キー（chrom 正規化込み）を算出してマニュアル照合・supplement に使う
     try:
         from acmg_classifier.models.enums import Assembly
