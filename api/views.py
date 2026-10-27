@@ -227,6 +227,22 @@ class ClassifyView(APIView):
             f"（score {display.get('bayesian_score', '-')}）\n",
         )
         variant = align_variant_to_evaluation(variant, display)
+        # evaluation_transcript: MANE Plus Clinical の transcript で評価した結果を返す。
+        etx = (data.get("evaluation_transcript") or "").strip()
+        if etx:
+            evals = display.get("transcript_evaluations") or {}
+            hit = evals.get(etx) or next(
+                (v for k, v in evals.items() if k.split(".")[0] == etx.split(".")[0]), None)
+            if hit is None:
+                _refund_api_quota(request.user, "single")
+                return Response({
+                    "error": "evaluation_transcript はこの変異の遺伝子の MANE Plus Clinical "
+                             "transcript のみ指定できます。",
+                    "available_transcripts": display.get("available_transcripts", []),
+                }, status=400)
+            variant = dict(variant, transcript=hit.get("transcript_id", etx),
+                           hgvs_c=hit.get("hgvs_c", ""), hgvs_p=hit.get("hgvs_p", ""))
+            display = dict(hit, available_transcripts=display.get("available_transcripts", []))
         body = {"variant": variant, **display}
         if pc_alternatives:
             body["plus_clinical_alternatives"] = pc_alternatives

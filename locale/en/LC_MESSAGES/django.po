@@ -77,8 +77,8 @@ msgstr "Conversion result"
 msgid "TransVar 変換結果（MANE Select / Plus Clinical）"
 msgstr "TransVar result (MANE Select / Plus Clinical)"
 
-msgid "MANE Plus Clinical の番号として解釈した候補があります（MANE Select とはゲノム座標が異なります）。入力した表記がどちらの transcript のものか確認して選択してください。どちらを選んでも、現在の評価はその座標について MANE Select で行います。"
-msgstr "Some candidates interpret the numbering on the MANE Plus Clinical transcript (a different genomic position from MANE Select). Check which transcript your notation refers to before choosing. Either way, the selected position is currently evaluated on MANE Select."
+msgid "MANE Plus Clinical の番号として解釈した候補があります（MANE Select とはゲノム座標が異なります）。入力した表記がどちらの transcript のものか確認して選択してください。Plus Clinical の候補を選ぶと、その transcript で評価した結果を表示します（結果画面で MANE Select の評価に切り替えられます）。"
+msgstr "Some candidates interpret the numbering on the MANE Plus Clinical transcript (a different genomic position from MANE Select). Check which transcript your notation refers to before choosing. Choosing a Plus Clinical candidate shows the evaluation on that transcript (you can switch to the MANE Select evaluation on the result page)."
 
 msgid "（評価に使用）"
 msgstr "(used for evaluation)"
@@ -86,8 +86,35 @@ msgstr "(used for evaluation)"
 msgid "入力時の表記"
 msgstr "Input notation"
 
-msgid "MANE Select と consequence が異なります。Plus Clinical の transcript での影響は自動評価に含まれていないため、個別に確認してください。"
-msgstr "The consequence differs from MANE Select. The effect on the Plus Clinical transcript is not part of the automated evaluation; please review it separately."
+msgid "MANE Select と consequence が異なります。上の「評価する transcript」で Plus Clinical に切り替えて、その transcript での評価を確認してください。"
+msgstr "The consequence differs from MANE Select. Switch to the Plus Clinical transcript under \"Transcript evaluated\" above to review the evaluation on that transcript."
+
+msgid "Plus Clinical での評価"
+msgstr "Evaluated on Plus Clinical"
+
+msgid "変化"
+msgstr "changes"
+
+msgid "VCEP 規則の番号"
+msgstr "VCEP rule numbering"
+
+msgid "Plus Clinical で解析"
+msgstr "Analyze on Plus Clinical"
+
+msgid "評価する transcript"
+msgstr "Transcript evaluated"
+
+msgid "この遺伝子には MANE Plus Clinical の transcript があります。クライテリアを評価する transcript を切り替えられます。consequence・NMD・in silico スコアは選んだ transcript で評価し、VCEP の位置規則（PM1 など）と ClinVar の同一コドン照合はどちらでも MANE Select の番号で照合します。"
+msgstr "This gene has a MANE Plus Clinical transcript. You can switch the transcript the criteria are evaluated on. Consequence, NMD and in-silico scores are evaluated on the selected transcript; VCEP position rules (PM1 etc.) and ClinVar same-codon comparisons use MANE Select numbering in both cases."
+
+msgid "既定"
+msgstr "Default"
+
+msgid "現在の評価:"
+msgstr "Current evaluation:"
+
+msgid "（CSpec の切替と eRepo 由来クライテリアの除外は MANE Select の評価で行えます。手動編集は両方の評価に適用されます）"
+msgstr "(CSpec switching and excluding eRepo-derived criteria are available on the MANE Select evaluation. Manual edits apply to both evaluations.)"
 
 msgid "この遺伝子には MANE Plus Clinical の transcript があります。現在のクライテリア評価は MANE Select で行っており、Plus Clinical の表記は補足として表示しています。"
 msgstr "This gene has a MANE Plus Clinical transcript. Criteria are currently evaluated on MANE Select; the Plus Clinical notation is shown for reference."
@@ -358,8 +385,8 @@ msgstr "Choose the assembly (GRCh38 / GRCh37) and, if needed, specify the input 
 msgid "候補の選択"
 msgstr "Selecting a candidate"
 
-msgid "変換結果が複数候補ある場合は一覧から該当するバリアントを選択します。c./p. の番号が MANE Select と MANE Plus Clinical で別の座標を指す場合は両方を提示します。MANE で座標が得られない場合は、全 transcript 候補にフォールバックして提示します。クライテリアの評価は現在 MANE Select で行い、Plus Clinical の表記は結果画面に補足として表示します。"
-msgstr "When the conversion returns multiple candidates, select the relevant variant from the list. If the c./p. numbering points to different positions on MANE Select and MANE Plus Clinical, both are offered. If no MANE coordinate is available, all transcript candidates are offered as a fallback. Criteria are currently evaluated on MANE Select; the Plus Clinical notation is shown on the result page for reference."
+msgid "変換結果が複数候補ある場合は一覧から該当するバリアントを選択します。c./p. の番号が MANE Select と MANE Plus Clinical で別の座標を指す場合は両方を提示します。MANE で座標が得られない場合は、全 transcript 候補にフォールバックして提示します。Plus Clinical の候補（「Plus Clinical で解析」）を選ぶとその transcript で評価した結果を表示し、結果画面の「評価する transcript」で MANE Select と切り替えられます。VCEP の位置規則と ClinVar の同一コドン照合は、どちらの評価でも MANE Select の番号で照合します。"
+msgstr "When the conversion returns multiple candidates, select the relevant variant from the list. If the c./p. numbering points to different positions on MANE Select and MANE Plus Clinical, both are offered. If no MANE coordinate is available, all transcript candidates are offered as a fallback. Choosing a Plus Clinical candidate (\"Analyze on Plus Clinical\") shows the evaluation on that transcript, and \"Transcript evaluated\" on the result page switches between it and MANE Select. VCEP position rules and ClinVar same-codon comparisons use MANE Select numbering in both evaluations."
 
 msgid "結果の見方"
 msgstr "Reading the results"

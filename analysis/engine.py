@@ -194,7 +194,9 @@ def _provenance(cfg) -> dict:
         return {}
 
 
-_MANE_PC_KEYS = ("transcript_id", "hgvs_c", "hgvs_p", "consequence")
+_MANE_PC_KEYS = ("transcript_id", "hgvs_c", "hgvs_p", "consequence",
+                 "classification_2015", "rules_2015", "classification_bayesian",
+                 "criteria_changes")
 
 
 def _mane_plus_clinical_display(result, ann) -> list:
@@ -210,6 +212,7 @@ def _mane_plus_clinical_display(result, ann) -> list:
         d = m.model_dump() if hasattr(m, "model_dump") else dict(m)
         row = {k: d.get(k) or "" for k in _MANE_PC_KEYS}
         row["consequence_differs"] = bool(d.get("consequence_differs"))
+        row["bayesian_score"] = d.get("bayesian_score")
         out.append(row)
     return out
 
@@ -219,6 +222,8 @@ def _evaluated_transcript_role(ann) -> str:
     pc = getattr(ann, "primary_consequence", None) if ann is not None else None
     if pc is not None and getattr(pc, "is_mane_select", False):
         return "MANE Select"
+    if pc is not None and getattr(pc, "is_mane_plus_clinical", False):
+        return "MANE Plus Clinical"
     return ""
 
 
@@ -400,7 +405,67 @@ def classify_single(
     display["available_cspecs"] = [c for c in cspecs if c["cspec_id"] in cspec_evaluations]
     display["cspec_evaluations"] = cspec_evaluations
     display["active_cspec"] = ""
+
+    # MANE Plus Clinical の transcript で評価した結果（同一アノテーションを再利用し、
+    # 判定層だけ再評価）。VCEP の位置規則・ClinVar の同一コドン照合は MANE Select の
+    # 番号で行われる（エンジンの rule_consequence）。保守的 CSpec・eRepo/手動編集込み。
+    transcript_evaluations, available_transcripts = _transcript_evaluations(
+        variant, ann, cfg, supplement, erepo_crits, user_crits, display)
+    display["transcript_evaluations"] = transcript_evaluations
+    display["available_transcripts"] = available_transcripts
+    display["active_transcript"] = ""
     return display
+
+
+def _transcript_summary(display: dict, role: str) -> dict:
+    return {
+        "transcript_id": display.get("transcript_id", ""),
+        "role": role,
+        "hgvs_c": display.get("hgvs_c", ""),
+        "hgvs_p": display.get("hgvs_p", ""),
+        "classification_2015": display.get("classification_2015", ""),
+        "classification_bayesian": display.get("classification_bayesian", ""),
+        "bayesian_score": display.get("bayesian_score"),
+    }
+
+
+def _transcript_evaluations(variant, ann, cfg, supplement, erepo_crits, user_crits,
+                            base_display: dict):
+    """{transcript_id: display} for each MANE Plus Clinical transcript, and the
+    switch list [{transcript_id, role, ...}] (MANE Select first). Empty when the
+    gene has no Plus Clinical transcript or the engine predates phase 2."""
+    if ann is None or not hasattr(ann, "for_transcript"):
+        return {}, []
+    from acmg_classifier.pipeline.pipeline import classify_annotated
+
+    evaluations: dict = {}
+    for m in ann.mane_plus_clinical_summary():
+        try:
+            ann_tx = ann.for_transcript(m.transcript_id)
+            r = classify_annotated(variant, ann_tx, cfg, supplement=supplement)
+            d = _annotate_sources(_to_display(r, ann_tx), erepo_crits, user_crits)
+        except Exception:  # noqa: BLE001  Plus Clinical 評価の失敗は既定結果を壊さない
+            continue
+        tpc, rc = ann_tx.primary_consequence, ann_tx.rule_consequence
+        d["gene_symbol"] = getattr(tpc, "gene_symbol", "") or ""
+        d["transcript_id"] = getattr(tpc, "transcript_id", "") or ""
+        d["hgvs_c"] = getattr(tpc, "hgvs_c", "") or ""
+        d["hgvs_p"] = getattr(tpc, "hgvs_p", "") or ""
+        # 評価中の transcript 自身は補足行に出さず、規則の番号に使った MANE Select を示す。
+        d["mane_plus_clinical"] = []
+        d["rule_transcript"] = ({
+            "transcript_id": rc.transcript_id, "hgvs_c": rc.hgvs_c or "",
+            "hgvs_p": rc.hgvs_p or "", "consequence": rc.consequence.value,
+        } if rc is not None and rc is not tpc else None)
+        d["vcep"] = base_display.get("vcep")
+        d["provenance"] = base_display.get("provenance")
+        d["automated_only"] = None
+        evaluations[d["transcript_id"]] = d
+    if not evaluations:
+        return {}, []
+    switch = [_transcript_summary(base_display, base_display.get("evaluated_transcript_role", ""))]
+    switch += [_transcript_summary(d, "MANE Plus Clinical") for d in evaluations.values()]
+    return evaluations, switch
 
 
 def classify_batch(vcf_path: str, output_tsv_path: str, assembly: str) -> int:

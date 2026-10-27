@@ -24,7 +24,7 @@ from .engine import (
     classify_single,
     parse_assembly_token,
 )
-from .cache import mane_pc_cells
+from .cache import MANE_PC_COLS, mane_pc_cells
 from .forms import BatchVariantForm, SingleVariantForm
 from .models import AnalysisJob, AuditLog, VariantResult
 from .tasks import cleanup_expired_jobs, run_batch_classification
@@ -219,6 +219,8 @@ def single_variant(request, locus: str):
         "strength_choices": STRENGTH_CHOICES,
         "available_cspecs": display.get("available_cspecs", []) if not view else [],
         "active_cspec": "",
+        "available_transcripts": display.get("available_transcripts", []) if not view else [],
+        "active_transcript": "",
         "view": view,
         "can_toggle_erepo": can_toggle,
         "permalink": _permalink_from_variant(request, variant),
@@ -288,6 +290,13 @@ def single_analyze(request):
         f"（score {display.get('bayesian_score', '-')}）\n"
         f"Met クライテリア: {met_summary}\n",
     )
+    # 変換結果で MANE Plus Clinical の候補（またはその表記）を選んだ場合は、
+    # その transcript で評価した結果を開く。
+    posted_tx = (request.POST.get("transcript", "") or "").split(".")[0]
+    evals = display.get("transcript_evaluations") or {}
+    hit = next((k for k in evals if posted_tx and k.split(".")[0] == posted_tx), None)
+    if hit:
+        return redirect("analysis:single_transcript", pk=vr.pk, transcript=hit)
     return redirect("analysis:single_result", pk=vr.pk)
 
 
@@ -308,6 +317,9 @@ def single_result(request, pk: int):
         # 多疾患遺伝子(RYR1/ACTA1/VWF)のみ非空。保守的(既定)が active。
         "available_cspecs": display.get("available_cspecs", []) if not view else [],
         "active_cspec": "",
+        # MANE Plus Clinical を持つ遺伝子のみ非空。MANE Select（既定）が active。
+        "available_transcripts": display.get("available_transcripts", []) if not view else [],
+        "active_transcript": "",
         "view": view,
         "can_toggle_erepo": can_toggle,
         "permalink": _permalink_from_variant(request, variant),
@@ -354,6 +366,44 @@ def single_cspec(request, pk: int, cspec_id: str):
 
 
 @login_required
+def single_transcript(request, pk: int, transcript: str):
+    """保存済み結果を MANE Plus Clinical の transcript で評価した事前計算結果に切り替える。
+
+    再解析は行わず、解析時に同梱した transcript_evaluations から取り出すだけ。
+    transcript が空 / "select" のときは MANE Select（既定）の評価に戻す。
+    """
+    vr = get_object_or_404(VariantResult, pk=pk, job__owner=request.user)
+    data = vr.result_json or {}
+    variant = data.get("variant", {})
+    base_display = data.get("display", {}) or {}
+    available = base_display.get("available_transcripts", []) or []
+    if transcript in ("", "select"):
+        return redirect("analysis:single_result", pk=pk)
+    display = (base_display.get("transcript_evaluations", {}) or {}).get(transcript)
+    if display is None:
+        raise Http404("指定された transcript の結果がありません。")
+    shown_variant = dict(variant, transcript=display.get("transcript_id", transcript),
+                         hgvs_c=display.get("hgvs_c", ""), hgvs_p=display.get("hgvs_p", ""))
+    export_data = {"variant": shown_variant, "display": display, "edits": [],
+                   "view": "transcript"}
+    return render(request, "analysis/single_result.html", {
+        "result_id": vr.pk,
+        "variant": shown_variant,
+        "display": display,
+        "edits": [],
+        "strength_choices": STRENGTH_CHOICES,
+        # CSpec 切替・eRepo 除外は MANE Select（既定）の評価でのみ提供する。
+        "available_cspecs": [],
+        "active_cspec": "",
+        "available_transcripts": available,
+        "active_transcript": transcript,
+        "can_toggle_erepo": False,
+        "permalink": _permalink_from_variant(request, variant),
+        "export_json": json.dumps(export_data, ensure_ascii=False),
+    })
+
+
+@login_required
 def single_edit(request, pk: int):
     """クライテリアの重み(strength)・evidence を手動編集して再分類（FR-SINGLE-5）。"""
     vr = get_object_or_404(VariantResult, pk=pk, job__owner=request.user)
@@ -386,12 +436,27 @@ def single_edit(request, pk: int):
             "engine_error": _ENGINE_ERROR_MSG, "strength_choices": STRENGTH_CHOICES,
         })
 
+    # Plus Clinical の評価を表示中に編集した場合は、同じ transcript の再評価を表示する
+    # （手動編集は MANE Select・Plus Clinical の両評価に同じく適用される）。
+    active_tx = request.POST.get("active_transcript", "").strip()
+    shown_variant = variant
+    if active_tx:
+        tx_display = (display.get("transcript_evaluations", {}) or {}).get(active_tx)
+        if tx_display is not None:
+            shown_variant = dict(variant, transcript=tx_display.get("transcript_id", active_tx),
+                                 hgvs_c=tx_display.get("hgvs_c", ""),
+                                 hgvs_p=tx_display.get("hgvs_p", ""))
+            display = tx_display
+        else:
+            active_tx = ""
+
     # 手動編集による再分類はデータベースに保存しない（その場で表示するのみ）。
     # 元の自動分類結果(VariantResult)は上書きせず保持する。
-    edited = {"variant": variant, "display": display, "edits": entries}
+    edited = {"variant": shown_variant, "display": display, "edits": entries}
     return render(request, "analysis/single_result.html", {
         "result_id": vr.pk,
-        "variant": variant,
+        "variant": shown_variant,
+        "active_transcript": active_tx,
         "display": display,
         "edits": entries,
         "strength_choices": STRENGTH_CHOICES,
@@ -429,9 +494,8 @@ def _result_to_tsv(data: dict) -> str:
         ("input_transcript", variant.get("input_transcript", "")),
         ("input_hgvs_c", variant.get("input_hgvs_c", "")),
         ("input_hgvs_p", variant.get("input_hgvs_p", "")),
-        *[(f"mane_plus_clinical_{k}", v) for k, v in zip(
-            ("transcript", "hgvs_c", "hgvs_p", "consequence", "consequence_differs"),
-            mane_pc_cells(display))],
+        *[(f"mane_plus_clinical_{k}", v) for k, v in zip(MANE_PC_COLS, mane_pc_cells(display))],
+        ("rule_numbering_transcript", (display.get("rule_transcript") or {}).get("transcript_id", "")),
         ("classification_2015", display.get("classification_2015", "")),
         ("rules", display.get("rules", "")),
         ("classification_bayesian", display.get("classification_bayesian", "")),

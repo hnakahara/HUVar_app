@@ -25,6 +25,10 @@ class ClassifyRequestSerializer(serializers.Serializer):
     kind = serializers.ChoiceField(
         choices=["genome", "cdna", "protein"], required=False, allow_null=True,
         help_text="入力種別。未指定なら自動判定。")
+    evaluation_transcript = serializers.CharField(
+        required=False,
+        help_text="MANE Plus Clinical の transcript（例: NM_033360.4）で評価した結果を返す。"
+        "未指定なら MANE Select での評価。指定できる transcript は応答の available_transcripts。")
 
 
 class VariantSerializer(serializers.Serializer):
@@ -76,6 +80,15 @@ class ClassifyResponseSerializer(serializers.Serializer):
         child=serializers.DictField(), required=False,
         help_text="同じ遺伝子の MANE Plus Clinical 上の表記（補足。評価は MANE Select）。"
         "transcript_id / hgvs_c / hgvs_p / consequence / consequence_differs を含む。")
+    available_transcripts = serializers.ListField(
+        child=serializers.DictField(), required=False,
+        help_text="評価できる transcript の一覧（MANE Select と MANE Plus Clinical。Plus Clinical "
+        "が無い遺伝子では空）。transcript_id / role / classification_2015 / "
+        "classification_bayesian / bayesian_score を含む。")
+    transcript_evaluations = serializers.DictField(
+        required=False,
+        help_text="MANE Plus Clinical の transcript で評価した結果（transcript_id → 同じ形式）。"
+        "VCEP の位置規則と ClinVar の同一コドン照合は MANE Select の番号で行う。")
     plus_clinical_alternatives = serializers.ListField(
         child=serializers.DictField(), required=False,
         help_text="query の c./p. 番号を MANE Plus Clinical 上で解釈した別候補（ゲノム座標が"

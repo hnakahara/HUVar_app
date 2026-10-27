@@ -119,7 +119,8 @@ def _tracked_paths(assembly: str):
 # v4: Genome Medicine 改訂。criteria[].source、vcep（VCEP 既分類）、provenance（使用データ版）、
 #     automated_only（eRepo / エキスパートパネル由来を除いた自動判定）を追加。
 # v5: MANE Plus Clinical の補足（mane_plus_clinical / evaluated_transcript_role）を追加。
-_DISPLAY_SCHEMA_VERSION = 5
+# v6: MANE Plus Clinical の transcript での評価（transcript_evaluations / available_transcripts）。
+_DISPLAY_SCHEMA_VERSION = 6
 
 
 def reference_signature(assembly: str) -> str:
@@ -196,6 +197,10 @@ _TSV_BASE_COLS = [
     "mane_plus_clinical_transcript", "mane_plus_clinical_hgvs_c",
     "mane_plus_clinical_hgvs_p", "mane_plus_clinical_consequence",
     "mane_plus_clinical_consequence_differs",
+    # Plus Clinical の transcript で評価した分類（規則の番号は MANE Select）
+    "mane_plus_clinical_classification_2015", "mane_plus_clinical_rules_2015",
+    "mane_plus_clinical_bayesian_score", "mane_plus_clinical_classification_bayesian",
+    "mane_plus_clinical_criteria_changes",
     "classification_2015", "rules", "bayesian_score",
     "classification_bayesian", "clinvar_significance", "clinvar_review_status",
     "clinvar_stars", "clinvar_variation_id",
@@ -220,14 +225,27 @@ def mane_pc_cells(display: dict) -> list:
     """display の mane_plus_clinical を TSV 5 列に整形（無ければ空欄）。"""
     pcs = (display or {}).get("mane_plus_clinical") or []
     if not pcs:
-        return ["", "", "", "", ""]
+        return [""] * len(MANE_PC_COLS)
+
+    def _j(key):
+        vals = ["" if p.get(key) is None else str(p.get(key)) for p in pcs]
+        return ";".join(vals) if any(vals) else ""
+
+    changes = [p.get("criteria_changes") or "" for p in pcs]
     return [
-        ";".join(p.get("transcript_id", "") for p in pcs),
-        ";".join(p.get("hgvs_c", "") for p in pcs),
-        ";".join(p.get("hgvs_p", "") for p in pcs),
-        ";".join(p.get("consequence", "") for p in pcs),
+        _j("transcript_id"), _j("hgvs_c"), _j("hgvs_p"), _j("consequence"),
         "1" if any(p.get("consequence_differs") for p in pcs) else "0",
+        _j("classification_2015"), _j("rules_2015"), _j("bayesian_score"),
+        _j("classification_bayesian"),
+        " | ".join(changes) if any(changes) else "",
     ]
+
+
+MANE_PC_COLS = (
+    "transcript", "hgvs_c", "hgvs_p", "consequence", "consequence_differs",
+    "classification_2015", "rules_2015", "bayesian_score", "classification_bayesian",
+    "criteria_changes",
+)
 
 
 def _write_batch_tsv(out_path: str, displays: list) -> None:

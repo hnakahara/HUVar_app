@@ -14,6 +14,8 @@ urlpatterns = [
     path("single/v/<str:locus>/", views.single_variant, name="single_variant"),
     path("single/result/<int:pk>/", views.single_result, name="single_result"),
     path("single/result/<int:pk>/cspec/<str:cspec_id>/", views.single_cspec, name="single_cspec"),
+    path("single/result/<int:pk>/tx/<str:transcript>/", views.single_transcript,
+         name="single_transcript"),
     path("single/result/<int:pk>/edit/", views.single_edit, name="single_edit"),
     path("single/result/<int:pk>/export.json", views.single_export, name="single_export"),
     # バッチ（VCF）

@@ -125,6 +125,13 @@ MANE summary (MANE Select + MANE Plus Clinical) from
 repository); restart the service afterwards (`docker compose restart transvar`).
 `GET /refversion` on the service reports the file used and the counts.
 
+For genes with a MANE Plus Clinical transcript, the single-variant result page
+offers **Transcript evaluated** (MANE Select / MANE Plus Clinical), precomputed
+from the same annotation like the CSpec switch (`…/single/result/<id>/tx/<transcript>/`).
+Choosing a Plus Clinical candidate on the conversion page opens that evaluation.
+The API accepts `evaluation_transcript` and returns `available_transcripts` /
+`transcript_evaluations`; batch TSVs carry the `mane_plus_clinical_*` columns.
+
 ---
 
 ## Setup

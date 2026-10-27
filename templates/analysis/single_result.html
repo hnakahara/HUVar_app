@@ -18,11 +18,17 @@
     <tr class="{% if m.consequence_differs %}row-pc-differs{% endif %}"><th>MANE Plus Clinical</th>
         <td>{{ m.transcript_id }}: {{ m.hgvs_c|default:"-" }}{% if m.hgvs_p %} / {{ m.hgvs_p }}{% endif %}
             <span style="color:var(--muted);">（{{ m.consequence }}）</span>
-            {% if m.consequence_differs %}<br><span class="pc-warn">⚠ {% translate "MANE Select と consequence が異なります。Plus Clinical の transcript での影響は自動評価に含まれていないため、個別に確認してください。" %}</span>{% endif %}
+            {% if m.classification_2015 %}<br><span class="pc-alt">{% translate "Plus Clinical での評価" %}: ACMG 2015 {{ m.classification_2015 }} / Bayesian {{ m.classification_bayesian }}（score {{ m.bayesian_score }}）{% if m.criteria_changes %} — {% translate "変化" %}: {{ m.criteria_changes }}{% endif %}</span>{% endif %}
+            {% if m.consequence_differs %}<br><span class="pc-warn">⚠ {% translate "MANE Select と consequence が異なります。上の「評価する transcript」で Plus Clinical に切り替えて、その transcript での評価を確認してください。" %}</span>{% endif %}
         </td></tr>
     {% endfor %}
+    {% if display.rule_transcript %}
+    <tr><th>{% translate "VCEP 規則の番号" %}</th>
+        <td>{{ display.rule_transcript.transcript_id }} <span class="tag tag-met">MANE Select</span>: {{ display.rule_transcript.hgvs_c|default:"-" }}{% if display.rule_transcript.hgvs_p %} / {{ display.rule_transcript.hgvs_p }}{% endif %}
+            <span style="color:var(--muted);">（{{ display.rule_transcript.consequence }}）</span></td></tr>
+    {% endif %}
 </table>
-{% if display.mane_plus_clinical %}
+{% if display.mane_plus_clinical and not available_transcripts %}
 <p class="pc-note">{% translate "この遺伝子には MANE Plus Clinical の transcript があります。現在のクライテリア評価は MANE Select で行っており、Plus Clinical の表記は補足として表示しています。" %}</p>
 {% endif %}
 
@@ -57,6 +63,29 @@
     </table>
     <p class="vcep-note">{% translate "専門家パネルによる分類は、通常この自動判定より優先されます。下の結果は参考として確認してください。" %}
         {% if display.vcep.snapshot %}<span class="vcep-snap">（{% translate "eRepo スナップショット" %} {{ display.vcep.snapshot }}）</span>{% endif %}</p>
+</div>
+{% endif %}
+
+{% if available_transcripts %}
+<div class="cspec-switch">
+    <span class="cspec-label">{% translate "評価する transcript" %}</span>
+    <p class="cspec-hint">{% translate "この遺伝子には MANE Plus Clinical の transcript があります。クライテリアを評価する transcript を切り替えられます。consequence・NMD・in silico スコアは選んだ transcript で評価し、VCEP の位置規則（PM1 など）と ClinVar の同一コドン照合はどちらでも MANE Select の番号で照合します。" %}</p>
+    <div class="cspec-options">
+        {% for t in available_transcripts %}
+        {% if t.role == "MANE Plus Clinical" %}
+        <a href="{% url 'analysis:single_transcript' result_id t.transcript_id %}"
+           class="cspec-chip{% if active_transcript == t.transcript_id %} active{% endif %}">
+        {% else %}
+        <a href="{% url 'analysis:single_result' result_id %}"
+           class="cspec-chip{% if not active_transcript %} active{% endif %}">
+        {% endif %}
+           {{ t.role|default:_("既定") }} {{ t.transcript_id }} — {{ t.classification_2015 }} / {{ t.classification_bayesian }}</a>
+        {% endfor %}
+    </div>
+    {% if active_transcript %}
+    <p class="cspec-current">{% translate "現在の評価:" %} <strong>MANE Plus Clinical {{ active_transcript }}</strong>
+        {% translate "（CSpec の切替と eRepo 由来クライテリアの除外は MANE Select の評価で行えます。手動編集は両方の評価に適用されます）" %}</p>
+    {% endif %}
 </div>
 {% endif %}
 
@@ -121,6 +150,7 @@
 
 <form method="post" action="{% url 'analysis:single_edit' result_id %}">
     {% csrf_token %}
+    <input type="hidden" name="active_transcript" value="{{ active_transcript|default:'' }}">
     <table border="1" cellpadding="4" cellspacing="0">
         <thead>
             <tr>

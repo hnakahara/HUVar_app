@@ -12,7 +12,7 @@
 <p style="color:#a60;">⚠ {% translate "MANE Select に該当が無いため、候補トランスクリプトから選択してください（非 MANE）。" %}</p>
 {% endif %}
 {% if has_pc_candidate %}
-<p class="pc-note">ℹ {% translate "MANE Plus Clinical の番号として解釈した候補があります（MANE Select とはゲノム座標が異なります）。入力した表記がどちらの transcript のものか確認して選択してください。どちらを選んでも、現在の評価はその座標について MANE Select で行います。" %}</p>
+<p class="pc-note">ℹ {% translate "MANE Plus Clinical の番号として解釈した候補があります（MANE Select とはゲノム座標が異なります）。入力した表記がどちらの transcript のものか確認して選択してください。Plus Clinical の候補を選ぶと、その transcript で評価した結果を表示します（結果画面で MANE Select の評価に切り替えられます）。" %}</p>
 {% endif %}
 
 <div class="table-scroll">
@@ -40,6 +40,21 @@
                     <input type="hidden" name="hgvs_p" value="{{ c.hgvs_p }}">
                     <button type="submit">{% translate "このバリアントで解析" %}</button>
                 </form>
+                {% for n in c.plus_clinical %}
+                <form method="post" action="{% url 'analysis:single_analyze' %}" class="pc-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="assembly" value="{{ assembly }}">
+                    <input type="hidden" name="chrom" value="{{ c.chrom }}">
+                    <input type="hidden" name="pos" value="{{ c.pos }}">
+                    <input type="hidden" name="ref" value="{{ c.ref }}">
+                    <input type="hidden" name="alt" value="{{ c.alt }}">
+                    <input type="hidden" name="gene" value="{{ c.gene }}">
+                    <input type="hidden" name="transcript" value="{{ n.transcript }}">
+                    <input type="hidden" name="hgvs_c" value="{{ n.hgvs_c }}">
+                    <input type="hidden" name="hgvs_p" value="{{ n.hgvs_p }}">
+                    <button type="submit" title="{{ n.transcript }}">{% translate "Plus Clinical で解析" %}</button>
+                </form>
+                {% endfor %}
             </td>
             <td>{{ forloop.counter }}</td>
             <td>{{ c.gene }}</td>
