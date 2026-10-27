@@ -82,6 +82,7 @@ services:
       dockerfile: containers/transvar/Dockerfile
     volumes:
       - ~/tools:/tools               # TransVar 設定・参照（/tools/transvar/...）
+      - /ddrive/data:/data:ro       # HUVar 参照データ（shared/ の MANE summary を参照）
     expose:
       - "5000"
     env_file:

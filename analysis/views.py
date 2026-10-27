@@ -19,10 +19,12 @@ from .cache import cached_classify_single
 from .engine import (
     STRENGTH_CHOICES,
     EngineUnavailable,
+    align_variant_to_evaluation,
     assembly_to_hg,
     classify_single,
     parse_assembly_token,
 )
+from .cache import mane_pc_cells
 from .forms import BatchVariantForm, SingleVariantForm
 from .models import AnalysisJob, AuditLog, VariantResult
 from .tasks import cleanup_expired_jobs, run_batch_classification
@@ -72,6 +74,9 @@ def single_input(request):
             "refversion": result.get("refversion"),
             "kind": result.get("kind"),
             "candidates": result.get("candidates", []),
+            # c./p. 番号が MANE Plus Clinical 上でのみ（または別座標で）解釈された候補
+            "has_pc_candidate": any(c.get("mane_status") == "MANE Plus Clinical"
+                                    for c in result.get("candidates", [])),
         })
 
     return render(request, "analysis/single_input.html", context)
@@ -240,6 +245,10 @@ def single_analyze(request):
             "variant": variant, "engine_error": _ENGINE_ERROR_MSG,
             "strength_choices": STRENGTH_CHOICES,
         })
+    # 評価は MANE Select（エンジンの primary consequence）で行われる。Plus Clinical 候補
+    # を選んだ場合も、保存・表示する transcript/HGVS は評価に使ったものにそろえ、
+    # 入力時の表記は input_* として併記する。
+    variant = align_variant_to_evaluation(variant, display)
 
     job = AnalysisJob.objects.create(
         owner=request.user,
@@ -416,6 +425,13 @@ def _result_to_tsv(data: dict) -> str:
         ("transcript", variant.get("transcript", "")),
         ("hgvs_c", variant.get("hgvs_c", "")),
         ("hgvs_p", variant.get("hgvs_p", "")),
+        ("evaluated_transcript_role", display.get("evaluated_transcript_role", "")),
+        ("input_transcript", variant.get("input_transcript", "")),
+        ("input_hgvs_c", variant.get("input_hgvs_c", "")),
+        ("input_hgvs_p", variant.get("input_hgvs_p", "")),
+        *[(f"mane_plus_clinical_{k}", v) for k, v in zip(
+            ("transcript", "hgvs_c", "hgvs_p", "consequence", "consequence_differs"),
+            mane_pc_cells(display))],
         ("classification_2015", display.get("classification_2015", "")),
         ("rules", display.get("rules", "")),
         ("classification_bayesian", display.get("classification_bayesian", "")),

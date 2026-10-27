@@ -118,7 +118,8 @@ def _tracked_paths(assembly: str):
 #     既存キャッシュ（非MANEで評価済み）を無効化して再計算させる。
 # v4: Genome Medicine 改訂。criteria[].source、vcep（VCEP 既分類）、provenance（使用データ版）、
 #     automated_only（eRepo / エキスパートパネル由来を除いた自動判定）を追加。
-_DISPLAY_SCHEMA_VERSION = 4
+# v5: MANE Plus Clinical の補足（mane_plus_clinical / evaluated_transcript_role）を追加。
+_DISPLAY_SCHEMA_VERSION = 5
 
 
 def reference_signature(assembly: str) -> str:
@@ -190,7 +191,12 @@ def cached_classify_single(assembly: str, chrom: str, pos: int, ref: str, alt: s
 
 _TSV_BASE_COLS = [
     "variant_id", "chrom", "pos", "ref", "alt", "gene_symbol", "transcript_id",
-    "hgvs_c", "hgvs_p", "classification_2015", "rules", "bayesian_score",
+    "hgvs_c", "hgvs_p",
+    # MANE Plus Clinical の補足（評価は MANE Select）。複数（GNAS）は ";" 区切り。
+    "mane_plus_clinical_transcript", "mane_plus_clinical_hgvs_c",
+    "mane_plus_clinical_hgvs_p", "mane_plus_clinical_consequence",
+    "mane_plus_clinical_consequence_differs",
+    "classification_2015", "rules", "bayesian_score",
     "classification_bayesian", "clinvar_significance", "clinvar_review_status",
     "clinvar_stars", "clinvar_variation_id",
     "vcep_classification", "vcep_expert_panel", "vcep_approval_date", "erepo_url",
@@ -208,6 +214,20 @@ def _read_variants(vcf_path: str, assembly: str):
         if v.alt and v.alt != ".":
             out.append((v.key, v.chrom, v.pos, v.ref, v.alt))
     return out
+
+
+def mane_pc_cells(display: dict) -> list:
+    """display の mane_plus_clinical を TSV 5 列に整形（無ければ空欄）。"""
+    pcs = (display or {}).get("mane_plus_clinical") or []
+    if not pcs:
+        return ["", "", "", "", ""]
+    return [
+        ";".join(p.get("transcript_id", "") for p in pcs),
+        ";".join(p.get("hgvs_c", "") for p in pcs),
+        ";".join(p.get("hgvs_p", "") for p in pcs),
+        ";".join(p.get("consequence", "") for p in pcs),
+        "1" if any(p.get("consequence_differs") for p in pcs) else "0",
+    ]
 
 
 def _write_batch_tsv(out_path: str, displays: list) -> None:
@@ -228,6 +248,7 @@ def _write_batch_tsv(out_path: str, displays: list) -> None:
                 d.get("variant_id", ""), d.get("chrom", ""), d.get("pos", ""),
                 d.get("ref", ""), d.get("alt", ""), d.get("gene_symbol", ""),
                 d.get("transcript_id", ""), d.get("hgvs_c", ""), d.get("hgvs_p", ""),
+                *mane_pc_cells(d),
                 d.get("classification_2015", ""), d.get("rules", ""),
                 d.get("bayesian_score", ""), d.get("classification_bayesian", ""),
                 clinvar.get("significance", ""), clinvar.get("review_status", ""),

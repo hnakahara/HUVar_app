@@ -1,7 +1,8 @@
 """TransVar 変換マイクロサービス（Python 3.9）。
 
 app / worker（Python 3.11）から内部 HTTP で呼び出される。Python バージョン差異を
-吸収し、genome / cDNA / protein の相互変換を行い、MANE Select に限定して返す。
+吸収し、genome / cDNA / protein の相互変換を行い、MANE（Select / Plus Clinical）の
+transcript に限定して返す。MANE に該当が無い場合のみ全候補へフォールバックする。
 
 TransVar 設定・参照は vas と同一位置（/tools/transvar/...）を使用。GRCh37(hg19) /
 GRCh38(hg38) 両対応。ロジックは vas の transvar_function.py を移植・整理したもの。
@@ -9,6 +10,7 @@ GRCh38(hg38) 両対応。ロジックは vas の transvar_function.py を移植�
 from __future__ import annotations
 
 import csv
+import gzip
 import io
 import os
 import re
@@ -27,9 +29,32 @@ _ASSEMBLY_TO_REFVERSION = {
     "GRCh37": "hg19", "hg19": "hg19",
 }
 _TRANSVAR_ROOT = os.environ.get("TRANSVAR_ROOT", "/tools/transvar")
-_MANE_SUMMARY = os.environ.get(
-    "MANE_SUMMARY", f"{_TRANSVAR_ROOT}/mane/MANE.GRCh38.v1.3.summary.txt"
+# MANE summary（NCBI 配布の MANE.GRCh38.vX.summary.txt[.gz]）。環境変数 MANE_SUMMARY が
+# 最優先。未指定なら HUVar 参照データの shared（HUVar の `setup_data.py --only
+# mane-summary` が保存する。app/worker と同じ ACMG_DATA_DIR、既定 /data）を探す。
+# 旧配置（/tools/transvar/mane/ の v1.3）は後方互換のフォールバックとして残す。
+_DATA_DIR = os.environ.get("ACMG_DATA_DIR", "/data")
+_MANE_SUMMARY_CANDIDATES = (
+    f"{_DATA_DIR}/shared/MANE.GRCh38.v1.5.summary.txt.gz",
+    f"{_TRANSVAR_ROOT}/mane/MANE.GRCh38.v1.3.summary.txt",
 )
+
+
+def _resolve_mane_summary() -> str:
+    env = os.environ.get("MANE_SUMMARY")
+    if env:
+        return env
+    for path in _MANE_SUMMARY_CANDIDATES:
+        if os.path.exists(path):
+            return path
+    return _MANE_SUMMARY_CANDIDATES[0]
+
+
+_MANE_SUMMARY = _resolve_mane_summary()
+
+MANE_SELECT = "MANE Select"
+MANE_PLUS_CLINICAL = "MANE Plus Clinical"
+_MANE_STATUS_ORDER = {MANE_SELECT: 0, MANE_PLUS_CLINICAL: 1}
 
 # アミノ酸 3文字 → 1文字（protein 入力の正規化用）
 _AA3_TO_1 = {
@@ -46,6 +71,14 @@ class ConvertRequest(BaseModel):
     kind: Optional[str] = None  # "genome" | "cdna" | "protein"
 
 
+class PlusClinicalNote(BaseModel):
+    """同一ゲノム座標の MANE Plus Clinical 上の表記（補足情報）。"""
+    transcript: Optional[str] = None
+    hgvs_c: Optional[str] = None
+    hgvs_p: Optional[str] = None
+    region: Optional[str] = None
+
+
 class Candidate(BaseModel):
     transcript: Optional[str] = None
     gene: Optional[str] = None
@@ -59,6 +92,10 @@ class Candidate(BaseModel):
     hgvs_p: Optional[str] = None
     region: Optional[str] = None
     is_mane_select: bool = True
+    # "MANE Select" / "MANE Plus Clinical" / None（非 MANE のフォールバック候補）
+    mane_status: Optional[str] = None
+    # 同じゲノム座標を MANE Plus Clinical 上で表した表記（Select 候補に付与）
+    plus_clinical: List[PlusClinicalNote] = []
     raw: str = ""
 
 
@@ -81,33 +118,76 @@ def refversion_info():
     for rv in ("hg19", "hg38"):
         cfg = f"{_TRANSVAR_ROOT}/{rv}/transvar.cfg"
         out[rv] = {"cfg": cfg, "exists": os.path.exists(cfg)}
-    out["mane_summary"] = {"path": _MANE_SUMMARY, "exists": os.path.exists(_MANE_SUMMARY)}
+    idx = _mane_index()
+    out["mane_summary"] = {
+        "path": _MANE_SUMMARY, "exists": os.path.exists(_MANE_SUMMARY),
+        "mane_select_genes": sum(1 for v in idx["by_gene"].values()
+                                 if any(s == MANE_SELECT for _, s in v)),
+        "mane_plus_clinical_transcripts": sum(1 for _g, s in idx["by_acc"].values()
+                                              if s == MANE_PLUS_CLINICAL),
+    }
     return out
 
 
-@lru_cache(maxsize=1)
-def _mane_map() -> dict:
-    """MANE summary から {gene_symbol: MANE Select RefSeq_nuc} を構築。"""
-    mapping = {}
+def _open_text(path: str):
+    if path.endswith(".gz"):
+        return gzip.open(path, "rt", newline="", encoding="utf-8")
+    return open(path, newline="", encoding="utf-8")
+
+
+def _load_mane_index(path: str) -> dict:
+    """MANE summary から transcript の MANE 区分を引く索引を構築する。
+
+    Returns:
+      {"by_gene": {symbol: [(refseq_base, status), ...]}   # Select を先頭に
+       "by_acc":  {refseq_base: (symbol, status)}}
+    status は "MANE Select" / "MANE Plus Clinical"。
+    """
+    by_gene: dict = {}
+    by_acc: dict = {}
     try:
-        with open(_MANE_SUMMARY, newline="", encoding="utf-8") as fh:
+        with _open_text(path) as fh:
             # ヘッダは #NCBI_GeneID で始まるが、列名(symbol/RefSeq_nuc/MANE_status)は素のまま
             reader = csv.DictReader(fh, delimiter="\t")
             for row in reader:
-                if row.get("MANE_status") == "MANE Select":
-                    sym = row.get("symbol")
-                    # 列名は配布版で異なる: 標準は RefSeq_nuc、vas 配置版は
-                    # RefSeq_nuc_major(=versioned NM_) / RefSeq_nuc_minor。
-                    nuc = (
-                        row.get("RefSeq_nuc")
-                        or row.get("RefSeq_nuc_major")
-                        or row.get("RefSeq_nuc_minor")
-                    )
-                    if sym and nuc:
-                        mapping[sym] = nuc
+                status = (row.get("MANE_status") or "").strip()
+                if status not in _MANE_STATUS_ORDER:
+                    continue
+                sym = row.get("symbol")
+                # 列名は配布版で異なる: 標準は RefSeq_nuc、vas 配置版は
+                # RefSeq_nuc_major(=versioned NM_) / RefSeq_nuc_minor。
+                nuc = (
+                    row.get("RefSeq_nuc")
+                    or row.get("RefSeq_nuc_major")
+                    or row.get("RefSeq_nuc_minor")
+                )
+                if not (sym and nuc):
+                    continue
+                base = _base(nuc)
+                by_gene.setdefault(sym, []).append((base, status))
+                by_acc[base] = (sym, status)
     except FileNotFoundError:
         pass
-    return mapping
+    for v in by_gene.values():
+        v.sort(key=lambda t: _MANE_STATUS_ORDER[t[1]])
+    return {"by_gene": by_gene, "by_acc": by_acc}
+
+
+@lru_cache(maxsize=1)
+def _mane_index() -> dict:
+    return _load_mane_index(_MANE_SUMMARY)
+
+
+def _mane_map() -> dict:
+    """後方互換: {gene_symbol: MANE Select RefSeq の基底アクセッション}。"""
+    return {g: b for g, v in _mane_index()["by_gene"].items()
+            for b, s in v if s == MANE_SELECT}
+
+
+def _mane_status(row: dict) -> Optional[str]:
+    """TransVar 行の transcript の MANE 区分（該当なしは None）。"""
+    hit = _mane_index()["by_acc"].get(_base(row.get("transcript")))
+    return hit[1] if hit else None
 
 
 def _base(acc: Optional[str]) -> str:
@@ -184,7 +264,7 @@ def _coord_failed(row: dict) -> bool:
     return g is None or "(" in g
 
 
-def _row_to_candidate(row: dict, is_mane: bool = True) -> Optional[Candidate]:
+def _row_to_candidate(row: dict, status: Optional[str] = None) -> Optional[Candidate]:
     if _coord_failed(row):
         return None
     chrom, g, c, p, coord = _split_coords(row)
@@ -205,30 +285,67 @@ def _row_to_candidate(row: dict, is_mane: bool = True) -> Optional[Candidate]:
         hgvs_c=c,
         hgvs_p=p,
         region=row.get("region"),
-        is_mane_select=is_mane,
+        is_mane_select=(status == MANE_SELECT),
+        mane_status=status,
         raw=coord,
     )
 
 
+_ACCESSION_RE = re.compile(r"^(NM_|NR_|XM_|ENST)\d+(\.\d+)?$", re.IGNORECASE)
+
+
+def _sort_mane(rows: List[dict]) -> List[dict]:
+    """MANE Select → MANE Plus Clinical の順に安定ソート。"""
+    return sorted(rows, key=lambda r: _MANE_STATUS_ORDER.get(_mane_status(r), 9))
+
+
 def _filter_mane_for_gene(rows: List[dict], gene: str) -> List[dict]:
-    """指定遺伝子の MANE Select transcript の行のみ残す（バージョン非依存一致）。"""
-    mane_tx = _mane_map().get(gene)
-    if not mane_tx:
+    """cDNA/protein 入力: 指定遺伝子の MANE（Select / Plus Clinical）transcript の行のみ
+    残す（バージョン非依存一致）。'NM_033360.4:c.…' のように transcript を直接指定した
+    場合は、その transcript の行のみ（MANE 区分は索引から付与）。"""
+    if _ACCESSION_RE.match(gene):
+        base = _base(gene)
+        return [r for r in rows if _base(r.get("transcript")) == base]
+    bases = {b for b, _s in _mane_index()["by_gene"].get(gene, [])}
+    if not bases:
         return []
-    base = _base(mane_tx)
-    return [r for r in rows if _base(r.get("transcript")) == base]
+    return _sort_mane([r for r in rows if _base(r.get("transcript")) in bases])
 
 
 def _filter_mane_genome(rows: List[dict]) -> List[dict]:
-    """genome 入力: 各行の gene の MANE Select transcript に一致する行のみ残す。"""
-    mane = _mane_map()
+    """genome 入力: 各行の gene の MANE（Select / Plus Clinical）transcript の行のみ残す。"""
+    idx = _mane_index()["by_acc"]
     out = []
     for r in rows:
-        gene = r.get("gene")
-        mane_tx = mane.get(gene)
-        if mane_tx and _base(r.get("transcript")) == _base(mane_tx):
+        hit = idx.get(_base(r.get("transcript")))
+        if hit and hit[0] == r.get("gene"):
             out.append(r)
-    return out
+    return _sort_mane(out)
+
+
+def _build_candidates(cand_rows: List[dict], use_mane: bool) -> List[Candidate]:
+    """TransVar 行 → 候補。同一ゲノム座標は1候補にまとめ、MANE Plus Clinical 上の
+    表記は MANE Select 候補の plus_clinical に補足として付ける。座標が Select と
+    異なる Plus Clinical の行（c. 番号の付け方が異なる場合）は独立した候補になる。"""
+    by_coord: dict = {}
+    candidates: List[Candidate] = []
+    for r in cand_rows:
+        status = _mane_status(r) if use_mane else None
+        c = _row_to_candidate(r, status)
+        if c is None:
+            continue
+        gkey = (c.chrom, c.pos, c.ref, c.alt)  # genome 座標で重複排除
+        prev = by_coord.get(gkey)
+        if prev is not None:
+            if (c.mane_status == MANE_PLUS_CLINICAL and prev.mane_status == MANE_SELECT
+                    and all(_base(n.transcript) != _base(c.transcript) for n in prev.plus_clinical)):
+                prev.plus_clinical.append(PlusClinicalNote(
+                    transcript=c.transcript, hgvs_c=c.hgvs_c, hgvs_p=c.hgvs_p,
+                    region=c.region))
+            continue
+        by_coord[gkey] = c
+        candidates.append(c)
+    return candidates
 
 
 @app.post("/convert", response_model=ConvertResponse)
@@ -272,24 +389,12 @@ def convert(req: ConvertRequest) -> ConvertResponse:
             return ConvertResponse(ok=False, kind=kind, refversion=refversion,
                                    error=f"unknown kind: {kind}")
 
-        # MANE Select を優先。MANE で座標が得られなければ、TransVar の全候補
-        # transcript へフォールバックし、ユーザーに選択させる（MANE に無い変異対応）。
+        # MANE（Select → Plus Clinical の順）を優先。MANE で座標が得られなければ、
+        # TransVar の全候補 transcript へフォールバックし、ユーザーに選択させる。
         if mane_rows:
-            cand_rows, is_mane = mane_rows, True
+            candidates = _build_candidates(mane_rows, use_mane=True)
         else:
-            cand_rows, is_mane = rows, False
-
-        seen = set()
-        candidates = []
-        for r in cand_rows:
-            c = _row_to_candidate(r, is_mane)
-            if c is None:
-                continue
-            gkey = (c.chrom, c.pos, c.ref, c.alt)  # genome 座標で重複排除
-            if gkey in seen:
-                continue
-            seen.add(gkey)
-            candidates.append(c)
+            candidates = _build_candidates(rows, use_mane=False)
 
         if not candidates:
             avail = sorted({_base(r.get("transcript")) for r in rows if r.get("transcript")})

@@ -194,6 +194,56 @@ def _provenance(cfg) -> dict:
         return {}
 
 
+_MANE_PC_KEYS = ("transcript_id", "hgvs_c", "hgvs_p", "consequence")
+
+
+def _mane_plus_clinical_display(result, ann) -> list:
+    """MANE Plus Clinical 上の表記（補足情報）。評価は MANE Select のまま。
+
+    run_pipeline 由来の result は mane_plus_clinical を持つ。classify_annotated 由来は
+    持たないため AnnotationData から求める（旧エンジンでは属性が無く空リスト）。"""
+    items = getattr(result, "mane_plus_clinical", None)
+    if not items and ann is not None and hasattr(ann, "mane_plus_clinical_summary"):
+        items = ann.mane_plus_clinical_summary()
+    out = []
+    for m in items or []:
+        d = m.model_dump() if hasattr(m, "model_dump") else dict(m)
+        row = {k: d.get(k) or "" for k in _MANE_PC_KEYS}
+        row["consequence_differs"] = bool(d.get("consequence_differs"))
+        out.append(row)
+    return out
+
+
+def _evaluated_transcript_role(ann) -> str:
+    """評価に使った transcript（primary consequence）の MANE 区分。"""
+    pc = getattr(ann, "primary_consequence", None) if ann is not None else None
+    if pc is not None and getattr(pc, "is_mane_select", False):
+        return "MANE Select"
+    return ""
+
+
+def align_variant_to_evaluation(variant: dict, display: dict) -> dict:
+    """variant の transcript/HGVS を「実際に評価した transcript」にそろえる。
+
+    TransVar 候補（MANE Plus Clinical 上の c. 表記など）から解析した場合でも、エンジンは
+    その座標を MANE Select で評価する。入力時の表記は input_* に残して画面に併記する。"""
+    v = dict(variant)
+    ev_tx = display.get("transcript_id") or ""
+    in_tx = v.get("transcript") or ""
+    # 同じ transcript なら入力時の表記（TransVar 形式）をそのまま使う（従来どおり）。
+    if not ev_tx or (in_tx and in_tx.split(".")[0] == ev_tx.split(".")[0]):
+        return v
+    if in_tx:
+        v["input_transcript"] = in_tx
+        v["input_hgvs_c"] = v.get("hgvs_c", "")
+        v["input_hgvs_p"] = v.get("hgvs_p", "")
+    v["transcript"] = ev_tx
+    v["hgvs_c"] = display.get("hgvs_c") or ""
+    v["hgvs_p"] = display.get("hgvs_p") or ""
+    v["gene"] = display.get("gene_symbol") or v.get("gene", "")
+    return v
+
+
 def _to_display(result, ann=None) -> dict:
     """ClassificationResult -> テンプレート/DB 用の素の dict。
 
@@ -230,6 +280,8 @@ def _to_display(result, ann=None) -> dict:
         "warnings": list(result.warnings or []),
         "criteria": criteria,
         "clinvar": _clinvar_display(clinvar_ann),
+        "evaluated_transcript_role": _evaluated_transcript_role(clinvar_ann),
+        "mane_plus_clinical": _mane_plus_clinical_display(result, clinvar_ann),
     }
 
 
@@ -311,7 +363,8 @@ def classify_single(
             cfg_auto = cfg.model_copy(update={"exclude_self_expert_panel": True})
             auto = classify_annotated(variant, ann, cfg_auto, supplement=list(user) or None)
             auto_display = _annotate_sources(_to_display(auto, ann), (), user_crits)
-            for key in ("gene_symbol", "transcript_id", "hgvs_c", "hgvs_p"):
+            for key in ("gene_symbol", "transcript_id", "hgvs_c", "hgvs_p",
+                        "evaluated_transcript_role", "mane_plus_clinical"):
                 auto_display[key] = display.get(key, "")
             auto_display["vcep"] = display["vcep"]
             auto_display["provenance"] = display["provenance"]

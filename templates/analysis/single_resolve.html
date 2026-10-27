@@ -2,14 +2,17 @@
 {% load i18n %}
 {% block title %}{% translate "変換結果" %} | HUVar{% endblock %}
 {% block content %}
-<h1>{% translate "TransVar 変換結果（MANE Select 限定）" %}</h1>
+<h1>{% translate "TransVar 変換結果（MANE Select / Plus Clinical）" %}</h1>
 <p>{% translate "入力" %}: <code>{{ query }}</code> / {% translate "アセンブリ" %}: {{ assembly }} / {% translate "種別" %}: {{ kind }}</p>
 
 {% if candidates|length > 1 %}
 <p>{% translate "複数の候補があります。解析するバリアントを選択してください。" %}</p>
 {% endif %}
-{% if not candidates.0.is_mane_select %}
+{% if not candidates.0.mane_status %}
 <p style="color:#a60;">⚠ {% translate "MANE Select に該当が無いため、候補トランスクリプトから選択してください（非 MANE）。" %}</p>
+{% endif %}
+{% if has_pc_candidate %}
+<p class="pc-note">ℹ {% translate "MANE Plus Clinical の番号として解釈した候補があります（MANE Select とはゲノム座標が異なります）。入力した表記がどちらの transcript のものか確認して選択してください。どちらを選んでも、現在の評価はその座標について MANE Select で行います。" %}</p>
 {% endif %}
 
 <div class="table-scroll">
@@ -41,10 +44,10 @@
             <td>{{ forloop.counter }}</td>
             <td>{{ c.gene }}</td>
             <td>{{ c.transcript }}</td>
-            <td>{% if c.is_mane_select %}✓{% endif %}</td>
+            <td>{% if c.mane_status == "MANE Select" %}<span class="tag tag-met">Select</span>{% elif c.mane_status == "MANE Plus Clinical" %}<span class="tag tag-pc">Plus Clinical</span>{% endif %}</td>
             <td>{{ c.chrom }}:{{ c.pos }} {{ c.ref }}&gt;{{ c.alt }}</td>
-            <td>{{ c.hgvs_c }}</td>
-            <td>{{ c.hgvs_p }}</td>
+            <td>{{ c.hgvs_c }}{% for n in c.plus_clinical %}<br><span class="pc-alt" title="MANE Plus Clinical">{{ n.transcript }}: {{ n.hgvs_c }}</span>{% endfor %}</td>
+            <td>{{ c.hgvs_p }}{% for n in c.plus_clinical %}<br><span class="pc-alt">{{ n.hgvs_p }}</span>{% endfor %}</td>
             <td>{{ c.region }}</td>
         </tr>
     {% endfor %}

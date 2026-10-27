@@ -21,7 +21,7 @@ from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
 from accounts.models import User
 from accounts.notifications import notify_admin
 from analysis.cache import cached_classify_single
-from analysis.engine import EngineUnavailable
+from analysis.engine import EngineUnavailable, align_variant_to_evaluation
 from analysis.models import AnalysisJob, AuditLog
 from analysis.tasks import run_batch_classification
 from transvar_client.client import TransvarError
@@ -153,6 +153,7 @@ class ClassifyView(APIView):
         assembly = data.get("assembly", "GRCh38")
         chrom, pos = data.get("chrom"), data.get("pos")
         ref, alt = data.get("ref"), data.get("alt")
+        pc_alternatives = []  # MANE Plus Clinical 上の別解釈（query 指定時のみ）
 
         if chrom and pos and ref and alt:
             variant = {
@@ -172,6 +173,14 @@ class ClassifyView(APIView):
             if not conv.get("ok"):
                 return Response({"error": conv.get("error") or "変換に失敗しました"}, status=400)
             candidates = conv.get("candidates", [])
+            # MANE Select と MANE Plus Clinical で c./p. 番号の解釈が分かれた場合は、
+            # 従来どおり MANE Select の解釈を採用し、Plus Clinical 側は返却に併記する。
+            selects = [c for c in candidates if c.get("mane_status") == "MANE Select"]
+            if (len(candidates) > 1 and len(selects) == 1
+                    and all(c.get("mane_status") in ("MANE Select", "MANE Plus Clinical")
+                            for c in candidates)):
+                pc_alternatives = [c for c in candidates if c is not selects[0]]
+                candidates = selects
             if len(candidates) > 1:
                 return Response({"status": "multiple_candidates", "candidates": candidates})
             c = candidates[0]
@@ -217,7 +226,11 @@ class ClassifyView(APIView):
             f"分類(Bayesian): {display.get('classification_bayesian', '-')}"
             f"（score {display.get('bayesian_score', '-')}）\n",
         )
-        return Response({"variant": variant, **display})
+        variant = align_variant_to_evaluation(variant, display)
+        body = {"variant": variant, **display}
+        if pc_alternatives:
+            body["plus_clinical_alternatives"] = pc_alternatives
+        return Response(body)
 
 
 class JobCreateView(APIView):

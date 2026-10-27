@@ -118,6 +118,13 @@ The analysis engine and reference data are not bundled into the image; they are 
 - `/ddrive/data` → `/data` … reference data (FASTA / MANE / scores, etc.)
 - `~/tools` → `/tools` … TransVar configuration and references
 
+The `transvar` service also mounts the reference data (`/data`, read-only) and reads the
+MANE summary (MANE Select + MANE Plus Clinical) from
+`/data/shared/MANE.GRCh38.v1.5.summary.txt.gz`. It is fetched by the HUVar data setup
+(`python scripts/setup_data.py --data-dir <data> --only mane-summary` in the HUVar
+repository); restart the service afterwards (`docker compose restart transvar`).
+`GET /refversion` on the service reports the file used and the counts.
+
 ---
 
 ## Setup
@@ -142,6 +149,7 @@ Create `.env` (development) and `.env.prod` (production) in the project root. Ke
 | `REDIS_PASSWORD` | Redis password |
 | `CACHE_URL` | Optional. If unset, derived from `REDIS_URL` with the DB switched to `1` |
 | `TRANSVAR_SERVICE_URL` | Default `http://transvar:5000` |
+| `MANE_SUMMARY` | Optional. MANE summary read by the `transvar` service (container path). Default `$ACMG_DATA_DIR/shared/MANE.GRCh38.v1.5.summary.txt.gz` (`ACMG_DATA_DIR` defaults to `/data`; falls back to a legacy `/tools/transvar/mane/MANE.GRCh38.v1.3.summary.txt`) |
 | `JOB_ARTIFACT_RETENTION_HOURS` | Retention time for batch artifacts (default `1`) |
 | `ADMIN_ADDRESS` | Recipient for notification emails |
 | `GMAIL_ADDRESS` / `GMAIL_PASS` | Gmail SMTP sending (`GMAIL_PASS` is an **app password**) |

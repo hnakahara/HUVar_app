@@ -350,6 +350,12 @@ li { margin: .25em 0; }
 .tag-met { background: var(--accent-2); color: #04201a; box-shadow: 0 0 10px rgba(52, 211, 153, .4); }
 .tag-not { background: rgba(148, 163, 184, .12); color: #6b7a96; }
 .tag-suppressed { background: rgba(251, 191, 36, .2); color: #fcd34d; border: 1px solid rgba(251, 191, 36, .35); }
+/* MANE Plus Clinical（補足表記） */
+.tag-pc { background: rgba(129, 140, 248, .18); color: #c7d2fe; border: 1px solid rgba(129, 140, 248, .4); }
+.pc-alt { color: var(--violet); font-size: .86em; }
+.pc-note { color: var(--muted); font-size: .88rem; }
+.pc-warn { color: var(--warn); font-size: .88rem; }
+tr.row-pc-differs > td { background: rgba(251, 191, 36, .06); }
 
 /* MET 行は左に緑のアクセント＋淡い背景で強調。not met は淡色化 */
 tbody tr.row-met > td { background: rgba(52, 211, 153, .07); color: #d7f5e8; }

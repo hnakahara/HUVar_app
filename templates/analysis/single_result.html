@@ -9,9 +9,22 @@
     <tr><th>{% translate "アセンブリ" %}</th><td>{{ variant.assembly }}</td></tr>
     <tr><th>genome</th><td>{{ variant.chrom }}:{{ variant.pos }} {{ variant.ref }}&gt;{{ variant.alt }}</td></tr>
     <tr><th>gene</th><td>{{ variant.gene }}</td></tr>
-    <tr><th>transcript</th><td>{{ variant.transcript }}</td></tr>
+    <tr><th>transcript</th><td>{{ variant.transcript }}{% if display.evaluated_transcript_role %} <span class="tag tag-met">{{ display.evaluated_transcript_role }}</span>{% endif %} <span style="color:var(--muted);">{% translate "（評価に使用）" %}</span></td></tr>
     <tr><th>HGVS</th><td>{{ variant.hgvs_c }} / {{ variant.hgvs_p }}</td></tr>
+    {% if variant.input_transcript %}
+    <tr><th>{% translate "入力時の表記" %}</th><td>{{ variant.input_transcript }}: {{ variant.input_hgvs_c }} / {{ variant.input_hgvs_p }}</td></tr>
+    {% endif %}
+    {% for m in display.mane_plus_clinical %}
+    <tr class="{% if m.consequence_differs %}row-pc-differs{% endif %}"><th>MANE Plus Clinical</th>
+        <td>{{ m.transcript_id }}: {{ m.hgvs_c|default:"-" }}{% if m.hgvs_p %} / {{ m.hgvs_p }}{% endif %}
+            <span style="color:var(--muted);">（{{ m.consequence }}）</span>
+            {% if m.consequence_differs %}<br><span class="pc-warn">⚠ {% translate "MANE Select と consequence が異なります。Plus Clinical の transcript での影響は自動評価に含まれていないため、個別に確認してください。" %}</span>{% endif %}
+        </td></tr>
+    {% endfor %}
 </table>
+{% if display.mane_plus_clinical %}
+<p class="pc-note">{% translate "この遺伝子には MANE Plus Clinical の transcript があります。現在のクライテリア評価は MANE Select で行っており、Plus Clinical の表記は補足として表示しています。" %}</p>
+{% endif %}
 
 {% if permalink %}
 <p class="permalink">

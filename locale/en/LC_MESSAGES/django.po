@@ -39,8 +39,8 @@ msgstr "Classify variant pathogenicity using the ACMG 2015 + ClinGen SVI criteri
 msgid "単一バリアント解析"
 msgstr "Single variant analysis"
 
-msgid "genome / cDNA / protein、MANE Select 限定"
-msgstr "genome / cDNA / protein; MANE Select only"
+msgid "genome / cDNA / protein、MANE Select / Plus Clinical 限定"
+msgstr "genome / cDNA / protein; MANE Select / Plus Clinical only"
 
 msgid "バッチ解析"
 msgstr "Batch analysis"
@@ -58,8 +58,8 @@ msgid "外部連携・デモ"
 msgstr "External integration / demo"
 
 # --- single_input ---
-msgid "genome coordinate / cDNA / protein のいずれかを入力してください（c. / p. は省略可）。cDNA・protein は MANE Select に限定して座標変換します。"
-msgstr "Enter a genome coordinate / cDNA / protein (the c. / p. prefix is optional). cDNA and protein are converted using MANE Select transcripts only."
+msgid "genome coordinate / cDNA / protein のいずれかを入力してください（c. / p. は省略可）。cDNA・protein は MANE Select / MANE Plus Clinical に限定して座標変換します。"
+msgstr "Enter a genome coordinate / cDNA / protein (the c. / p. prefix is optional). cDNA and protein are converted using MANE Select / MANE Plus Clinical transcripts only."
 
 msgid "変換 / 解析へ"
 msgstr "Convert / Analyze"
@@ -74,8 +74,23 @@ msgstr "← Home"
 msgid "変換結果"
 msgstr "Conversion result"
 
-msgid "TransVar 変換結果（MANE Select 限定）"
-msgstr "TransVar result (MANE Select only)"
+msgid "TransVar 変換結果（MANE Select / Plus Clinical）"
+msgstr "TransVar result (MANE Select / Plus Clinical)"
+
+msgid "MANE Plus Clinical の番号として解釈した候補があります（MANE Select とはゲノム座標が異なります）。入力した表記がどちらの transcript のものか確認して選択してください。どちらを選んでも、現在の評価はその座標について MANE Select で行います。"
+msgstr "Some candidates interpret the numbering on the MANE Plus Clinical transcript (a different genomic position from MANE Select). Check which transcript your notation refers to before choosing. Either way, the selected position is currently evaluated on MANE Select."
+
+msgid "（評価に使用）"
+msgstr "(used for evaluation)"
+
+msgid "入力時の表記"
+msgstr "Input notation"
+
+msgid "MANE Select と consequence が異なります。Plus Clinical の transcript での影響は自動評価に含まれていないため、個別に確認してください。"
+msgstr "The consequence differs from MANE Select. The effect on the Plus Clinical transcript is not part of the automated evaluation; please review it separately."
+
+msgid "この遺伝子には MANE Plus Clinical の transcript があります。現在のクライテリア評価は MANE Select で行っており、Plus Clinical の表記は補足として表示しています。"
+msgstr "This gene has a MANE Plus Clinical transcript. Criteria are currently evaluated on MANE Select; the Plus Clinical notation is shown for reference."
 
 msgid "入力"
 msgstr "Input"
@@ -322,8 +337,8 @@ msgstr "Classify a single variant using the ACMG 2015 + ClinGen SVI criteria."
 msgid "入力形式"
 msgstr "Input formats"
 
-msgid "次のいずれの形式でも入力できます（MANE Select transcript に限定して解釈します）。"
-msgstr "You can enter any of the following formats (interpreted using MANE Select transcripts only)."
+msgid "次のいずれの形式でも入力できます（MANE Select / MANE Plus Clinical の transcript に限定して解釈します）。"
+msgstr "You can enter any of the following formats (interpreted using MANE Select / MANE Plus Clinical transcripts only)."
 
 msgid "genome 座標"
 msgstr "genome coordinate"
@@ -343,8 +358,8 @@ msgstr "Choose the assembly (GRCh38 / GRCh37) and, if needed, specify the input 
 msgid "候補の選択"
 msgstr "Selecting a candidate"
 
-msgid "変換結果が複数候補ある場合は一覧から該当するバリアントを選択します。MANE Select で座標が得られない場合は、全 transcript 候補にフォールバックして提示します。"
-msgstr "When the conversion returns multiple candidates, select the relevant variant from the list. If no coordinate is available for MANE Select, all transcript candidates are offered as a fallback."
+msgid "変換結果が複数候補ある場合は一覧から該当するバリアントを選択します。c./p. の番号が MANE Select と MANE Plus Clinical で別の座標を指す場合は両方を提示します。MANE で座標が得られない場合は、全 transcript 候補にフォールバックして提示します。クライテリアの評価は現在 MANE Select で行い、Plus Clinical の表記は結果画面に補足として表示します。"
+msgstr "When the conversion returns multiple candidates, select the relevant variant from the list. If the c./p. numbering points to different positions on MANE Select and MANE Plus Clinical, both are offered. If no MANE coordinate is available, all transcript candidates are offered as a fallback. Criteria are currently evaluated on MANE Select; the Plus Clinical notation is shown on the result page for reference."
 
 msgid "結果の見方"
 msgstr "Reading the results"

@@ -37,6 +37,10 @@ class VariantSerializer(serializers.Serializer):
     transcript = serializers.CharField(allow_blank=True, required=False)
     hgvs_c = serializers.CharField(allow_blank=True, required=False)
     hgvs_p = serializers.CharField(allow_blank=True, required=False)
+    # 入力表記の transcript（MANE Plus Clinical など）が評価 transcript と異なる場合のみ
+    input_transcript = serializers.CharField(allow_blank=True, required=False)
+    input_hgvs_c = serializers.CharField(allow_blank=True, required=False)
+    input_hgvs_p = serializers.CharField(allow_blank=True, required=False)
 
 
 class ClassifyResponseSerializer(serializers.Serializer):
@@ -65,6 +69,17 @@ class ClassifyResponseSerializer(serializers.Serializer):
     provenance = serializers.DictField(
         required=False,
         help_text="使用データの版情報（HUVar 版、ClinVar リリース日、VEP、gnomAD、ClinGen など）。")
+    evaluated_transcript_role = serializers.CharField(
+        required=False, allow_blank=True,
+        help_text="評価に使った transcript の MANE 区分（\"MANE Select\"、該当なしは空）。")
+    mane_plus_clinical = serializers.ListField(
+        child=serializers.DictField(), required=False,
+        help_text="同じ遺伝子の MANE Plus Clinical 上の表記（補足。評価は MANE Select）。"
+        "transcript_id / hgvs_c / hgvs_p / consequence / consequence_differs を含む。")
+    plus_clinical_alternatives = serializers.ListField(
+        child=serializers.DictField(), required=False,
+        help_text="query の c./p. 番号を MANE Plus Clinical 上で解釈した別候補（ゲノム座標が"
+        "異なる場合のみ）。解析は MANE Select の解釈で行われる。")
 
 
 class WhoAmISerializer(serializers.Serializer):
