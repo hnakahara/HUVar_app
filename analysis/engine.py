@@ -460,6 +460,19 @@ def _transcript_evaluations(variant, ann, cfg, supplement, erepo_crits, user_cri
         d["vcep"] = base_display.get("vcep")
         d["provenance"] = base_display.get("provenance")
         d["automated_only"] = None
+        # 比較用: MANE Select での評価と、そこからの変化（Select -> Plus Clinical）
+        pc_row = next((p for p in base_display.get("mane_plus_clinical") or []
+                       if p.get("transcript_id") == m.transcript_id), {})
+        d["mane_select_evaluation"] = {
+            "transcript_id": base_display.get("transcript_id", ""),
+            "hgvs_c": base_display.get("hgvs_c", ""),
+            "hgvs_p": base_display.get("hgvs_p", ""),
+            "classification_2015": base_display.get("classification_2015", ""),
+            "rules": base_display.get("rules", ""),
+            "bayesian_score": base_display.get("bayesian_score"),
+            "classification_bayesian": base_display.get("classification_bayesian", ""),
+            "criteria_changes": pc_row.get("criteria_changes", ""),
+        }
         evaluations[d["transcript_id"]] = d
     if not evaluations:
         return {}, []

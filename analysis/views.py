@@ -351,7 +351,8 @@ def single_cspec(request, pk: int, cspec_id: str):
             raise Http404("指定された CSpec の結果がありません。")
         active = cspec_id
 
-    export_data = {"variant": variant, "display": display, "edits": []}
+    export_data = {"variant": variant, "display": display, "edits": [],
+                   "view": "cspec" if active else "default", "cspec": active}
     return render(request, "analysis/single_result.html", {
         "result_id": vr.pk,
         "variant": variant,
@@ -385,7 +386,7 @@ def single_transcript(request, pk: int, transcript: str):
     shown_variant = dict(variant, transcript=display.get("transcript_id", transcript),
                          hgvs_c=display.get("hgvs_c", ""), hgvs_p=display.get("hgvs_p", ""))
     export_data = {"variant": shown_variant, "display": display, "edits": [],
-                   "view": "transcript"}
+                   "view": "mane_plus_clinical"}
     return render(request, "analysis/single_result.html", {
         "result_id": vr.pk,
         "variant": shown_variant,
@@ -483,6 +484,8 @@ def _result_to_tsv(data: dict) -> str:
         warnings = " / ".join(str(x) for x in warnings)
     clinvar = display.get("clinvar") or {}
     vcep = display.get("vcep") or {}
+    rule = display.get("rule_transcript") or {}
+    sel = display.get("mane_select_evaluation") or {}
     meta = [
         ("assembly", variant.get("assembly", "")),
         ("genome", genome),
@@ -495,7 +498,20 @@ def _result_to_tsv(data: dict) -> str:
         ("input_hgvs_c", variant.get("input_hgvs_c", "")),
         ("input_hgvs_p", variant.get("input_hgvs_p", "")),
         *[(f"mane_plus_clinical_{k}", v) for k, v in zip(MANE_PC_COLS, mane_pc_cells(display))],
-        ("rule_numbering_transcript", (display.get("rule_transcript") or {}).get("transcript_id", "")),
+        ("rule_numbering_transcript", rule.get("transcript_id", "")),
+        ("rule_numbering_hgvs_c", rule.get("hgvs_c", "")),
+        ("rule_numbering_hgvs_p", rule.get("hgvs_p", "")),
+        ("rule_numbering_consequence", rule.get("consequence", "")),
+        # Plus Clinical の評価をエクスポートしたときの比較対象（MANE Select での評価）
+        ("mane_select_transcript", sel.get("transcript_id", "")),
+        ("mane_select_hgvs_c", sel.get("hgvs_c", "")),
+        ("mane_select_hgvs_p", sel.get("hgvs_p", "")),
+        ("mane_select_classification_2015", sel.get("classification_2015", "")),
+        ("mane_select_rules_2015", sel.get("rules", "")),
+        ("mane_select_bayesian_score", "" if sel.get("bayesian_score") is None
+         else sel.get("bayesian_score")),
+        ("mane_select_classification_bayesian", sel.get("classification_bayesian", "")),
+        ("criteria_changes_from_mane_select", sel.get("criteria_changes", "")),
         ("classification_2015", display.get("classification_2015", "")),
         ("rules", display.get("rules", "")),
         ("classification_bayesian", display.get("classification_bayesian", "")),
@@ -505,11 +521,17 @@ def _result_to_tsv(data: dict) -> str:
         ("clinvar_stars", clinvar.get("star_rating", "")),
         ("clinvar_variation_id", clinvar.get("variation_id", "")),
         ("vcep_classification", vcep.get("assertion", "")),
+        ("vcep_met_codes", vcep.get("met_codes", "")),
+        ("vcep_multiple_classifications", "1" if vcep.get("conflict") else ("0" if vcep else "")),
+        ("vcep_transcript", vcep.get("transcript", "")),
+        ("vcep_hgvs_c", vcep.get("hgvs_c", "")),
         ("vcep_expert_panel", vcep.get("expert_panel", "")),
         ("vcep_disease", vcep.get("disease", "")),
         ("vcep_approval_date", vcep.get("approval_date", "")),
         ("erepo_url", vcep.get("erepo_url", "")),
+        ("erepo_snapshot", vcep.get("snapshot", "")),
         ("view", data.get("view", "default")),
+        ("cspec", data.get("cspec", "")),
         ("warnings", warnings),
     ]
     for k, v in meta:

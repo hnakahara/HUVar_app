@@ -120,7 +120,8 @@ def _tracked_paths(assembly: str):
 #     automated_only（eRepo / エキスパートパネル由来を除いた自動判定）を追加。
 # v5: MANE Plus Clinical の補足（mane_plus_clinical / evaluated_transcript_role）を追加。
 # v6: MANE Plus Clinical の transcript での評価（transcript_evaluations / available_transcripts）。
-_DISPLAY_SCHEMA_VERSION = 6
+# v7: Plus Clinical 評価に比較用の mane_select_evaluation を追加。
+_DISPLAY_SCHEMA_VERSION = 7
 
 
 def reference_signature(assembly: str) -> str:
@@ -204,7 +205,8 @@ _TSV_BASE_COLS = [
     "classification_2015", "rules", "bayesian_score",
     "classification_bayesian", "clinvar_significance", "clinvar_review_status",
     "clinvar_stars", "clinvar_variation_id",
-    "vcep_classification", "vcep_expert_panel", "vcep_approval_date", "erepo_url",
+    "vcep_classification", "vcep_met_codes", "vcep_expert_panel", "vcep_approval_date",
+    "erepo_url",
     "warnings",
 ]
 
@@ -272,6 +274,7 @@ def _write_batch_tsv(out_path: str, displays: list) -> None:
                 clinvar.get("significance", ""), clinvar.get("review_status", ""),
                 clinvar.get("star_rating", ""), clinvar.get("variation_id", ""),
                 (d.get("vcep") or {}).get("assertion", ""),
+                (d.get("vcep") or {}).get("met_codes", ""),
                 (d.get("vcep") or {}).get("expert_panel", ""),
                 (d.get("vcep") or {}).get("approval_date", ""),
                 (d.get("vcep") or {}).get("erepo_url", ""),
