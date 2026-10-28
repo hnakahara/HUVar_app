@@ -170,6 +170,7 @@
                 <td>{% if c.source == "erepo" %}<span class="src src-erepo" title="{% translate "ClinGen eRepo（VCEP の判定）" %}">eRepo</span>{% if display.vcep.erepo_url %} <a href="{{ display.vcep.erepo_url }}" target="_blank" rel="noopener">↗</a>{% endif %}
                     {% elif c.source == "expert_panel" %}<span class="src src-ep" title="{% translate "ClinVar のエキスパートパネル（★3以上）の判定" %}">{% translate "専門家パネル" %}</span>
                     {% elif c.source == "text_mining" %}<span class="src src-tm" title="{% translate "ClinVar 提出テキストから抽出（Supporting まで）" %}">ClinVar</span>
+                    {% elif c.source == "functional_assay" %}<span class="src src-fa" title="{% translate "較正済み機能アッセイ（MaveDB の臨床用較正、BRCA1/2 は ENIGMA 表9）" %}">{% if "[ENIGMA Table 9]" in c.evidence %}ENIGMA{% else %}MaveDB{% endif %}</span>
                     {% elif c.source == "user" %}<span class="src src-user">{% translate "手動編集" %}</span>
                     {% elif c.source == "automated" %}<span class="src src-auto">{% translate "自動" %}</span>{% endif %}</td>
                 <td>

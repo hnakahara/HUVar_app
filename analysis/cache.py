@@ -121,7 +121,8 @@ def _tracked_paths(assembly: str):
 # v5: MANE Plus Clinical の補足（mane_plus_clinical / evaluated_transcript_role）を追加。
 # v6: MANE Plus Clinical の transcript での評価（transcript_evaluations / available_transcripts）。
 # v7: Plus Clinical 評価に比較用の mane_select_evaluation を追加。
-_DISPLAY_SCHEMA_VERSION = 7
+# v8: PS3/BS3 を較正済み機能アッセイ（MaveDB / ENIGMA 表9）から判定、source に functional_assay。
+_DISPLAY_SCHEMA_VERSION = 8
 
 
 def reference_signature(assembly: str) -> str:

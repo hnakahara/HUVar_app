@@ -405,3 +405,4 @@ details.provenance td { word-break: break-word; }
 .src-tm { background: rgba(34, 211, 238, .12); color: #a5f3fc; border-color: rgba(34, 211, 238, .35); }
 .src-user { background: rgba(248, 113, 113, .15); color: #fca5a5; border-color: rgba(248, 113, 113, .4); }
 .src-auto { background: rgba(148, 163, 184, .1); color: #94a3b8; }
+.src-fa { background: rgba(34, 211, 238, .15); color: #67e8f9; border-color: rgba(34, 211, 238, .4); }
