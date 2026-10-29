@@ -40,6 +40,17 @@ ENV PATH="${PATH}:/opt/conda/envs/vep/bin"
 COPY requirements.txt /code/
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
+# --- HUVar 解析エンジンの依存（build 時に導入。起動時はエンジン本体のリンクのみ） ---
+# torch は CPU 版を明示的に入れる（PyPI 既定は CUDA 版で数 GB。GPU を使う場合は
+# build 引数 TORCH_INDEX_URL を https://download.pytorch.org/whl/cu126 などに変える）。
+# 先に入れた torch が openspliceai の要求（torch>=2.2.1）を満たすので、次の行で
+# CUDA 版に置き換わることはない。
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
+COPY containers/django/requirements-huvar.txt /code/containers/django/
+RUN pip install --index-url "${TORCH_INDEX_URL}" torch && \
+    pip install -r /code/containers/django/requirements-huvar.txt && \
+    rm -rf /root/.cache/pip
+
 COPY . /code/
 COPY ./containers/django/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh

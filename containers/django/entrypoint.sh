@@ -1,10 +1,13 @@
 #!/bin/sh
 set -e
 
-# HUVar 解析エンジン（acmg-classifier）をボリュームマウント先からインストール。
-# /huvar に pyproject.toml があれば editable install（初回のみ実体反映）。
+# HUVar 解析エンジン（acmg-classifier）をボリュームマウント先から editable install。
+# 依存パッケージとビルドバックエンド(hatchling)はイメージ build 時に導入済み
+# （containers/django/requirements-huvar.txt）なので、ここではリンクを張るだけで
+# ネットワークは使わない（--no-build-isolation）。HUVar に依存が追加された場合のみ
+# その分がダウンロードされる。
 if [ -f /huvar/pyproject.toml ]; then
-    pip install -e /huvar
+    pip install --no-build-isolation --no-input -e /huvar
 fi
 
 python manage.py makemigrations --noinput

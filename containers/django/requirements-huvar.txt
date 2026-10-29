@@ -1,0 +1,23 @@
+# HUVar 解析エンジン（acmg-classifier）の依存パッケージ。イメージの build 時に入れておき、
+# コンテナ起動時の `pip install -e /huvar` ではダウンロードが発生しないようにする。
+# ~/HUVar/pyproject.toml の dependencies と対応させること（起動時の pip が不足分だけは
+# 補うが、そのときはダウンロードが発生する）。
+#
+# torch（openspliceai の依存）は Dockerfile で CPU 版を先に入れる。PyPI 既定の torch は
+# CUDA 版で、nvidia-* パッケージを含め数 GB になるため。
+click>=8.1
+cyvcf2>=0.31
+duckdb>=0.10
+pysam>=0.22
+pydantic>=2.6
+pydantic-settings>=2.2
+structlog>=24.1
+rich>=13.7
+tenacity>=8.2
+openspliceai
+pyBigWig>=0.3
+scipy>=1.10
+# 起動時の editable install を build isolation なし（＝ネットワーク不要）で行うための
+# ビルドバックエンド（HUVar の build-system.requires）
+hatchling
+editables

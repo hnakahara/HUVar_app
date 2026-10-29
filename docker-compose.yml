@@ -68,7 +68,7 @@ services:
       - /ddrive/data:/data
       - ~/tools:/tools
     # Celery 直列処理（concurrency=1）
-    command: sh -c "if [ -f /huvar/pyproject.toml ]; then pip install -e /huvar; fi && celery -A config worker --loglevel=info --concurrency=1"
+    command: sh -c "if [ -f /huvar/pyproject.toml ]; then pip install --no-build-isolation --no-input -e /huvar; fi && celery -A config worker --loglevel=info --concurrency=1"
     env_file:
       - .env
     depends_on:
