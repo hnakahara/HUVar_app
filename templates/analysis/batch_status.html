@@ -6,6 +6,7 @@
 <table border="1" cellpadding="6" cellspacing="0">
     <tr><th>{% translate "ファイル" %}</th><td>{{ job.input_text }}</td></tr>
     <tr><th>{% translate "アセンブリ" %}</th><td>{{ job.assembly }}</td></tr>
+    <tr><th>{% translate "評価モード" %}</th><td>{{ job.get_mode_display }}{% if job.tumor_type %}（{% translate "腫瘍型" %} {{ job.tumor_type }}）{% endif %}</td></tr>
     <tr><th>{% translate "状態" %}</th><td>{{ job.get_status_display }}</td></tr>
     <tr><th>{% translate "作成" %}</th><td>{{ job.created_at }}</td></tr>
     <tr><th>{% translate "有効期限" %}</th><td>{{ job.expires_at }}{% translate "（経過後に自動削除）" %}</td></tr>

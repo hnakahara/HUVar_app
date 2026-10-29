@@ -181,10 +181,14 @@ def cached_classify_single(assembly: str, chrom: str, pos: int, ref: str, alt: s
     if row is not None and "automated_only" in (row.result_json or {}):
         return row.result_json, True
 
-    display = classify_single(assembly, chrom, int(pos), ref, alt)
+    display = classify_single(assembly, chrom, int(pos), ref, alt, with_somatic=True)
+    # 同じアノテーションで作った体細胞評価（腫瘍型なし）は体細胞キャッシュへ。
+    somatic = display.pop("_somatic", None)
     if _cacheable_allele(ref, alt):
         VariantResultCache.objects.update_or_create(**key, defaults={"result_json": display})
         _refresh_reference_versions(assembly)
+        if somatic:
+            _store_somatic(assembly, chrom, pos, ref, alt, _somatic_slot("", ""), somatic)
     return display, False
 
 
@@ -251,18 +255,57 @@ MANE_PC_COLS = (
 )
 
 
-def _write_batch_tsv(out_path: str, displays: list) -> None:
-    """display dict 群（VCF 順）から全クライテリア列付き TSV を書く。"""
-    rows = [d for d in displays if d]
+# 統合 TSV（生殖細胞系列＋体細胞）で生殖細胞系列の基本列の後に付ける体細胞の要約列
+SOMATIC_SUMMARY_COLS = [
+    "somatic_gene_role", "somatic_oncogenicity", "somatic_score", "somatic_criteria",
+    "somatic_hotspot", "somatic_tumor_type", "amp_tier", "amp_level", "amp_evidence",
+    "amp_note", "amp_candidates", "somatic_warnings",
+]
+
+
+def somatic_summary_cells(s: dict) -> list:
+    if not s:
+        return [""] * len(SOMATIC_SUMMARY_COLS)
+    return [
+        s.get("gene_role", ""), s.get("classification", ""), s.get("score", ""),
+        s.get("summary", ""), s.get("hotspot", ""), s.get("tumor_code", ""),
+        s.get("amp_tier", ""), s.get("amp_level", ""),
+        " | ".join(s.get("amp_evidence") or []), s.get("amp_note", ""),
+        " | ".join(s.get("amp_candidates") or []), " / ".join(s.get("warnings") or []),
+    ]
+
+
+def somatic_judgment(c: dict) -> str:
+    if c.get("met") and c.get("suppressed"):
+        return "suppressed"
+    return "met" if c.get("met") else "not_met"
+
+
+def _write_batch_tsv(out_path: str, displays: list, somatics: list = None) -> None:
+    """display dict 群（VCF 順）から全クライテリア列付き TSV を書く。
+
+    somatics（displays と同順、None 可）を渡すと、体細胞の要約列（基本列の直後）と
+    体細胞クライテリア列（末尾）を加えた統合 TSV にする。"""
+    pairs = [(d, (somatics[i] if somatics else None))
+             for i, d in enumerate(displays) if d]
+    rows = [d for d, _ in pairs]
     crit_order = [c["criterion"] for c in rows[0]["criteria"]] if rows else []
+    som_order = []
+    if somatics is not None:
+        first = next((s for _, s in pairs if s), None)
+        som_order = [c["criterion"] for c in first["criteria"]] if first else []
     header = list(_TSV_BASE_COLS)
+    if somatics is not None:
+        header += SOMATIC_SUMMARY_COLS
     for c in crit_order:
         header += [c, f"{c}_strength", f"{c}_evidence", f"{c}_source"]
+    for c in som_order:
+        header += [c, f"{c}_points", f"{c}_evidence", f"{c}_source"]
 
     with open(out_path, "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh, delimiter="\t")
         w.writerow(header)
-        for d in rows:
+        for d, som in pairs:
             crit_map = {c["criterion"]: c for c in d.get("criteria", [])}
             clinvar = d.get("clinvar") or {}
             row = [
@@ -281,23 +324,36 @@ def _write_batch_tsv(out_path: str, displays: list) -> None:
                 (d.get("vcep") or {}).get("erepo_url", ""),
                 " / ".join(d.get("warnings", [])),
             ]
+            if somatics is not None:
+                row += somatic_summary_cells(som)
             for c in crit_order:
                 cc = crit_map.get(c, {})
                 state = ("suppressed" if cc.get("suppressed")
                          else ("met" if cc.get("triggered") else "not_met"))
                 row += [state, cc.get("strength", ""), cc.get("evidence", ""),
                         cc.get("source", "")]
+            som_map = {c["criterion"]: c for c in (som or {}).get("criteria", [])}
+            for c in som_order:
+                sc = som_map.get(c)
+                if sc is None:
+                    row += ["", "", "", ""]
+                    continue
+                row += [somatic_judgment(sc), sc.get("points", ""), sc.get("evidence", ""),
+                        "user" if sc.get("manual") else "automated"]
             w.writerow(row)
 
 
-def cached_classify_batch(in_vcf_path: str, out_tsv_path: str, assembly: str) -> int:
+def cached_classify_batch(in_vcf_path: str, out_tsv_path: str, assembly: str,
+                          somatic: bool = False, tumor_type: str = "") -> int:
     """VCF をキャッシュ活用で解析し TSV を出力。戻り値は出力した変異数。
 
     - 全変異がキャッシュ済み → エンジンを呼ばず TSV を即生成。
     - 未キャッシュが1つでもあれば全体を解析（VEP バッチ効率維持）し全件キャッシュ。
       （部分集合 VCF の分割は多アレル等で脆いため、堅実にフル解析する）
+    - somatic=True なら体細胞評価（tumor_type の腫瘍型）も同じアノテーションで行い、
+      生殖細胞系列と体細胞の両方の列を持つ統合 TSV を出力する。
     """
-    from .engine import EngineUnavailable, classify_vcf
+    from .engine import EngineUnavailable, classify_vcf, normalize_tumor_type
     from .models import VariantResultCache
 
     try:
@@ -318,12 +374,26 @@ def cached_classify_batch(in_vcf_path: str, out_tsv_path: str, assembly: str) ->
         if row is not None:
             cached[key] = row.result_json
 
-    uncached = [v for v in variants if v[0] not in cached]
+    code = normalize_tumor_type(tumor_type)
+    slot = _somatic_slot(code, "")
+    som_cached = {}
+    if somatic:
+        som_sig = somatic_signature(assembly)
+        for key, chrom, pos, ref, alt in variants:
+            d = _load_somatic(assembly, chrom, pos, ref, alt, slot, som_sig)
+            if d is not None:
+                som_cached[key] = d
 
-    fresh = {}
+    uncached = [v for v in variants
+                if v[0] not in cached or (somatic and v[0] not in som_cached)]
+
+    fresh, som_fresh = {}, {}
     if uncached:
-        fresh = classify_vcf(in_vcf_path, assembly)
+        fresh = classify_vcf(in_vcf_path, assembly, somatic=somatic, tumor_type=code)
         for _key, disp in fresh.items():
+            som = disp.pop("_somatic", None)
+            if som:
+                som_fresh[_key] = som
             # 512 文字超の巨大アレルはキャッシュ列に収まらないため保存をスキップ
             if not _cacheable_allele(disp.get("ref", ""), disp.get("alt", "")):
                 continue
@@ -333,10 +403,15 @@ def cached_classify_batch(in_vcf_path: str, out_tsv_path: str, assembly: str) ->
                 alt=disp.get("alt", ""), engine_version=ev, refdata_signature=sig,
                 defaults={"result_json": disp},
             )
+            if som:
+                _store_somatic(assembly, disp.get("chrom", ""), int(disp.get("pos") or 0),
+                               disp.get("ref", ""), disp.get("alt", ""), slot, som)
         _refresh_reference_versions(assembly)
 
     ordered = [fresh.get(key) or cached.get(key) for key, *_ in variants]
-    _write_batch_tsv(out_tsv_path, ordered)
+    somatics = ([som_fresh.get(key) or som_cached.get(key) for key, *_ in variants]
+                if somatic else None)
+    _write_batch_tsv(out_tsv_path, ordered, somatics)
     _write_batch_provenance(out_tsv_path, assembly)
     return len([d for d in ordered if d])
 
@@ -357,3 +432,99 @@ def _write_batch_provenance(out_tsv_path: str, assembly: str) -> None:
             json.dump(prov, fh, ensure_ascii=False, indent=2, sort_keys=True)
     except Exception:  # noqa: BLE001
         pass
+
+
+# ---------------------------------------------------------------------------
+# 体細胞評価（oncogenicity ＋ AMP tier）のキャッシュ
+# ---------------------------------------------------------------------------
+
+# 体細胞評価だけが使う参照（Config 属性, 同梱ファイル名）。同梱版があるものは
+# data/shared に無ければ同梱版を署名対象にする（エンジンの resolve と同じ規則）。
+_SOMATIC_TRACKED = [
+    ("somatic_gene_roles_tsv", "somatic_gene_roles.tsv"),
+    ("cancer_hotspots_tsv", "cancer_hotspots_v2.tsv"),
+    ("somatic_functional_curated_tsv", "somatic_functional_curated.tsv"),
+    ("oncotree_doid_tsv", "oncotree_doid.tsv"),
+    ("doid_hierarchy_tsv", "doid_hierarchy.tsv"),
+    ("civic_somatic_tsv", None),
+    ("civic_clinical_tsv", None),
+]
+
+# 体細胞 display の構造版（engine._somatic_display を変えたら +1）。
+_SOMATIC_SCHEMA_VERSION = 1
+
+
+def somatic_signature(assembly: str) -> str:
+    """体細胞評価のキャッシュ署名。生殖細胞系列の署名（ClinVar・gnomAD・VEP など共通の
+    参照を含む）に体細胞専用の参照（CIViC・cancerhotspots・NCG・OncoTree 等）を加える。
+    VariantResultCache の生殖細胞系列の行とは署名が異なるので混ざらない。"""
+    from .engine import _build_config
+    parts = [f"somatic_schema={_SOMATIC_SCHEMA_VERSION}", reference_signature(assembly)]
+    cfg = _build_config(assembly)
+    try:
+        from acmg_classifier.somatic.resources import resolve
+    except Exception:  # noqa: BLE001
+        resolve = None
+    for attr, packaged in _SOMATIC_TRACKED:
+        try:
+            p = getattr(cfg, attr)
+        except Exception:  # noqa: BLE001
+            continue
+        if packaged and resolve is not None:
+            p = resolve(p, packaged)
+        name, size, mtime = _stat_token(p)
+        parts.append(f"{attr}:{name}:{size}:{int(mtime)}")
+    return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()
+
+
+def _somatic_slot(tumor_code: str, transcript: str) -> str:
+    return f"{tumor_code or ''}|{transcript or ''}"
+
+
+def _somatic_key(assembly, chrom, pos, ref, alt, sig=None) -> dict:
+    return dict(assembly=assembly, chrom=chrom, pos=int(pos), ref=ref, alt=alt,
+                engine_version=engine_version(),
+                refdata_signature=sig or somatic_signature(assembly))
+
+
+def _load_somatic(assembly, chrom, pos, ref, alt, slot, sig=None):
+    from .models import VariantResultCache
+    row = VariantResultCache.objects.filter(**_somatic_key(assembly, chrom, pos, ref, alt, sig)).first()
+    if row is None:
+        return None
+    return ((row.result_json or {}).get("somatic") or {}).get(slot)
+
+
+def _store_somatic(assembly, chrom, pos, ref, alt, slot, display, sig=None) -> None:
+    """体細胞キャッシュ（1 変異 1 行、{slot: display}）へ保存。失敗しても解析は止めない。"""
+    from .models import VariantResultCache
+    if not _cacheable_allele(ref, alt):
+        return
+    try:
+        key = _somatic_key(assembly, chrom, pos, ref, alt, sig)
+        row = VariantResultCache.objects.filter(**key).first()
+        store = dict((row.result_json or {}).get("somatic") or {}) if row is not None else {}
+        store[slot] = display
+        VariantResultCache.objects.update_or_create(**key, defaults={"result_json": {"somatic": store}})
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def cached_classify_somatic(assembly: str, chrom: str, pos: int, ref: str, alt: str,
+                            tumor_type: str = "", transcript: str = ""):
+    """キャッシュ参照付きの体細胞評価。戻り値 (display, hit)。
+
+    1 変異 1 行（署名 = somatic_signature）に {腫瘍型|transcript: display} を蓄積する。
+    手動の根拠（OP2 など）を付けた再評価はキャッシュしない（engine.classify_somatic を直接呼ぶ）。
+    """
+    from .engine import classify_somatic, normalize_tumor_type
+
+    sig = somatic_signature(assembly)
+    slot = _somatic_slot(normalize_tumor_type(tumor_type), transcript)
+    hit = _load_somatic(assembly, chrom, pos, ref, alt, slot, sig)
+    if hit is not None:
+        return hit, True
+    display = classify_somatic(assembly, chrom, int(pos), ref, alt, tumor_type=tumor_type,
+                               transcript=transcript)
+    _store_somatic(assembly, chrom, pos, ref, alt, slot, display, sig)
+    return display, False

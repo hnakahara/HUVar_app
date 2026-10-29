@@ -584,3 +584,133 @@ msgstr "6. Data sources"
 
 msgid "TP53 の PS3/BS3（機能解析）は ClinGen TP53 VCEP のフローチャートに従い、The TP53 Database（R21, 2025年1月, https://tp53.cancer.gov; de Andrade et al., Cell Death Differ 2022）の Kato 2003、Giacomelli 2018、Kotler 2018、Kawaguchi 2005 のアッセイ分類を用いて判定しています。データは非営利の利用に限られます。"
 msgstr "PS3/BS3 (functional evidence) for TP53 follow the ClinGen TP53 VCEP flowchart, using the assay classes of Kato 2003, Giacomelli 2018, Kotler 2018 and Kawaguchi 2005 from The TP53 Database (R21, Jan 2025, https://tp53.cancer.gov; de Andrade et al., Cell Death Differ 2022). These data are for non-commercial use only."
+
+# --- somatic evaluation (oncogenicity / AMP tier) ---
+msgid "体細胞変異の評価"
+msgstr "Somatic evaluation"
+
+msgid "腫瘍で検出された変異として評価します。Oncogenicity は ClinGen/CGC/VICC の SOP（Horak et al. 2022）の点数制、臨床的意義は AMP/ASCO/CAP 2017（Li et al.）の tier です。生殖細胞系列の ACMG 分類とは独立した評価です。"
+msgstr "Evaluates the variant as one detected in a tumour. Oncogenicity uses the points-based ClinGen/CGC/VICC SOP (Horak et al. 2022); clinical significance uses the AMP/ASCO/CAP 2017 tiers (Li et al.). This is independent of the germline ACMG classification."
+
+msgid "腫瘍型（OncoTree）"
+msgstr "Tumour type (OncoTree)"
+
+msgid "AMP/ASCO/CAP の tier は腫瘍型ごとに決まります。OncoTree のコード（例: SKCM 皮膚黒色腫、COADREAD 大腸腺癌、NSCLC 非小細胞肺癌）を入力してください。空欄のときは tier を付けず、他の腫瘍型での根拠を参考として表示します。Oncogenicity は腫瘍型によらず同じです。"
+msgstr "AMP/ASCO/CAP tiers depend on the tumour type. Enter an OncoTree code (e.g. SKCM cutaneous melanoma, COADREAD colorectal adenocarcinoma, NSCLC non-small cell lung cancer). If left blank, no tier is assigned and evidence in other tumour types is shown for reference. Oncogenicity does not depend on the tumour type."
+
+msgid "OncoTree コード"
+msgstr "OncoTree code"
+
+msgid "この腫瘍型で評価"
+msgstr "Evaluate for this tumour type"
+
+msgid "腫瘍型なし"
+msgstr "No tumour type"
+
+msgid "（腫瘍型なしで評価しました）"
+msgstr "(evaluated without a tumour type)"
+
+msgid "未判定"
+msgstr "Not assigned"
+
+msgid "腫瘍型を指定すると tier を判定します"
+msgstr "Give a tumour type to assign a tier"
+
+msgid "点数: Oncogenic ≥10、Likely oncogenic 6〜9、VUS 0〜5、Likely benign −1〜−6、Benign ≤−7（Horak et al. 2022）。Tier は CIViC と ClinVar の Somatic Clinical Impact から判定します。"
+msgstr "Points: Oncogenic ≥10, Likely oncogenic 6–9, VUS 0–5, Likely benign −1 to −6, Benign ≤−7 (Horak et al. 2022). Tiers are assigned from CIViC and ClinVar somatic clinical impact."
+
+msgid "ホットスポット"
+msgstr "Hotspot"
+
+msgid "AMP/ASCO/CAP の根拠（強い順）"
+msgstr "AMP/ASCO/CAP evidence (strongest first)"
+
+msgid "他の腫瘍型での根拠（参考。腫瘍型を指定してください）"
+msgstr "Evidence in other tumour types (reference; give a tumour type)"
+
+msgid "この腫瘍型で tier I/II の根拠はありません。"
+msgstr "No Tier I/II evidence for this tumour type."
+
+msgid "クライテリアと手動の根拠"
+msgstr "Criteria and manual evidence"
+
+msgid "「適用」「不適用」を選んだ項目だけ自動判定を上書きして再評価します（保存はしません）。OP2（単一の遺伝的病因をもつ腫瘍）は自動では判定しないため、該当するときはここで適用してください。"
+msgstr "Only criteria set to \"Apply\" or \"Do not apply\" override the automated call before re-evaluation (nothing is saved). OP2 (a tumour with a single genetic aetiology) is never applied automatically; apply it here when it holds."
+
+msgid "編集"
+msgstr "Edit"
+
+msgid "適用"
+msgstr "Apply"
+
+msgid "不適用"
+msgstr "Do not apply"
+
+msgid "編集を適用して再評価"
+msgstr "Apply edits and re-evaluate"
+
+msgid "適用済みの手動の根拠:"
+msgstr "Applied manual evidence:"
+
+msgid "自動判定に戻す"
+msgstr "Back to the automated call"
+
+msgid "体細胞変異としての評価"
+msgstr "Somatic evaluation"
+
+msgid "tier には腫瘍型（OncoTree コード、例: SKCM、COADREAD、NSCLC）が必要です。空欄のときは tier を付けず、他の腫瘍型での根拠を参考として表示します。"
+msgstr "A tier needs a tumour type (OncoTree code, e.g. SKCM, COADREAD, NSCLC). If blank, no tier is assigned and evidence in other tumour types is shown for reference."
+
+msgid "tier の根拠は CIViC（CC0）と ClinVar の Somatic Clinical Impact です。OncoKB・COSMIC など利用許諾が必要なデータは使用していません。"
+msgstr "Tier evidence comes from CIViC (CC0) and ClinVar somatic clinical impact. Licensed resources such as OncoKB or COSMIC are not used."
+
+msgid "OP2 など自動で判定しないクライテリアは、「適用」「不適用」で手動の根拠として与えて再評価できます（保存はしません）。"
+msgstr "Criteria that are not applied automatically, such as OP2, can be given as manual evidence with \"Apply\" / \"Do not apply\" and re-evaluated (nothing is saved)."
+
+msgid "体細胞評価では、がん遺伝子の役割に Network of Cancer Genes 7.1、ホットスポットに cancerhotspots.org v2（ODbL）、腫瘍型に OncoTree（CC BY 4.0）と Disease Ontology（CC0）、臨床的意義に CIViC（CC0）と ClinVar を使用しています。"
+msgstr "The somatic evaluation uses Network of Cancer Genes 7.1 for cancer gene roles, cancerhotspots.org v2 (ODbL) for hotspots, OncoTree (CC BY 4.0) and Disease Ontology (CC0) for tumour types, and CIViC (CC0) and ClinVar for clinical significance."
+
+msgid "評価モード"
+msgstr "Evaluation mode"
+
+msgid "腫瘍型"
+msgstr "tumour type"
+
+msgid "生殖細胞系列"
+msgstr "Germline"
+
+msgid "不明な OncoTree コードです。"
+msgstr "Unknown OncoTree code."
+
+msgid "評価の種類"
+msgstr "Evaluation type"
+
+msgid "JSON / TSV のダウンロードは、どちらのタブからでも生殖細胞系列と体細胞の両方の結果を含みます（体細胞の情報が不足するときに生殖細胞系列の情報を参照できるようにするため）。TSV のクライテリア表は framework 列（ACMG / somatic）で区別します。"
+msgstr "JSON / TSV downloads from either tab contain both the germline and the somatic results, so that germline information can be consulted when somatic information is insufficient. In the TSV criteria table, the framework column (ACMG / somatic) tells them apart."
+
+msgid "生殖細胞系列のみ（ACMG/AMP 2015）"
+msgstr "Germline only (ACMG/AMP 2015)"
+
+msgid "評価モードで「生殖細胞系列＋体細胞の統合」を選ぶと、生殖細胞系列の列に加えて各変異の Oncogenicity と（腫瘍型を指定したとき）AMP/ASCO/CAP tier を同じ TSV に出力します。"
+msgstr "With the combined germline + somatic mode, the TSV adds the oncogenicity of each variant and, when a tumour type is given, its AMP/ASCO/CAP tier to the germline columns."
+
+msgid "ダウンロードには体細胞の結果（表示中の内容）と生殖細胞系列（ACMG）の結果の両方を含めます。"
+msgstr "Downloads contain both the somatic result (as shown) and the germline (ACMG) result."
+
+msgid "ダウンロードには生殖細胞系列（ACMG）と体細胞（Oncogenicity / AMP tier）の両方の結果を含めます。体細胞は Somatic タブで最後に選んだ腫瘍型で評価します。"
+msgstr "Downloads contain both the germline (ACMG) and the somatic (oncogenicity / AMP tier) results. The somatic part uses the tumour type last chosen on the Somatic tab."
+
+msgid "生殖細胞系列＋体細胞（Oncogenicity / AMP tier）の統合"
+msgstr "Germline + somatic (oncogenicity / AMP tier), combined"
+
+msgid "統合モードでは、生殖細胞系列（ACMG）の列に加えて、各変異の Oncogenicity（Horak et al. 2022）と、腫瘍型を指定したときは AMP/ASCO/CAP tier（Li et al. 2017）の列を同じ TSV に出力します。腫瘍型が空欄のときは tier の代わりに他の腫瘍型での根拠を出力します。"
+msgstr "In combined mode the TSV adds, to the germline (ACMG) columns, the oncogenicity of each variant (Horak et al. 2022) and, when a tumour type is given, the AMP/ASCO/CAP tier (Li et al. 2017). Without a tumour type, evidence in other tumour types is reported instead of a tier."
+
+msgid "腫瘍型（OncoTree コード、統合のみ・任意）"
+msgstr "Tumour type (OncoTree code; combined mode only, optional)"
+
+msgid "結果画面上部の「Germline」「Somatic」タブで表示を切り替えます。Somatic タブには、腫瘍で検出された変異としての Oncogenicity（ClinGen/CGC/VICC SOP、Horak et al. 2022 の点数制）と AMP/ASCO/CAP 2017 の tier（Li et al.）を表示します。"
+msgstr "Switch between the \"Germline\" and \"Somatic\" tabs at the top of the result page. The Somatic tab shows the oncogenicity of the variant as found in a tumour (points-based ClinGen/CGC/VICC SOP, Horak et al. 2022) and its AMP/ASCO/CAP 2017 tier (Li et al.)."
+
+msgid "統合"
+msgstr "Combined"

@@ -1,0 +1,11 @@
+{% load i18n %}
+<nav class="result-tabs" role="tablist" aria-label="{% translate "評価の種類" %}">
+    <a role="tab" aria-selected="{% if active == 'germline' %}true{% else %}false{% endif %}"
+       class="result-tab{% if active == 'germline' %} active{% endif %}"
+       href="{% if transcript %}{% url 'analysis:single_transcript' result_id transcript %}{% else %}{% url 'analysis:single_result' result_id %}{% endif %}">
+        Germline <span class="result-tab-sub">ACMG/AMP 2015</span></a>
+    <a role="tab" aria-selected="{% if active == 'somatic' %}true{% else %}false{% endif %}"
+       class="result-tab{% if active == 'somatic' %} active{% endif %}"
+       href="{% url 'analysis:single_somatic' result_id %}?tumor={{ tumor|urlencode }}{% if transcript %}&amp;tx={{ transcript|urlencode }}{% endif %}">
+        Somatic <span class="result-tab-sub">Oncogenicity / AMP tier{% if tumor %} · {{ tumor }}{% endif %}</span></a>
+</nav>

@@ -1,9 +1,11 @@
 {% extends "base.html" %}
 {% load i18n %}
 {% load i18n_extras %}
+{% load somatic_extras %}
 {% block title %}{% translate "解析結果" %} | HUVar{% endblock %}
 {% block content %}
-<h1>{% translate "ACMG 解析結果" %}</h1>
+<h1>{% translate "解析結果" %}</h1>
+{% if result_id %}{% result_tabs result_id "germline" active_transcript %}{% endif %}
 
 <table border="1" cellpadding="6" cellspacing="0">
     <tr><th>{% translate "アセンブリ" %}</th><td>{{ variant.assembly }}</td></tr>
@@ -207,6 +209,8 @@
 <form method="post" action="{% url 'analysis:single_export' result_id %}">
     {% csrf_token %}
     <input type="hidden" name="result_json" value="{{ export_json }}">
+    <input type="hidden" name="tx" value="{{ active_transcript|default:'' }}">
+    <p class="pc-note">{% translate "ダウンロードには生殖細胞系列（ACMG）と体細胞（Oncogenicity / AMP tier）の両方の結果を含めます。体細胞は Somatic タブで最後に選んだ腫瘍型で評価します。" %}</p>
     <p>
         <button type="submit" name="fmt" value="json">{% translate "JSON でダウンロード" %}</button>
         <button type="submit" name="fmt" value="tsv">{% translate "TSV でダウンロード" %}</button>

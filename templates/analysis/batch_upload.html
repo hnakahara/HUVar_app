@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load i18n %}
+{% load somatic_extras %}
 {% block title %}{% translate "バッチ解析" %}（VCF） | HUVar{% endblock %}
 {% block content %}
 <h1>{% translate "バッチ解析（VCF アップロード）" %}</h1>
@@ -23,6 +24,17 @@
         {{ form.assembly.label }}: {{ form.assembly }}
         {{ form.assembly.errors }}
     </p>
+    <fieldset class="batch-mode">
+        <legend>{{ form.mode.label }}</legend>
+        {{ form.mode }}
+        {{ form.mode.errors }}
+        <p>
+            {{ form.tumor_type.label }}: {{ form.tumor_type }}
+            {% oncotree_datalist "oncotree-list" %}
+            {{ form.tumor_type.errors }}
+        </p>
+        <p class="pc-note">{% translate "統合モードでは、生殖細胞系列（ACMG）の列に加えて、各変異の Oncogenicity（Horak et al. 2022）と、腫瘍型を指定したときは AMP/ASCO/CAP tier（Li et al. 2017）の列を同じ TSV に出力します。腫瘍型が空欄のときは tier の代わりに他の腫瘍型での根拠を出力します。" %}</p>
+    </fieldset>
     <button type="submit">{% translate "アップロードして解析" %}</button>
 </form>
 

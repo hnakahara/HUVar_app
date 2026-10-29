@@ -59,10 +59,20 @@
     <li>{% translate "手動編集を行った場合は、画面に表示されている（編集後の）内容がそのままダウンロードされます。" %}</li>
 </ul>
 
+<h3 id="somatic">{% translate "体細胞変異としての評価" %}</h3>
+<ul>
+    <li>{% translate "結果画面上部の「Germline」「Somatic」タブで表示を切り替えます。Somatic タブには、腫瘍で検出された変異としての Oncogenicity（ClinGen/CGC/VICC SOP、Horak et al. 2022 の点数制）と AMP/ASCO/CAP 2017 の tier（Li et al.）を表示します。" %}</li>
+    <li>{% translate "tier には腫瘍型（OncoTree コード、例: SKCM、COADREAD、NSCLC）が必要です。空欄のときは tier を付けず、他の腫瘍型での根拠を参考として表示します。" %}</li>
+    <li>{% translate "tier の根拠は CIViC（CC0）と ClinVar の Somatic Clinical Impact です。OncoKB・COSMIC など利用許諾が必要なデータは使用していません。" %}</li>
+    <li>{% translate "OP2 など自動で判定しないクライテリアは、「適用」「不適用」で手動の根拠として与えて再評価できます（保存はしません）。" %}</li>
+    <li>{% translate "JSON / TSV のダウンロードは、どちらのタブからでも生殖細胞系列と体細胞の両方の結果を含みます（体細胞の情報が不足するときに生殖細胞系列の情報を参照できるようにするため）。TSV のクライテリア表は framework 列（ACMG / somatic）で区別します。" %}</li>
+</ul>
+
 <h2 id="batch">{% translate "3. バッチ解析 (VCF)" %}</h2>
 <ul>
     <li>{% translate "VCF ファイル (.vcf / .vcf.gz、上限 50MB) をアップロードし、アセンブリを選んで投入します。" %}</li>
     <li>{% translate "解析は投入順に直列処理されます。ジョブ状態画面で進捗を確認でき、完了すると結果 TSV をダウンロードできます。" %}</li>
+    <li>{% translate "評価モードで「生殖細胞系列＋体細胞の統合」を選ぶと、生殖細胞系列の列に加えて各変異の Oncogenicity と（腫瘍型を指定したとき）AMP/ASCO/CAP tier を同じ TSV に出力します。" %}</li>
     <li>{% translate "過去のジョブは「ジョブ履歴」から確認できます。" %}</li>
     <li>{% translate "アップロードファイルと結果ファイルは保持期間 (既定 1 時間) を過ぎると自動削除されます。必要な結果は早めにダウンロードしてください。" %}</li>
 </ul>
@@ -98,6 +108,10 @@
 <h2 id="data-sources">{% translate "6. データ出典" %}</h2>
 <ul>
     <li>{% translate "TP53 の PS3/BS3（機能解析）は ClinGen TP53 VCEP のフローチャートに従い、The TP53 Database（R21, 2025年1月, https://tp53.cancer.gov; de Andrade et al., Cell Death Differ 2022）の Kato 2003、Giacomelli 2018、Kotler 2018、Kawaguchi 2005 のアッセイ分類を用いて判定しています。データは非営利の利用に限られます。" %}</li>
+</ul>
+
+<ul>
+    <li>{% translate "体細胞評価では、がん遺伝子の役割に Network of Cancer Genes 7.1、ホットスポットに cancerhotspots.org v2（ODbL）、腫瘍型に OncoTree（CC BY 4.0）と Disease Ontology（CC0）、臨床的意義に CIViC（CC0）と ClinVar を使用しています。" %}</li>
 </ul>
 
 <p><a href="{% url 'analysis:index' %}">{% translate "← トップへ戻る" %}</a></p>

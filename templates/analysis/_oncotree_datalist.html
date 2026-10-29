@@ -1,0 +1,3 @@
+<datalist id="{{ list_id }}">{% for o in choices %}
+<option value="{{ o.code }}">{{ o.name }}{% if o.main_type and o.main_type != o.name %} ({{ o.main_type }}){% endif %}</option>{% endfor %}
+</datalist>

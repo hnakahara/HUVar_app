@@ -6,7 +6,10 @@ Django が 500 にならないよう、import とデータ参照は関数内で�
 """
 from __future__ import annotations
 
+import csv
 import os
+import threading
+from collections import OrderedDict
 from pathlib import Path
 from typing import List, Optional
 
@@ -300,10 +303,13 @@ def classify_single(
     ref: str,
     alt: str,
     supplement_entries: Optional[List[dict]] = None,
+    with_somatic: bool = False,
 ) -> dict:
     """単一変異を ACMG 分類し、全クライテリア＋分類結果を dict で返す。
 
     supplement_entries: [{criterion, strength, evidence}] 手動編集（merge）。
+    with_somatic: True なら同じアノテーションで体細胞評価（腫瘍型なし）も行い、
+      display["_somatic"] に入れる（キャッシュ層が取り出して体細胞キャッシュへ保存する）。
 
     RYR1/ACTA1/VWF など複数 CSpec を持つ遺伝子では、保守的（既定）評価に加えて
     各 CSpec での評価も事前計算して同梱する（アノテーションは1回のみ実行し、判定
@@ -355,6 +361,8 @@ def classify_single(
         ) from exc
     except Exception as exc:  # noqa: BLE001
         raise EngineUnavailable(f"解析に失敗しました: {exc}") from exc
+    # 体細胞タブで腫瘍型を切り替えるときに再アノテーションしないよう保持する。
+    remember_annotation(assembly, chrom, pos, ref, alt, variant, ann)
 
     display = _to_display(conservative, ann)
     erepo_crits = {m.criterion.value for m in manual}
@@ -417,6 +425,11 @@ def classify_single(
     display["transcript_evaluations"] = transcript_evaluations
     display["available_transcripts"] = available_transcripts
     display["active_transcript"] = ""
+    if with_somatic:
+        try:
+            display["_somatic"] = somatic_from_annotation(assembly, variant, ann)
+        except Exception:  # noqa: BLE001  体細胞評価の失敗は生殖細胞系列の結果を壊さない
+            display["_somatic"] = None
     return display
 
 
@@ -508,10 +521,13 @@ def classify_batch(vcf_path: str, output_tsv_path: str, assembly: str) -> int:
     return len(results)
 
 
-def classify_vcf(vcf_path: str, assembly: str) -> dict:
+def classify_vcf(vcf_path: str, assembly: str, somatic: bool = False,
+                 tumor_type: str = "") -> dict:
     """VCF の全変異を解析し {variant_key: display} を返す（バッチキャッシュ用）。
 
     variant_key は VariantRecord.key（"chrom:pos:ref:alt"）と一致する。
+    somatic=True なら同じアノテーションで体細胞評価（tumor_type の腫瘍型）も行い、
+    display["_somatic"] に入れる（キャッシュ層が取り出す）。
     """
     try:
         from acmg_classifier.pipeline.pipeline import run_pipeline
@@ -521,6 +537,8 @@ def classify_vcf(vcf_path: str, assembly: str) -> dict:
         ) from exc
 
     cfg = _build_config(assembly)
+    code = normalize_tumor_type(tumor_type)
+    som_clf = _somatic_classifier(cfg, code) if somatic else None  # 不明な腫瘍型は先に検出
     mpath = manual_criteria_path(cfg)
     sup_path = mpath if (mpath and mpath.exists()) else None  # 既定マニュアル(merge)
     try:
@@ -547,10 +565,261 @@ def classify_vcf(vcf_path: str, assembly: str) -> dict:
         _annotate_sources(d, {e.criterion.value for e in erepo_by_var.get(key, [])})
         d["vcep"] = _vcep_record(cfg, r.chrom, r.pos, r.ref, r.alt)
         d["provenance"] = prov
+        if som_clf is not None:
+            d["_somatic"] = _somatic_for_result(som_clf, r, assembly, code)
         out[key] = d
     return out
+
+
+def _somatic_for_result(clf, r, assembly: str, code: str):
+    """バッチの ClassificationResult（annotation 付き）から体細胞評価を作る。失敗時は None。"""
+    try:
+        from acmg_classifier.models.annotation import AnnotationData
+        from acmg_classifier.models.enums import Assembly
+        from acmg_classifier.models.variant import VariantRecord
+        variant = VariantRecord(chrom=r.chrom, pos=int(r.pos), ref=r.ref, alt=r.alt,
+                                assembly=Assembly(assembly), filter=r.filter)
+        ann = r.annotation if r.annotation is not None else AnnotationData()
+        d = _somatic_evaluate(clf, variant, ann, code)
+        d["assembly"] = assembly
+        return d
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def batch_provenance(assembly: str) -> dict:
     """バッチ結果に添付する使用データの版情報。"""
     return _provenance(_build_config(assembly))
+
+
+# ---------------------------------------------------------------------------
+# 体細胞変異の評価（Horak 2022 oncogenicity ＋ AMP/ASCO/CAP 2017 tier）
+# ---------------------------------------------------------------------------
+
+class UnknownTumorType(ValueError):
+    """OncoTree コードが不明（入力エラーとして画面に表示する）。"""
+
+
+# Horak 2022 の点数 → 強さの表記（画面表示用）
+_ONC_STRENGTH = {8: "VeryStrong", 4: "Strong", 2: "Moderate", 1: "Supporting"}
+
+# 腫瘍型を変えて再評価するときにアノテーション（VEP 等の重い処理）を使い回す。
+# プロセス内の小さな LRU（gunicorn の worker ごと）。参照データ更新時は署名で区別する。
+_SOMATIC_ANN_MAX = 8
+_SOMATIC_ANN_TTL = 3600  # 秒。参照データ更新後も古いアノテーションを使い続けないよう期限を設ける
+_somatic_ann_cache: "OrderedDict" = OrderedDict()
+_somatic_ann_lock = threading.Lock()
+
+
+def _ann_key(assembly: str, chrom: str, pos: int, ref: str, alt: str):
+    return (assembly, chrom, int(pos), ref, alt)
+
+
+def remember_annotation(assembly: str, chrom: str, pos: int, ref: str, alt: str,
+                        variant, ann) -> None:
+    """生殖細胞系列の解析で得たアノテーションを体細胞評価用に保持する。"""
+    import time
+    with _somatic_ann_lock:
+        key = _ann_key(assembly, chrom, pos, ref, alt)
+        _somatic_ann_cache[key] = (time.monotonic(), (variant, ann))
+        _somatic_ann_cache.move_to_end(key)
+        while len(_somatic_ann_cache) > _SOMATIC_ANN_MAX:
+            _somatic_ann_cache.popitem(last=False)
+
+
+def _annotate_somatic(cfg, chrom: str, pos: int, ref: str, alt: str):
+    import time
+
+    from acmg_classifier.pipeline.pipeline import annotate_one
+
+    key = _ann_key(cfg.assembly.value, chrom, pos, ref, alt)
+    with _somatic_ann_lock:
+        hit = _somatic_ann_cache.get(key)
+        if hit is not None and time.monotonic() - hit[0] < _SOMATIC_ANN_TTL:
+            _somatic_ann_cache.move_to_end(key)
+            return hit[1]
+    variant, ann = annotate_one(chrom, int(pos), ref, alt, cfg)
+    remember_annotation(cfg.assembly.value, chrom, pos, ref, alt, variant, ann)
+    return variant, ann
+
+
+_oncotree_cache: dict = {}
+
+
+def oncotree_choices() -> list:
+    """腫瘍型の選択肢 [{code, name, main_type}]（OncoTree コード順）。エンジン未導入なら []。"""
+    try:
+        from acmg_classifier.somatic.resources import resolve
+        cfg = _build_config("GRCh38")
+        path = resolve(getattr(cfg, "oncotree_doid_tsv", None), "oncotree_doid.tsv")
+        st = os.stat(path)
+    except Exception:  # noqa: BLE001
+        return []
+    key = (str(path), st.st_size, int(st.st_mtime))
+    if key not in _oncotree_cache:
+        out = []
+        with open(path, encoding="utf-8") as fh:
+            rows = csv.DictReader((ln for ln in fh if not ln.startswith("#")), delimiter="\t")
+            for r in rows:
+                out.append({"code": r["oncotree_code"], "name": r.get("name") or "",
+                            "main_type": r.get("main_type") or ""})
+        _oncotree_cache.clear()
+        _oncotree_cache[key] = sorted(out, key=lambda o: o["code"])
+    return _oncotree_cache[key]
+
+
+def normalize_tumor_type(code: str) -> str:
+    """OncoTree コードを大文字・前後空白除去で正規化（"SKCM — Cutaneous Melanoma" の
+    ような datalist 表記も先頭トークンだけ取る）。"""
+    s = (code or "").strip()
+    if not s:
+        return ""
+    return s.replace("—", " ").replace(" - ", " ").split()[0].upper()
+
+
+def somatic_criteria() -> list:
+    """手動編集フォームに出す somatic クライテリア [{criterion, points}]。"""
+    try:
+        from acmg_classifier.somatic.models import POINTS, OncCriterion
+    except Exception:  # noqa: BLE001
+        return []
+    return [{"criterion": c.value, "points": POINTS[c]} for c in OncCriterion]
+
+
+def _somatic_display(r) -> dict:
+    """OncogenicityResult → 画面/JSON 用 dict。"""
+    from acmg_classifier.somatic.models import POINTS
+
+    criteria = []
+    for c in r.criteria:
+        weight = POINTS[c.criterion]
+        criteria.append({
+            "criterion": c.criterion.value,
+            "direction": "oncogenic" if weight > 0 else "benign",
+            "strength": _ONC_STRENGTH.get(abs(weight), ""),
+            "weight": weight,
+            "points": c.points,
+            "met": bool(c.met),
+            "suppressed": bool(c.suppressed),
+            "active": bool(c.active),
+            "manual": bool(c.manual),
+            "evidence": c.evidence or "",
+        })
+    evidence = [e for e in (r.amp_evidence or "").split(" | ") if e]
+    return {
+        "variant_id": r.variant_id,
+        "chrom": r.chrom, "pos": r.pos, "ref": r.ref, "alt": r.alt,
+        "gene_symbol": r.gene_symbol or "",
+        "transcript_id": r.transcript_id or "",
+        "hgvs_c": r.hgvs_c or "",
+        "hgvs_p": r.hgvs_p or "",
+        "consequence": r.consequence or "",
+        "gene_role": r.gene_role,
+        "gene_role_source": r.gene_role_source,
+        "gene_role_note": r.gene_role_note,
+        "hotspot": r.hotspot,
+        "classification": r.classification.value,
+        "score": r.score,
+        "summary": r.summary(),
+        "met_criteria": list(r.met_criteria),
+        "criteria": criteria,
+        "tumor_type": r.tumor_type or "",
+        "amp_tier": r.amp_tier or "",
+        "amp_level": r.amp_level or "",
+        "amp_evidence": evidence,
+        "amp_note": r.amp_note or "",
+        "amp_candidates": list(r.amp_candidates or []),
+        "warnings": list(r.warnings or []),
+    }
+
+
+def _manual_onc_evidence(entries: Optional[List[dict]], variant_id: str):
+    """[{criterion, met(bool), evidence}] → ManualOncEvidence のリスト。"""
+    if not entries:
+        return None
+    from acmg_classifier.somatic.models import ManualOncEvidence, OncCriterion
+
+    out = []
+    for e in entries:
+        try:
+            out.append(ManualOncEvidence(
+                variant_id=variant_id, criterion=OncCriterion(e["criterion"]),
+                met=bool(e.get("met", True)), evidence=e.get("evidence", "") or ""))
+        except (KeyError, ValueError):
+            continue
+    return out or None
+
+
+def _somatic_classifier(cfg, code: str):
+    try:
+        from acmg_classifier.somatic.pipeline import SomaticClassifier
+    except Exception as exc:  # noqa: BLE001
+        raise EngineUnavailable(
+            f"解析エンジン(acmg_classifier)の体細胞評価が利用できません: {exc}"
+        ) from exc
+    try:
+        return SomaticClassifier(cfg, code or None)
+    except ValueError as exc:
+        raise UnknownTumorType(f"不明な OncoTree コードです: {code}") from exc
+    except FileNotFoundError as exc:
+        raise EngineUnavailable(f"参照データが見つかりません: {exc}") from exc
+
+
+def _somatic_evaluate(clf, variant, ann, code: str, transcript: str = "",
+                      manual_entries: Optional[List[dict]] = None) -> dict:
+    """アノテーション済みの変異を体細胞評価して display dict を返す。"""
+    if transcript and hasattr(ann, "for_transcript"):
+        try:
+            ann = ann.for_transcript(transcript)
+        except Exception:  # noqa: BLE001  指定 transcript が無ければ既定で評価
+            transcript = ""
+    manual = _manual_onc_evidence(manual_entries, variant.key)
+    display = _somatic_display(clf.classify(variant, ann, manual))
+    display["tumor_code"] = code
+    display["evaluated_transcript"] = transcript
+    display["manual"] = list(manual_entries or [])
+    return display
+
+
+def somatic_from_annotation(assembly: str, variant, ann, tumor_type: str = "") -> dict:
+    """生殖細胞系列の解析で得たアノテーションから体細胞評価（既定 transcript）を作る。"""
+    code = normalize_tumor_type(tumor_type)
+    cfg = _build_config(assembly, openspliceai_flanking_size=2000)
+    display = _somatic_evaluate(_somatic_classifier(cfg, code), variant, ann, code)
+    display["assembly"] = assembly
+    display["provenance"] = _provenance(cfg)
+    return display
+
+
+def classify_somatic(
+    assembly: str,
+    chrom: str,
+    pos: int,
+    ref: str,
+    alt: str,
+    tumor_type: str = "",
+    transcript: str = "",
+    manual_entries: Optional[List[dict]] = None,
+) -> dict:
+    """単一変異を体細胞変異として評価する（oncogenicity ＋ AMP tier）。
+
+    tumor_type: OncoTree コード（空なら tier は付けず、他の腫瘍型での根拠を候補として返す）。
+    transcript: MANE Plus Clinical など、評価に使う transcript（空なら MANE Select）。
+    manual_entries: [{criterion, met, evidence}] 手動の根拠（OP2 など）。保存しない。
+    不明な OncoTree コードは UnknownTumorType。
+    """
+    code = normalize_tumor_type(tumor_type)
+    cfg = _build_config(assembly, openspliceai_flanking_size=2000)
+    clf = _somatic_classifier(cfg, code)
+    try:
+        variant, ann = _annotate_somatic(cfg, chrom, int(pos), ref, alt)
+        display = _somatic_evaluate(clf, variant, ann, code, transcript, manual_entries)
+    except FileNotFoundError as exc:
+        raise EngineUnavailable(
+            f"参照データが見つかりません（{DATA_DIR} 配下を確認してください）: {exc}"
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise EngineUnavailable(f"体細胞評価に失敗しました: {exc}") from exc
+    display["assembly"] = assembly
+    display["provenance"] = _provenance(cfg)
+    return display

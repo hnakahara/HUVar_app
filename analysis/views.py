@@ -15,14 +15,18 @@ from accounts.notifications import notify_admin
 from transvar_client.client import TransvarError
 from transvar_client.client import convert as transvar_convert
 
-from .cache import cached_classify_single
+from .cache import cached_classify_single, cached_classify_somatic, somatic_judgment
 from .engine import (
     STRENGTH_CHOICES,
     EngineUnavailable,
+    UnknownTumorType,
     align_variant_to_evaluation,
     assembly_to_hg,
     classify_single,
+    classify_somatic,
+    normalize_tumor_type,
     parse_assembly_token,
+    somatic_criteria,
 )
 from .cache import MANE_PC_COLS, mane_pc_cells
 from .forms import BatchVariantForm, SingleVariantForm
@@ -547,8 +551,40 @@ def _result_to_tsv(data: dict) -> str:
             text = str(info)
         w.writerow([f"# data_{name}", text])
 
+    # 体細胞（oncogenicity ＋ AMP tier）。生殖細胞系列と同じファイルに # somatic_* で併記する。
+    somatic = data.get("somatic") or {}
+    if somatic.get("error"):
+        w.writerow(["# somatic_error", somatic["error"]])
+    elif somatic:
+        manual = ", ".join(f'{m.get("criterion")}={"met" if m.get("met") else "not_met"}'
+                           for m in somatic.get("manual") or [])
+        som_meta = [
+            ("somatic_transcript", somatic.get("transcript_id", "")),
+            ("somatic_hgvs_c", somatic.get("hgvs_c", "")),
+            ("somatic_hgvs_p", somatic.get("hgvs_p", "")),
+            ("somatic_consequence", somatic.get("consequence", "")),
+            ("somatic_gene_role", somatic.get("gene_role", "")),
+            ("somatic_gene_role_source", somatic.get("gene_role_source", "")),
+            ("somatic_oncogenicity", somatic.get("classification", "")),
+            ("somatic_score", somatic.get("score", "")),
+            ("somatic_criteria", somatic.get("summary", "")),
+            ("somatic_hotspot", somatic.get("hotspot", "")),
+            ("somatic_tumor_type", somatic.get("tumor_code", "")),
+            ("somatic_tumor_type_mapping", somatic.get("tumor_type", "")),
+            ("amp_tier", somatic.get("amp_tier", "")),
+            ("amp_level", somatic.get("amp_level", "")),
+            ("amp_note", somatic.get("amp_note", "")),
+            ("amp_evidence", " | ".join(somatic.get("amp_evidence") or [])),
+            ("amp_candidates", " | ".join(somatic.get("amp_candidates") or [])),
+            ("somatic_manual_evidence", manual),
+            ("somatic_warnings", " / ".join(somatic.get("warnings") or [])),
+        ]
+        for k, v in som_meta:
+            w.writerow([f"# {k}", v])
+
+    # クライテリア表。framework 列で ACMG（生殖細胞系列）と somatic を区別する。
     w.writerow(["criterion", "judgment", "direction", "strength", "points", "evidence",
-                "source"])
+                "source", "framework"])
     for c in display.get("criteria", []) or []:
         if c.get("suppressed"):
             judgment = "suppressed"
@@ -559,28 +595,76 @@ def _result_to_tsv(data: dict) -> str:
         w.writerow([
             c.get("criterion", ""), judgment, c.get("direction", ""),
             c.get("strength", ""), c.get("points", ""), c.get("evidence", ""),
-            c.get("source", ""),
+            c.get("source", ""), "ACMG",
         ])
+    if not somatic.get("error"):
+        for c in somatic.get("criteria", []) or []:
+            judgment = {"met": "MET", "not_met": "not met"}.get(somatic_judgment(c), "suppressed")
+            w.writerow([
+                c.get("criterion", ""), judgment, c.get("direction", ""),
+                c.get("strength", ""), c.get("points", ""), c.get("evidence", ""),
+                "user" if c.get("manual") else "automated", "somatic",
+            ])
     return buf.getvalue()
+
+
+def _germline_for_export(vr, tx: str) -> dict:
+    """保存済みの生殖細胞系列の結果（tx 指定時は MANE Plus Clinical の評価）を
+    エクスポート形 {variant, display, edits, view} で返す。"""
+    data = vr.result_json or {}
+    variant = data.get("variant", {}) or {}
+    display = data.get("display", {}) or {}
+    tx_display = (display.get("transcript_evaluations", {}) or {}).get(tx) if tx else None
+    if tx_display is not None:
+        shown = dict(variant, transcript=tx_display.get("transcript_id", tx),
+                     hgvs_c=tx_display.get("hgvs_c", ""), hgvs_p=tx_display.get("hgvs_p", ""))
+        return {"variant": shown, "display": tx_display, "edits": [],
+                "view": "mane_plus_clinical"}
+    return {"variant": variant, "display": display, "edits": data.get("edits", []),
+            "view": "default"}
 
 
 @login_required
 def single_export(request, pk: int):
-    """結果（全クライテリア＋根拠＋分類）を JSON / TSV でダウンロード（FR-SINGLE-6）。
+    """生殖細胞系列（ACMG）と体細胞（oncogenicity ＋ AMP tier）を統合した結果を
+    JSON / TSV でダウンロード（FR-SINGLE-6）。
 
-    POST で result_json を受け取った場合は、その（未保存の手動編集後）内容を
-    そのままエクスポートする。GET の場合は保存済みの自動分類結果を返す。
+    体細胞の情報が不足するときに生殖細胞系列の情報を参照できるよう、どちらのタブから
+    ダウンロードしても両方を含める。
+      - result_json（POST）: 画面に表示中の生殖細胞系列の結果（未保存の手動編集を含む）。
+        無ければ保存済みの結果（tx 指定時はその transcript の評価）。
+      - somatic_json（POST）: 画面に表示中の体細胞評価（手動の根拠を含む）。無ければ
+        この結果で最後に選んだ腫瘍型で評価する（キャッシュ）。
     fmt=tsv で TSV、それ以外（既定）は JSON を返す。
     """
     vr = get_object_or_404(VariantResult, pk=pk, job__owner=request.user)
-    data = vr.result_json or {}
-    if request.method == "POST" and request.POST.get("result_json"):
+    post = request.POST if request.method == "POST" else {}
+    tx = (post.get("tx") or request.GET.get("tx") or "").strip()
+    data = None
+    if post.get("result_json"):
         try:
-            data = json.loads(request.POST["result_json"])
+            data = json.loads(post["result_json"])
         except (ValueError, TypeError):
-            data = vr.result_json or {}
+            data = None
+    if not isinstance(data, dict):
+        data = _germline_for_export(vr, tx)
 
-    fmt = (request.POST.get("fmt") or request.GET.get("fmt") or "json").lower()
+    somatic = None
+    if post.get("somatic_json"):
+        try:
+            somatic = json.loads(post["somatic_json"])
+        except (ValueError, TypeError):
+            somatic = None
+    if not isinstance(somatic, dict):
+        base = (vr.result_json or {}).get("variant", {}) or {}
+        try:
+            somatic, _err = _somatic_for(base, remembered_tumor(request, pk), tx)
+        except Exception as exc:  # noqa: BLE001  体細胞評価の失敗は生殖細胞系列の出力を止めない
+            logger.warning("single_export somatic error: %s", exc)
+            somatic = {"error": _ENGINE_ERROR_MSG}
+    data = dict(data, somatic=somatic)
+
+    fmt = (post.get("fmt") or request.GET.get("fmt") or "json").lower()
     if fmt == "tsv":
         body = _result_to_tsv(data)
         resp = HttpResponse(body, content_type="text/tab-separated-values; charset=utf-8")
@@ -591,6 +675,134 @@ def single_export(request, pk: int):
     resp = HttpResponse(body, content_type="application/json; charset=utf-8")
     resp["Content-Disposition"] = f'attachment; filename="acmg_result_{vr.pk}.json"'
     return resp
+
+
+# ---------------------------------------------------------------------------
+# 体細胞変異としての評価（Horak 2022 oncogenicity ＋ AMP/ASCO/CAP 2017 tier）
+# ---------------------------------------------------------------------------
+
+ONC_EDIT_MET = "met"
+ONC_EDIT_NOT_MET = "not_met"
+_TUMOR_SESSION_KEY = "somatic_tumor"   # {str(result pk): OncoTree コード}
+_TUMOR_SESSION_MAX = 50
+
+
+def remembered_tumor(request, pk) -> str:
+    """結果ごとに最後に選んだ腫瘍型（Germline/Somatic タブの切替で保持する）。"""
+    try:
+        return (request.session.get(_TUMOR_SESSION_KEY) or {}).get(str(pk), "")
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _remember_tumor(request, pk, code: str) -> None:
+    store = dict(request.session.get(_TUMOR_SESSION_KEY) or {})
+    store.pop(str(pk), None)
+    store[str(pk)] = code
+    while len(store) > _TUMOR_SESSION_MAX:
+        store.pop(next(iter(store)))
+    request.session[_TUMOR_SESSION_KEY] = store
+
+
+def _plus_clinical_ids(display: dict) -> set:
+    return {t.get("transcript_id") for t in (display or {}).get("available_transcripts") or []
+            if t.get("role") == "MANE Plus Clinical" and t.get("transcript_id")}
+
+
+def _somatic_manual_from_post(request) -> list:
+    """編集フォーム（onc_<CRIT> = met / not_met、onc_evidence_<CRIT>）→ 手動根拠のリスト。"""
+    entries = []
+    for c in somatic_criteria():
+        crit = c["criterion"]
+        state = (request.POST.get(f"onc_{crit}") or "").strip()
+        if state in (ONC_EDIT_MET, ONC_EDIT_NOT_MET):
+            entries.append({
+                "criterion": crit, "met": state == ONC_EDIT_MET,
+                "evidence": (request.POST.get(f"onc_evidence_{crit}") or "").strip(),
+            })
+    return entries
+
+
+def _amp_badge(tier: str) -> str:
+    if tier in ("Tier I", "Tier II"):
+        return "badge-path"
+    if tier == "Tier IV":
+        return "badge-benign"
+    return "badge-vus"
+
+
+def _somatic_for(variant: dict, tumor: str, tx: str = "", manual=None):
+    """体細胞評価（手動の根拠が無ければキャッシュ経由）。戻り値 (display, tumor_error)。
+    不明な腫瘍型は腫瘍型なしで評価し、エラー文を返す。"""
+    def _run(code):
+        if manual:
+            return classify_somatic(
+                variant["assembly"], variant["chrom"], int(variant["pos"]), variant["ref"],
+                variant["alt"], tumor_type=code, transcript=tx, manual_entries=manual)
+        return cached_classify_somatic(
+            variant["assembly"], variant["chrom"], int(variant["pos"]), variant["ref"],
+            variant["alt"], tumor_type=code, transcript=tx)[0]
+    try:
+        return _run(tumor), ""
+    except UnknownTumorType as exc:
+        return _run(""), str(exc)
+
+
+@login_required
+def single_somatic(request, pk: int):
+    """保存済みの単一バリアントを体細胞変異として評価して表示する（Somatic タブ）。
+
+    GET ?tumor=<OncoTree>&tx=<Plus Clinical transcript> は自動判定（キャッシュあり）。
+    tumor が無ければこの結果で最後に選んだ腫瘍型を使う（tumor= で明示的に解除）。
+    POST は手動の根拠（OP2 など）を付けた再評価で、保存もキャッシュもしない。
+    """
+    vr = get_object_or_404(VariantResult, pk=pk, job__owner=request.user)
+    data = vr.result_json or {}
+    variant = data.get("variant", {}) or {}
+    germline = data.get("display", {}) or {}
+    src = request.POST if request.method == "POST" else request.GET
+    if "tumor" in src:
+        tumor = normalize_tumor_type(src.get("tumor", ""))
+    else:
+        tumor = remembered_tumor(request, pk)
+    tx = (src.get("tx") or "").strip()
+    if tx not in _plus_clinical_ids(germline):
+        tx = ""
+    manual = _somatic_manual_from_post(request) if request.method == "POST" else []
+
+    context = {
+        "result_id": vr.pk, "variant": variant, "germline": germline,
+        "tumor": tumor, "active_transcript": tx,
+        "plus_clinical": sorted(_plus_clinical_ids(germline)),
+        "manual": manual,
+        "permalink": _permalink_from_variant(request, variant),
+    }
+    try:
+        somatic, tumor_error = _somatic_for(variant, tumor, tx, manual)
+    except (EngineUnavailable, ValueError, KeyError) as exc:
+        logger.warning("single_somatic engine error: %s", exc)
+        context["engine_error"] = _ENGINE_ERROR_MSG
+        return render(request, "analysis/single_somatic.html", context)
+    if tumor_error:
+        context["tumor_error"] = tumor_error
+        tumor = context["tumor"] = ""
+    _remember_tumor(request, pk, tumor)
+
+    shown_variant = dict(variant, gene=somatic.get("gene_symbol") or variant.get("gene", ""),
+                         transcript=somatic.get("transcript_id") or variant.get("transcript", ""),
+                         hgvs_c=somatic.get("hgvs_c") or variant.get("hgvs_c", ""),
+                         hgvs_p=somatic.get("hgvs_p") or variant.get("hgvs_p", ""))
+    AuditLog.objects.create(user=request.user, action="single_somatic",
+                            detail=f"{vr.variant_id} tumor={tumor or '-'}"
+                                   f"{' manual' if manual else ''}")
+    context.update({
+        "variant": shown_variant,
+        "somatic": somatic,
+        "amp_badge": _amp_badge(somatic.get("amp_tier", "")),
+        # 統合ダウンロード用。生殖細胞系列は保存済み（tx 指定時はその transcript の評価）を使う。
+        "somatic_json": json.dumps(somatic, ensure_ascii=False),
+    })
+    return render(request, "analysis/single_somatic.html", context)
 
 
 # ---------------------------------------------------------------------------
@@ -617,6 +829,8 @@ def batch_upload(request):
             assembly=form.cleaned_data["assembly"],
             input_file=form.cleaned_data["vcf"],
             input_text=form.cleaned_data["vcf"].name,
+            mode=form.cleaned_data.get("mode") or AnalysisJob.Mode.GERMLINE,
+            tumor_type=form.cleaned_data.get("tumor_type", ""),
             status=AnalysisJob.Status.PENDING,
         )
         run_batch_classification.delay(job.id)
@@ -626,6 +840,8 @@ def batch_upload(request):
             "バッチ解析(classify)投入",
             f"ユーザー: {request.user.get_username()}\n"
             f"アセンブリ: {job.assembly}\n"
+            f"モード: {job.get_mode_display()}"
+            f"{'（腫瘍型 ' + job.tumor_type + '）' if job.tumor_type else ''}\n"
             f"バッチ解析が投入されました（内容は非開示）。\n",
         )
         return redirect("analysis:batch_status", pk=job.id)
@@ -661,7 +877,8 @@ def batch_download(request, pk: int):
     if job.status != AnalysisJob.Status.DONE or not job.result_file:
         raise Http404("結果がまだありません。")
     resp = FileResponse(job.result_file.open("rb"), content_type="text/tab-separated-values")
-    resp["Content-Disposition"] = f'attachment; filename="acmg_batch_{job.id}.tsv"'
+    prefix = "acmg_somatic" if job.mode == AnalysisJob.Mode.SOMATIC else "acmg"
+    resp["Content-Disposition"] = f'attachment; filename="{prefix}_batch_{job.id}.tsv"'
     return resp
 
 
@@ -679,5 +896,6 @@ def batch_provenance(request, pk: int):
     if not os.path.exists(side):
         raise Http404("版情報がありません。")
     resp = FileResponse(open(side, "rb"), content_type="application/json")
-    resp["Content-Disposition"] = f'attachment; filename="acmg_batch_{job.id}.provenance.json"'
+    prefix = "acmg_somatic" if job.mode == AnalysisJob.Mode.SOMATIC else "acmg"
+    resp["Content-Disposition"] = f'attachment; filename="{prefix}_batch_{job.id}.provenance.json"'
     return resp

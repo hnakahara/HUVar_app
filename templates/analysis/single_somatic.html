@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load somatic_extras %}
+{% block title %}{% translate "体細胞変異の評価" %} | HUVar{% endblock %}
+{% block content %}
+<h1>{% translate "解析結果" %}</h1>
+{% result_tabs result_id "somatic" active_transcript %}
+<p class="pc-note">{% translate "腫瘍で検出された変異として評価します。Oncogenicity は ClinGen/CGC/VICC の SOP（Horak et al. 2022）の点数制、臨床的意義は AMP/ASCO/CAP 2017（Li et al.）の tier です。生殖細胞系列の ACMG 分類とは独立した評価です。" %}</p>
+
+<table border="1" cellpadding="6" cellspacing="0">
+    <tr><th>{% translate "アセンブリ" %}</th><td>{{ variant.assembly }}</td></tr>
+    <tr><th>genome</th><td>{{ variant.chrom }}:{{ variant.pos }} {{ variant.ref }}&gt;{{ variant.alt }}</td></tr>
+    <tr><th>gene</th><td>{{ variant.gene }}{% if somatic %} <span class="tag {% if somatic.gene_role == 'not_cancer_gene' %}tag-not{% else %}tag-pc{% endif %}" title="{{ somatic.gene_role_note }}">{{ somatic.gene_role }}{% if somatic.gene_role_source %} · {{ somatic.gene_role_source }}{% endif %}</span>{% endif %}</td></tr>
+    <tr><th>transcript</th><td>{{ variant.transcript }}{% if active_transcript %} <span class="tag tag-pc">MANE Plus Clinical</span>{% endif %} <span style="color:var(--muted);">{% translate "（評価に使用）" %}</span></td></tr>
+    <tr><th>HGVS</th><td>{{ variant.hgvs_c }} / {{ variant.hgvs_p }}</td></tr>
+    {% if somatic.consequence %}<tr><th>consequence</th><td>{{ somatic.consequence }}</td></tr>{% endif %}
+</table>
+
+<div class="cspec-switch">
+    <span class="cspec-label">{% translate "腫瘍型（OncoTree）" %}</span>
+    <p class="cspec-hint">{% translate "AMP/ASCO/CAP の tier は腫瘍型ごとに決まります。OncoTree のコード（例: SKCM 皮膚黒色腫、COADREAD 大腸腺癌、NSCLC 非小細胞肺癌）を入力してください。空欄のときは tier を付けず、他の腫瘍型での根拠を参考として表示します。Oncogenicity は腫瘍型によらず同じです。" %}</p>
+    <form method="get" action="{% url 'analysis:single_somatic' result_id %}" class="tumor-form">
+        <input type="text" name="tumor" value="{{ tumor }}" list="oncotree-list" size="14"
+               placeholder="SKCM" autocomplete="off" aria-label="{% translate "OncoTree コード" %}">
+        {% oncotree_datalist "oncotree-list" %}
+        {% if plus_clinical %}
+        <select name="tx" aria-label="transcript">
+            <option value="">MANE Select</option>
+            {% for t in plus_clinical %}<option value="{{ t }}"{% if t == active_transcript %} selected{% endif %}>MANE Plus Clinical {{ t }}</option>{% endfor %}
+        </select>
+        {% endif %}
+        <button type="submit">{% translate "この腫瘍型で評価" %}</button>
+        {% if tumor %}<a href="{% url 'analysis:single_somatic' result_id %}?tumor={% if active_transcript %}&amp;tx={{ active_transcript|urlencode }}{% endif %}" class="cspec-chip">{% translate "腫瘍型なし" %}</a>{% endif %}
+    </form>
+    {% if tumor_error %}<p style="color:#b00;">⚠ {{ tumor_error }} {% translate "（腫瘍型なしで評価しました）" %}</p>{% endif %}
+</div>
+
+{% if engine_error %}
+<p style="color:#b00;">⚠ {% translate "解析エンジンエラー:" %} {{ engine_error }}</p>
+{% else %}
+
+<h2>{% translate "分類" %}</h2>
+<ul>
+    <li><strong>Oncogenicity</strong>:
+        <span class="badge {% if 'Oncogenic' in somatic.classification %}badge-path{% elif 'Benign' in somatic.classification %}badge-benign{% else %}badge-vus{% endif %}">{{ somatic.classification }}</span>
+        <span style="color:var(--muted);">（score {% if somatic.score > 0 %}+{% endif %}{{ somatic.score }}{% if somatic.summary %}: {{ somatic.summary }}{% endif %}）</span></li>
+    <li><strong>AMP/ASCO/CAP</strong>:
+        {% if somatic.amp_tier %}
+        <span class="badge {{ amp_badge }}">{{ somatic.amp_tier }}{% if somatic.amp_level %}, level {{ somatic.amp_level }}{% endif %}</span>
+        {% if somatic.tumor_type %}<span style="color:var(--muted);">（{{ somatic.tumor_type }}）</span>{% endif %}
+        {% else %}
+        <span class="badge badge-vus">{% translate "未判定" %}</span>
+        <span style="color:var(--muted);">{% translate "腫瘍型を指定すると tier を判定します" %}</span>
+        {% endif %}
+        {% if somatic.amp_note and somatic.amp_tier %}<br><span class="pc-note">{{ somatic.amp_note }}</span>{% endif %}</li>
+</ul>
+<p class="pc-note">{% translate "点数: Oncogenic ≥10、Likely oncogenic 6〜9、VUS 0〜5、Likely benign −1〜−6、Benign ≤−7（Horak et al. 2022）。Tier は CIViC と ClinVar の Somatic Clinical Impact から判定します。" %}</p>
+
+{% if somatic.hotspot %}
+<p><strong>{% translate "ホットスポット" %}</strong>: {{ somatic.hotspot }}</p>
+{% endif %}
+
+{% if somatic.amp_evidence %}
+<h3>{% translate "AMP/ASCO/CAP の根拠（強い順）" %}</h3>
+<ul class="amp-evidence">
+    {% for e in somatic.amp_evidence %}<li>{{ e }}</li>{% endfor %}
+</ul>
+{% elif somatic.amp_candidates %}
+<h3>{% translate "他の腫瘍型での根拠（参考。腫瘍型を指定してください）" %}</h3>
+<ul class="amp-evidence">
+    {% for e in somatic.amp_candidates %}<li>{{ e }}</li>{% endfor %}
+</ul>
+{% elif somatic.amp_tier %}
+<p class="pc-note">{% translate "この腫瘍型で tier I/II の根拠はありません。" %}</p>
+{% endif %}
+
+{% if somatic.warnings %}
+<p style="color:#a60;">warnings: {% for w in somatic.warnings %}{{ w }}{% if not forloop.last %} / {% endif %}{% endfor %}</p>
+{% endif %}
+
+<h2>{% translate "クライテリアと手動の根拠" %}（{{ somatic.criteria|length }}）</h2>
+<p style="color:var(--muted);">{% translate "「適用」「不適用」を選んだ項目だけ自動判定を上書きして再評価します（保存はしません）。OP2（単一の遺伝的病因をもつ腫瘍）は自動では判定しないため、該当するときはここで適用してください。" %}</p>
+
+<form method="post" action="{% url 'analysis:single_somatic' result_id %}">
+    {% csrf_token %}
+    <input type="hidden" name="tumor" value="{{ tumor }}">
+    <input type="hidden" name="tx" value="{{ active_transcript }}">
+    <table border="1" cellpadding="4" cellspacing="0">
+        <thead>
+            <tr>
+                <th>criterion</th><th>{% translate "判定" %}</th><th>direction</th><th>strength</th><th>points</th>
+                <th>{% translate "根拠 (evidence)" %}</th><th>{% translate "由来" %}</th><th>{% translate "編集" %}</th><th>{% translate "編集 evidence" %}</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for c in somatic.criteria %}
+            <tr class="{% if c.suppressed and c.met %}row-suppressed{% elif c.active %}row-met{% else %}row-not{% endif %}">
+                <td>{{ c.criterion }}</td>
+                <td>{% if c.suppressed and c.met %}<span class="tag tag-suppressed">suppressed</span>{% elif c.active %}<span class="tag tag-met">MET</span>{% else %}<span class="tag tag-not">not met</span>{% endif %}</td>
+                <td>{{ c.direction }}</td>
+                <td>{{ c.strength }}</td>
+                <td>{% if c.active %}{% if c.points > 0 %}+{% endif %}{{ c.points }}{% else %}<span style="color:var(--muted);">({% if c.weight > 0 %}+{% endif %}{{ c.weight }})</span>{% endif %}</td>
+                <td>{{ c.evidence }}</td>
+                <td>{% if c.manual %}<span class="src src-user">{% translate "手動編集" %}</span>{% else %}<span class="src src-auto">{% translate "自動" %}</span>{% endif %}</td>
+                <td>
+                    <select name="onc_{{ c.criterion }}">
+                        <option value="">{% translate "（変更なし）" %}</option>
+                        <option value="met">{% translate "適用" %}</option>
+                        <option value="not_met">{% translate "不適用" %}</option>
+                    </select>
+                </td>
+                <td><input type="text" name="onc_evidence_{{ c.criterion }}" size="20"></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <p><button type="submit">{% translate "編集を適用して再評価" %}</button></p>
+</form>
+
+{% if manual %}
+<p>{% translate "適用済みの手動の根拠:" %}
+    {% for m in manual %}{{ m.criterion }}={% if m.met %}{% translate "適用" %}{% else %}{% translate "不適用" %}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}
+    （<a href="{% url 'analysis:single_somatic' result_id %}?tumor={{ tumor|urlencode }}{% if active_transcript %}&amp;tx={{ active_transcript|urlencode }}{% endif %}">{% translate "自動判定に戻す" %}</a>）</p>
+{% endif %}
+
+{% if somatic.provenance and somatic.provenance.resources %}
+<details class="provenance">
+    <summary>{% translate "使用データの版情報" %}{% if somatic.provenance.huvar_version %}（HUVar {{ somatic.provenance.huvar_version }}）{% endif %}</summary>
+    <table>
+        {% for name, info in somatic.provenance.resources.items %}
+        <tr><th>{{ name }}</th><td>{% for k, v in info.items %}{% if v != None and v != "" %}{{ k }}: {{ v }}{% if not forloop.last %}; {% endif %}{% endif %}{% endfor %}</td></tr>
+        {% endfor %}
+    </table>
+</details>
+{% endif %}
+
+<form method="post" action="{% url 'analysis:single_export' result_id %}">
+    {% csrf_token %}
+    <input type="hidden" name="somatic_json" value="{{ somatic_json }}">
+    <input type="hidden" name="tx" value="{{ active_transcript }}">
+    <p class="pc-note">{% translate "ダウンロードには体細胞の結果（表示中の内容）と生殖細胞系列（ACMG）の結果の両方を含めます。" %}</p>
+    <p>
+        <button type="submit" name="fmt" value="json">{% translate "JSON でダウンロード" %}</button>
+        <button type="submit" name="fmt" value="tsv">{% translate "TSV でダウンロード" %}</button>
+    </p>
+</form>
+{% endif %}
+
+<p><a href="{% url 'analysis:single_input' %}">{% translate "← 別のバリアントを解析" %}</a></p>
+{% endblock %}

@@ -22,6 +22,10 @@ class AnalysisJob(models.Model):
         SINGLE = "single", "Single variant"
         BATCH = "batch", "Batch (VCF)"
 
+    class Mode(models.TextChoices):
+        GERMLINE = "germline", "Germline (ACMG)"
+        SOMATIC = "somatic", "Germline + somatic (combined)"
+
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
         RUNNING = "running", "Running"
@@ -34,6 +38,9 @@ class AnalysisJob(models.Model):
     assembly = models.CharField(max_length=10, choices=Assembly.choices,
                                 default=Assembly.GRCH38)
     input_text = models.CharField(max_length=255, blank=True)  # 単一変異の入力文字列
+    # バッチの評価モード（生殖細胞系列 ACMG のみ / 生殖細胞系列＋体細胞の統合）と腫瘍型
+    mode = models.CharField(max_length=10, choices=Mode.choices, default=Mode.GERMLINE)
+    tumor_type = models.CharField(max_length=32, blank=True)  # OncoTree コード（統合モードのみ）
     input_file = models.FileField(upload_to="uploads/", null=True, blank=True)  # VCF
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
     celery_task_id = models.CharField(max_length=255, blank=True)

@@ -42,6 +42,40 @@ class BatchVariantForm(forms.Form):
         initial=Assembly.GRCH38,
     )
 
+    mode = forms.ChoiceField(
+        label=_("評価モード"),
+        choices=[
+            ("germline", _("生殖細胞系列のみ（ACMG/AMP 2015）")),
+            ("somatic", _("生殖細胞系列＋体細胞（Oncogenicity / AMP tier）の統合")),
+        ],
+        initial="germline",
+        widget=forms.RadioSelect,
+    )
+    tumor_type = forms.CharField(
+        label=_("腫瘍型（OncoTree コード、統合のみ・任意）"),
+        max_length=32,
+        required=False,
+        widget=forms.TextInput(attrs={"list": "oncotree-list", "size": 14,
+                                      "placeholder": "SKCM", "autocomplete": "off"}),
+    )
+
+    def clean_tumor_type(self):
+        from .engine import normalize_tumor_type, oncotree_choices
+        code = normalize_tumor_type(self.cleaned_data.get("tumor_type", ""))
+        if not code:
+            return ""
+        known = {o["code"].upper() for o in oncotree_choices()}
+        # 選択肢を読めない（エンジン未導入）ときはジョブ側の検証に任せる
+        if known and code not in known:
+            raise forms.ValidationError(_("不明な OncoTree コードです。"))
+        return code
+
+    def clean(self):
+        data = super().clean()
+        if data.get("mode") != "somatic":
+            data["tumor_type"] = ""
+        return data
+
     def clean_vcf(self):
         f = self.cleaned_data["vcf"]
         name = (f.name or "").lower()

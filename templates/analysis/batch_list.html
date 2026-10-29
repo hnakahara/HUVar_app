@@ -7,7 +7,7 @@
 
 <table border="1" cellpadding="6" cellspacing="0">
     <thead>
-        <tr><th>#</th><th>{% translate "ファイル" %}</th><th>{% translate "アセンブリ" %}</th><th>{% translate "状態" %}</th><th>{% translate "作成" %}</th><th>{% translate "有効期限" %}</th><th></th></tr>
+        <tr><th>#</th><th>{% translate "ファイル" %}</th><th>{% translate "アセンブリ" %}</th><th>{% translate "評価モード" %}</th><th>{% translate "状態" %}</th><th>{% translate "作成" %}</th><th>{% translate "有効期限" %}</th><th></th></tr>
     </thead>
     <tbody>
     {% for job in jobs %}
@@ -15,6 +15,7 @@
             <td><a href="{% url 'analysis:batch_status' job.id %}">{{ job.id }}</a></td>
             <td>{{ job.input_text }}</td>
             <td>{{ job.assembly }}</td>
+            <td>{% if job.mode == "somatic" %}{% translate "統合" %}{% if job.tumor_type %} {{ job.tumor_type }}{% endif %}{% else %}{% translate "生殖細胞系列" %}{% endif %}</td>
             <td>{{ job.get_status_display }}</td>
             <td>{{ job.created_at }}</td>
             <td>{{ job.expires_at }}</td>
@@ -25,7 +26,7 @@
             </td>
         </tr>
     {% empty %}
-        <tr><td colspan="7">{% translate "ジョブはありません。" %}</td></tr>
+        <tr><td colspan="8">{% translate "ジョブはありません。" %}</td></tr>
     {% endfor %}
     </tbody>
 </table>

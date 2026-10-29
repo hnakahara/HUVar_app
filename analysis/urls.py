@@ -18,6 +18,8 @@ urlpatterns = [
          name="single_transcript"),
     path("single/result/<int:pk>/edit/", views.single_edit, name="single_edit"),
     path("single/result/<int:pk>/export.json", views.single_export, name="single_export"),
+    # Somatic タブ（oncogenicity ＋ AMP tier）。?tumor=<OncoTree>&tx=<transcript>
+    path("single/result/<int:pk>/somatic/", views.single_somatic, name="single_somatic"),
     # バッチ（VCF）
     path("batch/", views.batch_upload, name="batch_upload"),
     path("batch/jobs/", views.batch_list, name="batch_list"),
