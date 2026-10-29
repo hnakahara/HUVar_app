@@ -110,6 +110,17 @@ body {
   border-color: var(--border-strong);
   color: #fff;
 }
+/* ログアウトは POST フォーム。ボタンをリンク型の btn-ghost と同じ見た目にする */
+form.logout-form { display: inline; margin: 0; }
+button.btn-ghost {
+  background: none; color: var(--text); font-weight: 400; letter-spacing: normal;
+  border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; font-size: .85rem;
+  box-shadow: none;
+}
+button.btn-ghost:hover {
+  background: rgba(34, 211, 238, .12); border-color: var(--border-strong); color: #fff;
+  filter: none; box-shadow: none;
+}
 
 /* ---- Layout ---- */
 .container { max-width: 1080px; margin: 30px auto; padding: 0 20px; }

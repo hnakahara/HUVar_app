@@ -19,7 +19,11 @@
                     <span class="user">{{ user.get_username }}</span>
                     <a class="btn-ghost" href="{% url 'analysis:help' %}">{% translate "使い方" %}</a>
                     <a class="btn-ghost" href="{% url 'api:swagger-ui' %}">API</a>
-                    <a class="btn-ghost" href="{% url 'accounts:logout' %}">{% translate "ログアウト" %}</a>
+                    {# Django 5 以降、ログアウトは POST のみ（GET は 405）。CSRF トークン付きフォームで送る #}
+                    <form class="logout-form" action="{% url 'accounts:logout' %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-ghost">{% translate "ログアウト" %}</button>
+                    </form>
                 {% endif %}
                 <a class="btn-ghost" href="https://github.com/hnakahara/HUVar_app"
                    target="_blank" rel="noopener noreferrer">GitHub</a>

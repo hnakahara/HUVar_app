@@ -9,5 +9,8 @@
         autocomplete="one-time-code" required autofocus></label>
     <button type="submit">認証</button>
 </form>
-<p><a href="{% url 'accounts:logout' %}">ログアウト</a></p>
+<form class="logout-form" action="{% url 'accounts:logout' %}" method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn-ghost">ログアウト</button>
+</form>
 {% endblock %}

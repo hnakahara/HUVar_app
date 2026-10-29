@@ -1,33 +1,35 @@
 # app / worker コンテナ（Python 3.11）用
-# スタックバージョンは vas に準拠（Django 4.2 / PostgreSQL 16 / gunicorn / uvicorn）
+# 2026-10 更新: セキュリティ修正のため各パッケージを最新版へ。Django は 5.2 LTS
+# （セキュリティ修正は 2028-04 まで。4.2 LTS は 2026-04 でサポート終了。Django 6.x は
+# Python 3.12 以上が必要なため、Python 3.11 のイメージでは 5.2 が最新）。
+# PostgreSQL 16 / Redis 7 で動作確認。
 
 # --- Web / DB ---
-Django==4.2
-psycopg2==2.9.9
-gunicorn==21.2.0
-uvicorn==0.25.0
+Django==5.2.18
+psycopg2==2.9.13
+gunicorn==26.2.0
 # 本番はフロント(vas nginx)を流用するため、静的ファイルは WhiteNoise でアプリ配信
-whitenoise==6.6.0
+whitenoise==6.12.0
 
 # --- REST API（トークン認証） ---
-djangorestframework==3.15.2
+djangorestframework==3.18.3
 # OpenAPI スキーマ + Swagger UI（sidecar で静的資産をローカル配信し CSP self に準拠）
-drf-spectacular[sidecar]==0.27.2
+drf-spectacular[sidecar]==0.30.0
 
 # --- 非同期ジョブ（Celery + Redis、直列処理） ---
-celery==5.3.6
-redis==5.0.1
+celery==5.6.3
+redis==8.1.0
 
 # --- 認証強化（MFA 必須 / ログイン失敗ロックアウト） ---
-django-otp==1.3.0
-qrcode==7.4.2
-django-axes==6.4.0
+django-otp==1.7.5
+qrcode==8.2
+django-axes==8.3.1
 
 # --- ユーティリティ ---
-requests==2.31.0
-pandas==2.1.3
-openpyxl==3.1.2
+requests==2.34.2
+# uvicorn（ASGI。本番は gunicorn の WSGI のみ使用）・pandas・openpyxl はアプリで未使用のため削除
+# （pandas は openspliceai の依存として requirements-huvar.txt 経由で入る）。
 
 # --- HUVar 解析エンジン（acmg-classifier, requires-python >=3.11） ---
-# HUVar ソースをボリュームマウントし entrypoint で `pip install -e /huvar` する想定。
-# （依存: click, cyvcf2, duckdb, pysam, pydantic, openspliceai, pyBigWig 等は pyproject から解決）
+# 依存は containers/django/requirements-huvar.txt で build 時に導入し、
+# HUVar ソースはボリュームマウントして起動時に `pip install --no-build-isolation -e /huvar`。
