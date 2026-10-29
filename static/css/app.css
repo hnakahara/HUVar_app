@@ -410,8 +410,9 @@ details.provenance td { word-break: break-word; }
 /* ---- 体細胞評価（腫瘍型の入力・AMP の根拠） ---- */
 .tumor-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .tumor-form input[type="text"] { font-family: var(--mono); text-transform: uppercase; }
-ul.amp-evidence { font-size: .88rem; line-height: 1.5; }
-ul.amp-evidence li { margin: .2em 0; word-break: break-word; }
+table.amp-table { font-size: .86rem; }
+table.amp-table td { vertical-align: top; word-break: break-word; }
+table.amp-table td.nowrap { white-space: nowrap; word-break: normal; }
 fieldset.batch-mode { border: 1px solid var(--border); border-radius: 10px; padding: .6em 1em; margin: 1em 0; }
 fieldset.batch-mode ul { list-style: none; padding-left: 0; margin: .3em 0; }
 

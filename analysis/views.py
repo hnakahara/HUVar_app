@@ -731,6 +731,62 @@ def _amp_badge(tier: str) -> str:
     return "badge-vus"
 
 
+_AMP_EVIDENCE_RE = re.compile(
+    r"^(?P<tier>Tier [IV]+(?:, level [A-D])?) \((?P<category>[^,()]+), (?P<source>[^)]+)\): "
+    r"(?P<text>.*)$")
+_AMP_CANDIDATE_RE = re.compile(r"^\((?P<category>[^)]+)\) (?P<text>.*)$")
+_CIVIC_REF_RE = re.compile(r"^CIViC (?P<ref>(?P<kind>[EA])ID(?P<num>\d+))\s*")
+_CLINVAR_REF_RE = re.compile(r"\(ClinVar record (?P<num>\d+),\s*")
+_PMID_RE = re.compile(r"\s*\(PMID (?P<pmid>[\d-]+), rating (?P<rating>[^)]*)\)")
+
+
+def amp_evidence_rows(items, candidates: bool = False) -> list:
+    """エンジンの AMP 根拠文字列（"Tier I, level A (therapeutic, CIViC): CIViC EID1411 ..."、
+    候補は "(therapeutic) CIViC EID11238 ..."）を表の行 dict に分解する。
+    形式が合わない文字列は内容列にそのまま入れる。"""
+    rows = []
+    for item in items or []:
+        m = (_AMP_CANDIDATE_RE if candidates else _AMP_EVIDENCE_RE).match(item or "")
+        row = {"tier": "", "badge": "badge-vus", "category": "", "source": "", "ref": "",
+               "ref_url": "", "detail": item, "pmid": "", "pmid_url": ""}
+        if m:
+            text = m.group("text")
+            row["category"] = m.group("category")
+            if not candidates:
+                row["tier"] = m.group("tier")
+                row["badge"] = _amp_badge(m.group("tier").split(",")[0])
+                row["source"] = m.group("source")
+            ref = _CIVIC_REF_RE.match(text)
+            if ref:
+                row["source"] = row["source"] or "CIViC"
+                row["ref"] = ref.group("ref")
+                kind = "evidence" if ref.group("kind") == "E" else "assertions"
+                row["ref_url"] = f"https://civicdb.org/{kind}/{ref.group('num')}"
+                text = text[ref.end():]
+                lv = re.match(r"level ([A-E?]) ", text)
+                if lv:
+                    text = f"CIViC evidence level {lv.group(1)}: {text[lv.end():]}"
+            elif text.startswith("ClinVar"):
+                row["source"] = row["source"] or "ClinVar"
+                text = text.removeprefix("ClinVar somatic clinical impact ")
+                cv = _CLINVAR_REF_RE.search(text)
+                if cv:
+                    row["ref"] = f"record {cv.group('num')}"
+                    text = text[:cv.start()] + "(" + text[cv.end():]
+            pm = _PMID_RE.search(text)
+            if pm:
+                pmid = pm.group("pmid")
+                if pmid.isdigit():
+                    row["pmid"] = pmid
+                    row["pmid_url"] = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
+                text = (text[:pm.start()] + text[pm.end():]).strip()
+                if pm.group("rating") not in ("", "-"):
+                    text += f" (rating {pm.group('rating')})"
+            row["detail"] = text
+        rows.append(row)
+    return rows
+
+
 def _somatic_for(variant: dict, tumor: str, tx: str = "", manual=None):
     """体細胞評価（手動の根拠が無ければキャッシュ経由）。戻り値 (display, tumor_error)。
     不明な腫瘍型は腫瘍型なしで評価し、エラー文を返す。"""
@@ -799,6 +855,9 @@ def single_somatic(request, pk: int):
         "variant": shown_variant,
         "somatic": somatic,
         "amp_badge": _amp_badge(somatic.get("amp_tier", "")),
+        "amp_rows": (amp_evidence_rows(somatic.get("amp_evidence"))
+                     or amp_evidence_rows(somatic.get("amp_candidates"), candidates=True)),
+        "amp_rows_kind": "evidence" if somatic.get("amp_evidence") else "candidates",
         # 統合ダウンロード用。生殖細胞系列は保存済み（tx 指定時はその transcript の評価）を使う。
         "somatic_json": json.dumps(somatic, ensure_ascii=False),
     })

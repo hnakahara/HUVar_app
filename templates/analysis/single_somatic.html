@@ -56,27 +56,40 @@
 </ul>
 <p class="pc-note">{% translate "点数: Oncogenic ≥10、Likely oncogenic 6〜9、VUS 0〜5、Likely benign −1〜−6、Benign ≤−7（Horak et al. 2022）。Tier は CIViC と ClinVar の Somatic Clinical Impact から判定します。" %}</p>
 
-{% if somatic.hotspot %}
-<p><strong>{% translate "ホットスポット" %}</strong>: {{ somatic.hotspot }}</p>
-{% endif %}
-
-{% if somatic.amp_evidence %}
-<h3>{% translate "AMP/ASCO/CAP の根拠（強い順）" %}</h3>
-<ul class="amp-evidence">
-    {% for e in somatic.amp_evidence %}<li>{{ e }}</li>{% endfor %}
-</ul>
-{% elif somatic.amp_candidates %}
-<h3>{% translate "他の腫瘍型での根拠（参考。腫瘍型を指定してください）" %}</h3>
-<ul class="amp-evidence">
-    {% for e in somatic.amp_candidates %}<li>{{ e }}</li>{% endfor %}
-</ul>
-{% elif somatic.amp_tier %}
-<p class="pc-note">{% translate "この腫瘍型で tier I/II の根拠はありません。" %}</p>
-{% endif %}
-
 {% if somatic.warnings %}
 <p style="color:#a60;">warnings: {% for w in somatic.warnings %}{{ w }}{% if not forloop.last %} / {% endif %}{% endfor %}</p>
 {% endif %}
+
+{% if amp_rows %}
+<h2>{% if amp_rows_kind == "candidates" %}{% translate "他の腫瘍型での根拠（参考。腫瘍型を指定してください）" %}{% else %}{% translate "AMP/ASCO/CAP の根拠（強い順）" %}{% endif %}</h2>
+<div class="table-scroll">
+<table border="1" cellpadding="4" cellspacing="0" class="amp-table">
+    <thead>
+        <tr>
+            {% if amp_rows_kind != "candidates" %}<th>AMP/ASCO/CAP</th>{% endif %}
+            <th>{% translate "種類" %}</th><th>{% translate "出典" %}</th><th>ID</th>
+            <th>{% translate "内容" %}</th><th>PMID</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for r in amp_rows %}
+        <tr>
+            {% if amp_rows_kind != "candidates" %}<td class="nowrap"><span class="badge {{ r.badge }}">{{ r.tier }}</span></td>{% endif %}
+            <td class="nowrap">{{ r.category }}</td>
+            <td class="nowrap">{{ r.source }}</td>
+            <td class="nowrap">{% if r.ref_url %}<a href="{{ r.ref_url }}" target="_blank" rel="noopener">{{ r.ref }}</a>{% else %}{{ r.ref }}{% endif %}</td>
+            <td>{{ r.detail }}</td>
+            <td class="nowrap">{% if r.pmid_url %}<a href="{{ r.pmid_url }}" target="_blank" rel="noopener">{{ r.pmid }}</a>{% else %}{{ r.pmid }}{% endif %}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% elif somatic.amp_tier %}
+<h2>{% translate "AMP/ASCO/CAP の根拠（強い順）" %}</h2>
+<p class="pc-note">{% translate "この腫瘍型で tier I/II の根拠はありません。" %}</p>
+{% endif %}
+
 
 <h2>{% translate "クライテリアと手動の根拠" %}（{{ somatic.criteria|length }}）</h2>
 <p style="color:var(--muted);">{% translate "「適用」「不適用」を選んだ項目だけ自動判定を上書きして再評価します（保存はしません）。OP2（単一の遺伝的病因をもつ腫瘍）は自動では判定しないため、該当するときはここで適用してください。" %}</p>

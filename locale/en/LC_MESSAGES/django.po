@@ -619,9 +619,6 @@ msgstr "Give a tumour type to assign a tier"
 msgid "点数: Oncogenic ≥10、Likely oncogenic 6〜9、VUS 0〜5、Likely benign −1〜−6、Benign ≤−7（Horak et al. 2022）。Tier は CIViC と ClinVar の Somatic Clinical Impact から判定します。"
 msgstr "Points: Oncogenic ≥10, Likely oncogenic 6–9, VUS 0–5, Likely benign −1 to −6, Benign ≤−7 (Horak et al. 2022). Tiers are assigned from CIViC and ClinVar somatic clinical impact."
 
-msgid "ホットスポット"
-msgstr "Hotspot"
-
 msgid "AMP/ASCO/CAP の根拠（強い順）"
 msgstr "AMP/ASCO/CAP evidence (strongest first)"
 
@@ -714,3 +711,12 @@ msgstr "Switch between the \"Germline\" and \"Somatic\" tabs at the top of the r
 
 msgid "統合"
 msgstr "Combined"
+
+msgid "種類"
+msgstr "Type"
+
+msgid "出典"
+msgstr "Source"
+
+msgid "内容"
+msgstr "Details"
