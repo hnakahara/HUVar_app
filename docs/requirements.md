@@ -182,6 +182,11 @@
 - **FR-SINGLE-4**: ルールベース分類・Bayesian 分類・最終判定・警告を表示。
 - **FR-SINGLE-5**: **手動編集機能** — 各クライテリアの triggered/strength（重み）・evidence をユーザーが画面上で変更でき、再分類結果（スコア・最終判定）が即時に反映される。内部的には supplement（merge / manual-only）機構を利用。
 - **FR-SINGLE-6**: 編集後の結果を保存（DB）・エクスポート（JSON/TSV）可能。
+- **FR-SINGLE-7**: PP3/BP4 に使う in silico ツール（ESM1b / FuncVEP-CTI）を入力画面で選択できる。
+  併用はせず常に 1 つのみを使用し、選択は体細胞評価の OP1/SBP1 にも適用される。結果画面と
+  provenance（`insilico.missense`）に表示し、パーマリンク（`?insilico=`）とキャッシュ署名に含める。
+  FuncVEP-CTI は非商用限定（PolyForm Strict 1.0.0）のため既定にはせず、スコアファイル
+  （`/data/<assembly>/funcvep/`）が配置されているときだけ選択できる（`HUVAR_FUNCVEP=0` で非表示）。
 
 ### 4.5 バッチ（VCF）解析（FR-BATCH）
 
@@ -189,6 +194,8 @@
 - **FR-BATCH-2**: 完了後、結果を **TSV でダウンロード**（HUVar の `tsv_writer` 出力を踏襲。全クライテリアの triggered/strength/evidence 列を含む）。
 - **FR-BATCH-3**: ジョブ履歴の一覧・再ダウンロード（ユーザー単位）。
 - **FR-BATCH-4**: アップロードサイズ上限・行数上限・タイムアウトを設定。
+- **FR-BATCH-5**: in silico ツール（ESM1b / FuncVEP-CTI）をジョブ単位で選択し、`AnalysisJob.insilico_tool`
+  に保存して worker が同じツールで解析する（FR-SINGLE-7 と同じ規則）。
 
 ### 4.6 変異結果キャッシュ（FR-CACHE）
 

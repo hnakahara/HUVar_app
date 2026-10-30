@@ -26,6 +26,10 @@ class AnalysisJob(models.Model):
         GERMLINE = "germline", "Germline (ACMG)"
         SOMATIC = "somatic", "Germline + somatic (combined)"
 
+    class InSilicoTool(models.TextChoices):
+        ESM1B = "esm1b", "ESM1b"
+        FUNCVEP = "funcvep", "FuncVEP-CTI"
+
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
         RUNNING = "running", "Running"
@@ -41,6 +45,9 @@ class AnalysisJob(models.Model):
     # バッチの評価モード（生殖細胞系列 ACMG のみ / 生殖細胞系列＋体細胞の統合）と腫瘍型
     mode = models.CharField(max_length=10, choices=Mode.choices, default=Mode.GERMLINE)
     tumor_type = models.CharField(max_length=32, blank=True)  # OncoTree コード（統合モードのみ）
+    # PP3/BP4 のミスセンス in silico 予測ツール（ESM1b 既定 / FuncVEP-CTI は非商用）
+    insilico_tool = models.CharField(max_length=20, choices=InSilicoTool.choices,
+                                     default=InSilicoTool.ESM1B)
     input_file = models.FileField(upload_to="uploads/", null=True, blank=True)  # VCF
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
     celery_task_id = models.CharField(max_length=255, blank=True)

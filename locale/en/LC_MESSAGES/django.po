@@ -720,3 +720,39 @@ msgstr "Source"
 
 msgid "内容"
 msgstr "Details"
+
+msgid "in silico 予測ツール（PP3/BP4）"
+msgstr "In-silico predictor (PP3/BP4)"
+
+msgid "ミスセンス変異の PP3/BP4 に使う予測ツール（1 つのみ）。ESM1b は既定。FuncVEP-CTI は非商用利用限定です。"
+msgstr "The predictor used for PP3/BP4 on missense variants (one only). ESM1b is the default; FuncVEP-CTI is restricted to non-commercial use."
+
+msgid "FuncVEP のスコアファイル（%(assembly)s）がサーバに配置されていません。ESM1b を選ぶか、管理者にスコアファイルの配置を依頼してください。"
+msgstr "The FuncVEP score file for %(assembly)s is not installed on this server. Choose ESM1b, or ask the administrator to install it."
+
+msgid "in silico（PP3/BP4）"
+msgstr "In silico (PP3/BP4)"
+
+msgid "in silico（OP1/SBP1）"
+msgstr "In silico (OP1/SBP1)"
+
+msgid "（非商用利用限定のツールです）"
+msgstr "(non-commercial use only)"
+
+msgid "in silico 予測ツールの選択（PP3/BP4）"
+msgstr "Choosing the in-silico predictor (PP3/BP4)"
+
+msgid "ミスセンス変異の PP3/BP4 に使う予測ツールを選べます。学習データを共有するツールを足し合わせるとエビデンスを過大評価するため、使用するのは常に 1 つだけです。選んだツールは体細胞評価の OP1/SBP1 にも使われ、結果画面と「使用データの版情報」に表示されます。"
+msgstr "You can choose which predictor is used for PP3/BP4 on missense variants. Only one is ever used, because combining predictors that share training data inflates the evidence. The choice also drives OP1/SBP1 in the somatic evaluation, and it is shown on the result page and in \"Versions of the data used\"."
+
+msgid "（既定）: Brandes et al., Nat Genet 2023。PP3 は LLR ≤ −24.0 / −14.0 / −12.2 / −10.7 で Strong / +3 / Moderate / Supporting、BP4 は LLR ≥ 8.8 / −3.2 / −6.3 で +3 / Moderate / Supporting（Bergquist et al. 2024 の較正）。MIT ライセンスで商用利用も可能です。"
+msgstr " (default): Brandes et al., Nat Genet 2023. PP3 is Strong / +3 / Moderate / Supporting at LLR ≤ −24.0 / −14.0 / −12.2 / −10.7, and BP4 is +3 / Moderate / Supporting at LLR ≥ 8.8 / −3.2 / −6.3 (calibration of Bergquist et al. 2024). MIT-licensed, so commercial use is allowed."
+
+msgid ": Kayaalp et al., Nat Genet 2026。全ミスセンス変異の計算済みスコアを使い、論文の補足表の点数別閾値で PP3 は CTI ≥ 0.9109 / 0.8583 / 0.8023 / 0.6903 で Strong / +3 / Moderate / Supporting、BP4 は CTI ≤ 0.0174 / 0.0262 / 0.0643 / 0.1352 で Strong / +3 / Moderate / Supporting を与えます（ESM1b と違い BP4 でも Strong に達します）。スコアは PolyForm Strict License 1.0.0 で非商用利用限定・再配布不可のため、既定には設定しておらず、選択したときだけ参照します。"
+msgstr ": Kayaalp et al., Nat Genet 2026. Uses the precomputed scores for all possible missense variants with the per-point thresholds of the paper's supplementary table: PP3 is Strong / +3 / Moderate / Supporting at CTI ≥ 0.9109 / 0.8583 / 0.8023 / 0.6903, and BP4 is Strong / +3 / Moderate / Supporting at CTI ≤ 0.0174 / 0.0262 / 0.0643 / 0.1352 (unlike ESM1b it also reaches Strong for BP4). The scores are PolyForm Strict License 1.0.0 — non-commercial use only and not redistributable — so this is never the default and the file is read only when you select it."
+
+msgid "スコアが登録されていない変異（ミスセンス以外や未収載）では、そのツールでは PP3/BP4 は付きません。ツールごとに結果は別々にキャッシュされます。"
+msgstr "When no score is available for a variant (non-missense, or not covered), that predictor gives no PP3/BP4. Results are cached separately per predictor."
+
+msgid "in silico 予測は ESM1b（Brandes et al. 2023, MIT）と FuncVEP-CTI（Kayaalp et al., Nat Genet 2026; Zenodo 10.5281/zenodo.18432730, PolyForm Strict License 1.0.0）です。FuncVEP のスコアは非商用利用限定・再配布不可のため、本サイト（非営利の学術公開）での表示に限ります。閾値は ESM1b が Bergquist et al. 2024、FuncVEP が原論文の補足表に従います。"
+msgstr "The in-silico predictors are ESM1b (Brandes et al. 2023, MIT) and FuncVEP-CTI (Kayaalp et al., Nat Genet 2026; Zenodo 10.5281/zenodo.18432730, PolyForm Strict License 1.0.0). FuncVEP scores are non-commercial and not redistributable, so they are shown only on this site (a non-profit academic service). Thresholds follow Bergquist et al. 2024 for ESM1b and the original paper's supplementary table for FuncVEP."

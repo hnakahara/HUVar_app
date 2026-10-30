@@ -125,6 +125,45 @@ MANE summary (MANE Select + MANE Plus Clinical) from
 repository); restart the service afterwards (`docker compose restart transvar`).
 `GET /refversion` on the service reports the file used and the counts.
 
+### In-silico predictor for PP3/BP4 (ESM1b / FuncVEP-CTI)
+
+Single-variant and batch analyses let the user choose the missense predictor used for
+PP3/BP4 (and, through them, somatic OP1/SBP1): **ESM1b** (default) or **FuncVEP-CTI**.
+Only one predictor is ever used, so evidence is not inflated by combining tools that
+share training data. The choice is shown on the result page, recorded in the provenance
+block (`insilico.missense`), carried in the permalink (`?insilico=funcvep`) and included
+in the cache signature, so results for the two predictors are cached separately.
+
+FuncVEP-CTI (Kayaalp et al., Nat Genet 2026) is **PolyForm Strict License 1.0.0:
+non-commercial use only and not redistributable**, so the engine never selects it by
+default. This site is a non-profit academic service, so the option is offered here. Its
+precomputed scores must be staged on the server first. The engine reads either layout —
+the 6-column TSV or a tabix-indexed VCF with `CTI=`/`GENE=` in INFO — so a VCF already
+prepared for VEP `--custom` can be reused without converting it again:
+
+```bash
+# (a) reuse VCFs already on the server: nothing to convert, just set these in
+#     .env.prod (both the app and worker services read them)
+ACMG_FUNCVEP_GRCH38=/tools/funcvep/FuncVEP_CTI_hg38.vcf.gz
+ACMG_FUNCVEP_GRCH37=/tools/funcvep/FuncVEP_CTI_hg37.vcf.gz
+
+# (b) or symlink them where the engine looks by default
+mkdir -p /ddrive/data/GRCh38/funcvep /ddrive/data/GRCh37/funcvep
+ln -s ~/tools/funcvep/FuncVEP_CTI_hg38.vcf.gz     /ddrive/data/GRCh38/funcvep/funcvep_cti_grch38.vcf.gz
+ln -s ~/tools/funcvep/FuncVEP_CTI_hg38.vcf.gz.tbi /ddrive/data/GRCh38/funcvep/funcvep_cti_grch38.vcf.gz.tbi
+ln -s ~/tools/funcvep/FuncVEP_CTI_hg37.vcf.gz     /ddrive/data/GRCh37/funcvep/funcvep_cti_grch37.vcf.gz
+ln -s ~/tools/funcvep/FuncVEP_CTI_hg37.vcf.gz.tbi /ddrive/data/GRCh37/funcvep/funcvep_cti_grch37.vcf.gz.tbi
+
+# (c) or build the 6-column TSV from any source (Zenodo zip / TSV / VCF), in the HUVar repo
+python scripts/setup_data.py --data-dir /ddrive/data --assembly GRCh38 \
+    --only funcvep --with-funcvep --funcvep-raw /tools/funcvep/FuncVEP_CTI_hg38.vcf.gz
+```
+
+Until the score file and its `.tbi` are present, the form labels the option
+"score file not installed" and rejects it. Set `HUVAR_FUNCVEP=0` to hide the option
+entirely. The public API always uses the default (ESM1b) and never returns FuncVEP
+values.
+
 For genes with a MANE Plus Clinical transcript, the single-variant result page
 offers **Transcript evaluated** (MANE Select / MANE Plus Clinical), precomputed
 from the same annotation like the CSpec switch (`…/single/result/<id>/tx/<transcript>/`).
@@ -158,6 +197,8 @@ Create `.env` (development) and `.env.prod` (production) in the project root. Ke
 | `TRANSVAR_SERVICE_URL` | Default `http://transvar:5000` |
 | `MANE_SUMMARY` | Optional. MANE summary read by the `transvar` service (container path). Default `$ACMG_DATA_DIR/shared/MANE.GRCh38.v1.5.summary.txt.gz` (`ACMG_DATA_DIR` defaults to `/data`; falls back to a legacy `/tools/transvar/mane/MANE.GRCh38.v1.3.summary.txt`) |
 | `JOB_ARTIFACT_RETENTION_HOURS` | Retention time for batch artifacts (default `1`) |
+| `HUVAR_FUNCVEP` | `0` hides the FuncVEP-CTI option (PP3/BP4 then always uses ESM1b). Default: shown |
+| `ACMG_FUNCVEP_GRCH38` / `ACMG_FUNCVEP_GRCH37` | Optional. Container paths of the FuncVEP-CTI score files (TSV or VCF, bgzip + tabix) when they are kept outside `/data`, e.g. `/tools/funcvep/FuncVEP_CTI_hg38.vcf.gz`. Set them for both the `app` and `worker` services |
 | `ADMIN_ADDRESS` | Recipient for notification emails |
 | `GMAIL_ADDRESS` / `GMAIL_PASS` | Gmail SMTP sending (`GMAIL_PASS` is an **app password**) |
 

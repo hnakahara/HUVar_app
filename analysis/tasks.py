@@ -34,7 +34,8 @@ def run_batch_classification(self, job_id: int) -> str:
         # 体細胞モードは生殖細胞系列（ACMG）と体細胞（oncogenicity ＋ AMP tier）の統合 TSV。
         cached_classify_batch(in_path, out_abs, job.assembly,
                               somatic=job.mode == AnalysisJob.Mode.SOMATIC,
-                              tumor_type=job.tumor_type)
+                              tumor_type=job.tumor_type,
+                              insilico_tool=job.insilico_tool)
 
         job.result_file.name = out_rel
         job.status = AnalysisJob.Status.DONE

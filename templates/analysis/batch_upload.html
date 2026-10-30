@@ -25,6 +25,12 @@
         {{ form.assembly.errors }}
     </p>
     <fieldset class="batch-mode">
+        <legend>{{ form.insilico_tool.label }}</legend>
+        {{ form.insilico_tool }}
+        {{ form.insilico_tool.errors }}
+        <p class="pc-note">{{ form.insilico_tool.help_text }}</p>
+    </fieldset>
+    <fieldset class="batch-mode">
         <legend>{{ form.mode.label }}</legend>
         {{ form.mode }}
         {{ form.mode.errors }}

@@ -37,6 +37,14 @@
 </ul>
 <p>{% translate "アセンブリ (GRCh38 / GRCh37) を選び、必要なら入力種別を指定します（通常は自動判定で問題ありません）。" %}</p>
 
+<h3 id="insilico">{% translate "in silico 予測ツールの選択（PP3/BP4）" %}</h3>
+<p>{% translate "ミスセンス変異の PP3/BP4 に使う予測ツールを選べます。学習データを共有するツールを足し合わせるとエビデンスを過大評価するため、使用するのは常に 1 つだけです。選んだツールは体細胞評価の OP1/SBP1 にも使われ、結果画面と「使用データの版情報」に表示されます。" %}</p>
+<ul>
+    <li><strong>ESM1b</strong>{% translate "（既定）: Brandes et al., Nat Genet 2023。PP3 は LLR ≤ −24.0 / −14.0 / −12.2 / −10.7 で Strong / +3 / Moderate / Supporting、BP4 は LLR ≥ 8.8 / −3.2 / −6.3 で +3 / Moderate / Supporting（Bergquist et al. 2024 の較正）。MIT ライセンスで商用利用も可能です。" %}</li>
+    <li><strong>FuncVEP-CTI</strong>{% translate ": Kayaalp et al., Nat Genet 2026。全ミスセンス変異の計算済みスコアを使い、論文の補足表の点数別閾値で PP3 は CTI ≥ 0.9109 / 0.8583 / 0.8023 / 0.6903 で Strong / +3 / Moderate / Supporting、BP4 は CTI ≤ 0.0174 / 0.0262 / 0.0643 / 0.1352 で Strong / +3 / Moderate / Supporting を与えます（ESM1b と違い BP4 でも Strong に達します）。スコアは PolyForm Strict License 1.0.0 で非商用利用限定・再配布不可のため、既定には設定しておらず、選択したときだけ参照します。" %}</li>
+</ul>
+<p>{% translate "スコアが登録されていない変異（ミスセンス以外や未収載）では、そのツールでは PP3/BP4 は付きません。ツールごとに結果は別々にキャッシュされます。" %}</p>
+
 <h3>{% translate "候補の選択" %}</h3>
 <p>{% translate "変換結果が複数候補ある場合は一覧から該当するバリアントを選択します。c./p. の番号が MANE Select と MANE Plus Clinical で別の座標を指す場合は両方を提示します。MANE で座標が得られない場合は、全 transcript 候補にフォールバックして提示します。Plus Clinical の候補（「Plus Clinical で解析」）を選ぶとその transcript で評価した結果を表示し、結果画面の「評価する transcript」で MANE Select と切り替えられます。VCEP の位置規則と ClinVar の同一コドン照合は、どちらの評価でも MANE Select の番号で照合します。" %}</p>
 
@@ -112,6 +120,7 @@
 
 <ul>
     <li>{% translate "体細胞評価では、がん遺伝子の役割に Network of Cancer Genes 7.1、ホットスポットに cancerhotspots.org v2（ODbL）、腫瘍型に OncoTree（CC BY 4.0）と Disease Ontology（CC0）、臨床的意義に CIViC（CC0）と ClinVar を使用しています。" %}</li>
+    <li>{% translate "in silico 予測は ESM1b（Brandes et al. 2023, MIT）と FuncVEP-CTI（Kayaalp et al., Nat Genet 2026; Zenodo 10.5281/zenodo.18432730, PolyForm Strict License 1.0.0）です。FuncVEP のスコアは非商用利用限定・再配布不可のため、本サイト（非営利の学術公開）での表示に限ります。閾値は ESM1b が Bergquist et al. 2024、FuncVEP が原論文の補足表に従います。" %}</li>
 </ul>
 
 <p><a href="{% url 'analysis:index' %}">{% translate "← トップへ戻る" %}</a></p>

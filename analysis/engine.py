@@ -25,15 +25,75 @@ class EngineUnavailable(RuntimeError):
     """エンジン未導入・参照データ未配置・解析失敗を表す。"""
 
 
-def _build_config(assembly: str, openspliceai_flanking_size: Optional[int] = None):
+# in silico（ミスセンス）予測ツールの選択肢。PP3/BP4 は 1 ツールのみを使う
+# （学習データを共有するツールを足し合わせてエビデンスを過大評価しないため）。
+# 既定は ESM1b（MIT ライセンス、商用利用可）。FuncVEP-CTI（Kayaalp 2026）は
+# PolyForm Strict 1.0.0 で非商用限定のためエンジン既定にはできないが、本アプリは
+# 非営利の学術公開なので選択肢として提供する（HUVAR_FUNCVEP=0 で選択肢から外す）。
+INSILICO_DEFAULT = "esm1b"
+INSILICO_LABELS = {"esm1b": "ESM1b", "funcvep": "FuncVEP-CTI"}
+
+
+def funcvep_enabled() -> bool:
+    """FuncVEP を選択肢に出すか（HUVAR_FUNCVEP=0 で無効化）。"""
+    return os.environ.get("HUVAR_FUNCVEP", "1") != "0"
+
+
+def normalize_insilico_tool(value) -> str:
+    """フォーム/セッションの値を正規化。未知・未許可なら既定（esm1b）。"""
+    tool = (value or "").strip().lower()
+    if tool == "funcvep" and not funcvep_enabled():
+        return INSILICO_DEFAULT
+    return tool if tool in INSILICO_LABELS else INSILICO_DEFAULT
+
+
+def insilico_label(tool: str) -> str:
+    return INSILICO_LABELS.get(normalize_insilico_tool(tool),
+                               INSILICO_LABELS[INSILICO_DEFAULT])
+
+
+def insilico_data_ready(tool: str, assembly: str = "GRCh38") -> bool:
+    """そのツールのスコアファイル（+ tabix index）がサーバに配置されているか。
+
+    FuncVEP は PolyForm Strict（非商用・再配布不可）のため同梱せず、別途配置する。
+    エンジンは data/<assembly>/funcvep/funcvep_cti_<asm>.tsv.gz と同 .vcf.gz の
+    どちらも読み、環境変数 ACMG_FUNCVEP_GRCH38 / ACMG_FUNCVEP_GRCH37 を設定すれば
+    VEP --custom 用に作成済みの VCF をそのまま参照できる（再変換不要）。
+    ESM1b は既定で配置される。
+    """
+    if normalize_insilico_tool(tool) != "funcvep":
+        return True
+    try:
+        cfg = _build_config(assembly)
+        path = Path(str(cfg.funcvep_scores))
+        return path.exists() and Path(str(path) + ".tbi").exists()
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def insilico_choices(assembly: str = "GRCh38"):
+    """フォーム用の [(値, ラベル)]。未配置の FuncVEP はラベルで知らせる。"""
+    out = [("esm1b", "ESM1b（既定・商用利用可）")]
+    if funcvep_enabled():
+        ready = insilico_data_ready("funcvep", assembly)
+        out.append(("funcvep", "FuncVEP-CTI（非商用）" if ready
+                    else "FuncVEP-CTI（スコアファイル未配置）"))
+    return out
+
+
+def _build_config(assembly: str, openspliceai_flanking_size: Optional[int] = None,
+                  insilico_tool: Optional[str] = None):
     from acmg_classifier.config import Config
-    from acmg_classifier.models.enums import Assembly
+    from acmg_classifier.models.enums import Assembly, InSilicoTool
 
     try:
         asm = Assembly(assembly)
     except ValueError as exc:
         raise EngineUnavailable(f"未対応のアセンブリ: {assembly}") from exc
     kwargs = {}
+    # PP3/BP4 のミスセンス予測ツール。None はエンジン既定（ESM1b）のまま。
+    if insilico_tool is not None:
+        kwargs["insilico_tool"] = InSilicoTool(normalize_insilico_tool(insilico_tool))
     # TP53 の PS3/BS3（VCEP 機能解析フローチャート、NCI TP53 Database 由来）。
     # データの利用条件は収益化につながる利用を禁止しているためエンジン既定は OFF だが、
     # 本アプリは非営利の学術公開なので ON にする（HUVAR_TP53_FUNCTIONAL=0 で無効化）。
@@ -304,6 +364,7 @@ def classify_single(
     alt: str,
     supplement_entries: Optional[List[dict]] = None,
     with_somatic: bool = False,
+    insilico_tool: Optional[str] = None,
 ) -> dict:
     """単一変異を ACMG 分類し、全クライテリア＋分類結果を dict で返す。
 
@@ -327,7 +388,8 @@ def classify_single(
         ) from exc
 
     # 単一バリアントは OpenSpliceAI を高感度設定（2000nt）で実行する。batch は既定 80nt。
-    cfg = _build_config(assembly, openspliceai_flanking_size=2000)
+    cfg = _build_config(assembly, openspliceai_flanking_size=2000,
+                        insilico_tool=insilico_tool)
     # 既定でマニュアルエビデンス(eRepo)を適用するため、ClinVar エキスパートパネル
     # （★3以上）の判定も取り込む（acmg_classifier は curated_evidence=True のときのみ参照）。
     # 「自動判定のみ」版は下で exclude_self_expert_panel=True により除外する。
@@ -362,7 +424,8 @@ def classify_single(
     except Exception as exc:  # noqa: BLE001
         raise EngineUnavailable(f"解析に失敗しました: {exc}") from exc
     # 体細胞タブで腫瘍型を切り替えるときに再アノテーションしないよう保持する。
-    remember_annotation(assembly, chrom, pos, ref, alt, variant, ann)
+    remember_annotation(assembly, chrom, pos, ref, alt, variant, ann,
+                        getattr(cfg.insilico_tool, "value", INSILICO_DEFAULT))
 
     display = _to_display(conservative, ann)
     erepo_crits = {m.criterion.value for m in manual}
@@ -427,7 +490,9 @@ def classify_single(
     display["active_transcript"] = ""
     if with_somatic:
         try:
-            display["_somatic"] = somatic_from_annotation(assembly, variant, ann)
+            display["_somatic"] = somatic_from_annotation(
+                assembly, variant, ann,
+                insilico_tool=getattr(cfg.insilico_tool, "value", INSILICO_DEFAULT))
         except Exception:  # noqa: BLE001  体細胞評価の失敗は生殖細胞系列の結果を壊さない
             display["_somatic"] = None
     return display
@@ -497,7 +562,8 @@ def _transcript_evaluations(variant, ann, cfg, supplement, erepo_crits, user_cri
     return evaluations, switch
 
 
-def classify_batch(vcf_path: str, output_tsv_path: str, assembly: str) -> int:
+def classify_batch(vcf_path: str, output_tsv_path: str, assembly: str,
+                   insilico_tool: Optional[str] = None) -> int:
     """VCF を一括 ACMG 分類し、全クライテリア列を含む TSV を output_tsv_path に書く。
 
     返り値は分類した変異数。バッチは Celery タスクから呼ばれる（FR-BATCH）。
@@ -509,7 +575,7 @@ def classify_batch(vcf_path: str, output_tsv_path: str, assembly: str) -> int:
             f"解析エンジン(acmg_classifier)が利用できません: {exc}"
         ) from exc
 
-    cfg = _build_config(assembly)
+    cfg = _build_config(assembly, insilico_tool=insilico_tool)
     try:
         results = run_pipeline(Path(vcf_path), cfg, output_path=Path(output_tsv_path))
     except FileNotFoundError as exc:
@@ -522,7 +588,7 @@ def classify_batch(vcf_path: str, output_tsv_path: str, assembly: str) -> int:
 
 
 def classify_vcf(vcf_path: str, assembly: str, somatic: bool = False,
-                 tumor_type: str = "") -> dict:
+                 tumor_type: str = "", insilico_tool: Optional[str] = None) -> dict:
     """VCF の全変異を解析し {variant_key: display} を返す（バッチキャッシュ用）。
 
     variant_key は VariantRecord.key（"chrom:pos:ref:alt"）と一致する。
@@ -536,7 +602,7 @@ def classify_vcf(vcf_path: str, assembly: str, somatic: bool = False,
             f"解析エンジン(acmg_classifier)が利用できません: {exc}"
         ) from exc
 
-    cfg = _build_config(assembly)
+    cfg = _build_config(assembly, insilico_tool=insilico_tool)
     code = normalize_tumor_type(tumor_type)
     som_clf = _somatic_classifier(cfg, code) if somatic else None  # 不明な腫瘍型は先に検出
     mpath = manual_criteria_path(cfg)
@@ -587,9 +653,9 @@ def _somatic_for_result(clf, r, assembly: str, code: str):
         return None
 
 
-def batch_provenance(assembly: str) -> dict:
+def batch_provenance(assembly: str, insilico_tool: Optional[str] = None) -> dict:
     """バッチ結果に添付する使用データの版情報。"""
-    return _provenance(_build_config(assembly))
+    return _provenance(_build_config(assembly, insilico_tool=insilico_tool))
 
 
 # ---------------------------------------------------------------------------
@@ -611,16 +677,19 @@ _somatic_ann_cache: "OrderedDict" = OrderedDict()
 _somatic_ann_lock = threading.Lock()
 
 
-def _ann_key(assembly: str, chrom: str, pos: int, ref: str, alt: str):
-    return (assembly, chrom, int(pos), ref, alt)
+def _ann_key(assembly: str, chrom: str, pos: int, ref: str, alt: str,
+             insilico_tool: str = INSILICO_DEFAULT):
+    # in silico ツールごとにアノテーション内容（FuncVEP スコアの有無）が変わるため
+    # ツールもキーに含める。含めないと別ツールの結果を取り違える。
+    return (assembly, chrom, int(pos), ref, alt, normalize_insilico_tool(insilico_tool))
 
 
 def remember_annotation(assembly: str, chrom: str, pos: int, ref: str, alt: str,
-                        variant, ann) -> None:
+                        variant, ann, insilico_tool: str = INSILICO_DEFAULT) -> None:
     """生殖細胞系列の解析で得たアノテーションを体細胞評価用に保持する。"""
     import time
     with _somatic_ann_lock:
-        key = _ann_key(assembly, chrom, pos, ref, alt)
+        key = _ann_key(assembly, chrom, pos, ref, alt, insilico_tool)
         _somatic_ann_cache[key] = (time.monotonic(), (variant, ann))
         _somatic_ann_cache.move_to_end(key)
         while len(_somatic_ann_cache) > _SOMATIC_ANN_MAX:
@@ -632,14 +701,15 @@ def _annotate_somatic(cfg, chrom: str, pos: int, ref: str, alt: str):
 
     from acmg_classifier.pipeline.pipeline import annotate_one
 
-    key = _ann_key(cfg.assembly.value, chrom, pos, ref, alt)
+    tool = getattr(cfg.insilico_tool, "value", str(cfg.insilico_tool))
+    key = _ann_key(cfg.assembly.value, chrom, pos, ref, alt, tool)
     with _somatic_ann_lock:
         hit = _somatic_ann_cache.get(key)
         if hit is not None and time.monotonic() - hit[0] < _SOMATIC_ANN_TTL:
             _somatic_ann_cache.move_to_end(key)
             return hit[1]
     variant, ann = annotate_one(chrom, int(pos), ref, alt, cfg)
-    remember_annotation(cfg.assembly.value, chrom, pos, ref, alt, variant, ann)
+    remember_annotation(cfg.assembly.value, chrom, pos, ref, alt, variant, ann, tool)
     return variant, ann
 
 
@@ -781,10 +851,12 @@ def _somatic_evaluate(clf, variant, ann, code: str, transcript: str = "",
     return display
 
 
-def somatic_from_annotation(assembly: str, variant, ann, tumor_type: str = "") -> dict:
+def somatic_from_annotation(assembly: str, variant, ann, tumor_type: str = "",
+                            insilico_tool: Optional[str] = None) -> dict:
     """生殖細胞系列の解析で得たアノテーションから体細胞評価（既定 transcript）を作る。"""
     code = normalize_tumor_type(tumor_type)
-    cfg = _build_config(assembly, openspliceai_flanking_size=2000)
+    cfg = _build_config(assembly, openspliceai_flanking_size=2000,
+                        insilico_tool=insilico_tool)
     display = _somatic_evaluate(_somatic_classifier(cfg, code), variant, ann, code)
     display["assembly"] = assembly
     display["provenance"] = _provenance(cfg)
@@ -800,6 +872,7 @@ def classify_somatic(
     tumor_type: str = "",
     transcript: str = "",
     manual_entries: Optional[List[dict]] = None,
+    insilico_tool: Optional[str] = None,
 ) -> dict:
     """単一変異を体細胞変異として評価する（oncogenicity ＋ AMP tier）。
 
@@ -809,7 +882,8 @@ def classify_somatic(
     不明な OncoTree コードは UnknownTumorType。
     """
     code = normalize_tumor_type(tumor_type)
-    cfg = _build_config(assembly, openspliceai_flanking_size=2000)
+    cfg = _build_config(assembly, openspliceai_flanking_size=2000,
+                        insilico_tool=insilico_tool)
     clf = _somatic_classifier(cfg, code)
     try:
         variant, ann = _annotate_somatic(cfg, chrom, int(pos), ref, alt)

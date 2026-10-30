@@ -30,6 +30,31 @@ class SingleVariantForm(forms.Form):
             ("protein", "protein"),
         ],
     )
+    insilico_tool = forms.ChoiceField(
+        label=_("in silico 予測ツール（PP3/BP4）"),
+        choices=[("esm1b", "ESM1b"), ("funcvep", "FuncVEP-CTI")],
+        initial="esm1b",
+        required=False,  # 未指定（古いフォームの POST 等）は既定の ESM1b とみなす
+        widget=forms.RadioSelect,
+        help_text=_("ミスセンス変異の PP3/BP4 に使う予測ツール（1 つのみ）。"
+                    "ESM1b は既定。FuncVEP-CTI は非商用利用限定です。"),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from .engine import insilico_choices
+        self.fields["insilico_tool"].choices = insilico_choices()
+
+    def clean_insilico_tool(self):
+        from .engine import insilico_data_ready, normalize_insilico_tool
+        tool = normalize_insilico_tool(self.cleaned_data.get("insilico_tool"))
+        assembly = self.data.get("assembly") or "GRCh38"
+        if not insilico_data_ready(tool, assembly):
+            raise forms.ValidationError(
+                _("FuncVEP のスコアファイル（%(assembly)s）がサーバに配置されていません。"
+                  "ESM1b を選ぶか、管理者にスコアファイルの配置を依頼してください。")
+                % {"assembly": assembly})
+        return tool
 
 
 class BatchVariantForm(forms.Form):
@@ -58,6 +83,31 @@ class BatchVariantForm(forms.Form):
         widget=forms.TextInput(attrs={"list": "oncotree-list", "size": 14,
                                       "placeholder": "SKCM", "autocomplete": "off"}),
     )
+    insilico_tool = forms.ChoiceField(
+        label=_("in silico 予測ツール（PP3/BP4）"),
+        choices=[("esm1b", "ESM1b"), ("funcvep", "FuncVEP-CTI")],
+        initial="esm1b",
+        required=False,  # 未指定（古いフォームの POST 等）は既定の ESM1b とみなす
+        widget=forms.RadioSelect,
+        help_text=_("ミスセンス変異の PP3/BP4 に使う予測ツール（1 つのみ）。"
+                    "ESM1b は既定。FuncVEP-CTI は非商用利用限定です。"),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from .engine import insilico_choices
+        self.fields["insilico_tool"].choices = insilico_choices()
+
+    def clean_insilico_tool(self):
+        from .engine import insilico_data_ready, normalize_insilico_tool
+        tool = normalize_insilico_tool(self.cleaned_data.get("insilico_tool"))
+        assembly = self.data.get("assembly") or "GRCh38"
+        if not insilico_data_ready(tool, assembly):
+            raise forms.ValidationError(
+                _("FuncVEP のスコアファイル（%(assembly)s）がサーバに配置されていません。"
+                  "ESM1b を選ぶか、管理者にスコアファイルの配置を依頼してください。")
+                % {"assembly": assembly})
+        return tool
 
     def clean_tumor_type(self):
         from .engine import normalize_tumor_type, oncotree_choices

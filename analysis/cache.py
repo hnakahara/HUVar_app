@@ -59,11 +59,19 @@ def _stat_token(path) -> Tuple[str, int, float]:
         return name, -1, 0.0
 
 
-def _tracked_paths(assembly: str):
+def _tracked_paths(assembly: str, insilico_tool: str | None = None):
     """Config から署名対象パスを解決して列挙（[(label, path)]）。"""
     from .engine import _build_config  # acmg_classifier 依存（解析時のみ）
-    cfg = _build_config(assembly)
+    cfg = _build_config(assembly, insilico_tool=insilico_tool)
     out = []
+    # 選択した in silico ツールのスコアファイル（FuncVEP は後から配置されるため、
+    # 配置・更新でキャッシュが無効化されるよう署名対象に含める）。
+    try:
+        from .engine import normalize_insilico_tool
+        if normalize_insilico_tool(insilico_tool) == "funcvep":
+            out.append(("funcvep_scores", cfg.funcvep_scores))
+    except Exception:  # noqa: BLE001
+        pass
     for attr in _TRACKED_ATTRS:
         try:
             p = getattr(cfg, attr)
@@ -125,21 +133,25 @@ def _tracked_paths(assembly: str):
 _DISPLAY_SCHEMA_VERSION = 8
 
 
-def reference_signature(assembly: str) -> str:
-    """参照データ版署名（SHA-256）。size+mtime+エンジン版+出力スキーマ版から算出。"""
-    parts = [f"engine={engine_version()}", f"schema={_DISPLAY_SCHEMA_VERSION}"]
-    for label, path in _tracked_paths(assembly):
+def reference_signature(assembly: str, insilico_tool: str | None = None) -> str:
+    """参照データ版署名（SHA-256）。size+mtime+エンジン版+出力スキーマ版＋in silico
+    ツールから算出。ツールを含めることで ESM1b と FuncVEP の結果が混ざらない。"""
+    from .engine import normalize_insilico_tool
+    tool = normalize_insilico_tool(insilico_tool)
+    parts = [f"engine={engine_version()}", f"schema={_DISPLAY_SCHEMA_VERSION}",
+             f"insilico={tool}"]
+    for label, path in _tracked_paths(assembly, tool):
         name, size, mtime = _stat_token(path)
         parts.append(f"{label}:{name}:{size}:{int(mtime)}")
     return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()
 
 
-def _refresh_reference_versions(assembly: str) -> None:
+def _refresh_reference_versions(assembly: str, insilico_tool: str | None = None) -> None:
     """ReferenceDataVersion を最新の参照データ状態に更新（admin 可視化用）。"""
     from django.utils import timezone
 
     from .models import ReferenceDataVersion
-    for label, path in _tracked_paths(assembly):
+    for label, path in _tracked_paths(assembly, insilico_tool):
         name, size, mtime = _stat_token(path)
         mt = timezone.datetime.fromtimestamp(mtime, tz=timezone.get_current_timezone()) \
             if mtime else None
@@ -158,16 +170,19 @@ def _cacheable_allele(ref: str, alt: str) -> bool:
     return len(ref or "") <= _MAX_ALLELE_CACHE_LEN and len(alt or "") <= _MAX_ALLELE_CACHE_LEN
 
 
-def cached_classify_single(assembly: str, chrom: str, pos: int, ref: str, alt: str):
+def cached_classify_single(assembly: str, chrom: str, pos: int, ref: str, alt: str,
+                           insilico_tool: str | None = None):
     """キャッシュ参照付きの単一変異分類。戻り値 (display, hit)。
 
     参照データが未更新なら 2 回目以降は DB から返す（FR-CACHE-2）。
     手動編集（supplement）はキャッシュしないため、この関数は supplement を取らない。
+    insilico_tool（esm1b / funcvep）は署名に含まれるので、ツールごとに別エントリになる。
     """
-    from .engine import classify_single
+    from .engine import classify_single, normalize_insilico_tool
     from .models import VariantResultCache
 
-    sig = reference_signature(assembly)
+    tool = normalize_insilico_tool(insilico_tool)
+    sig = reference_signature(assembly, tool)
     ev = engine_version()
     key = dict(assembly=assembly, chrom=chrom, pos=int(pos), ref=ref, alt=alt,
                engine_version=ev, refdata_signature=sig)
@@ -181,14 +196,16 @@ def cached_classify_single(assembly: str, chrom: str, pos: int, ref: str, alt: s
     if row is not None and "automated_only" in (row.result_json or {}):
         return row.result_json, True
 
-    display = classify_single(assembly, chrom, int(pos), ref, alt, with_somatic=True)
+    display = classify_single(assembly, chrom, int(pos), ref, alt, with_somatic=True,
+                              insilico_tool=tool)
     # 同じアノテーションで作った体細胞評価（腫瘍型なし）は体細胞キャッシュへ。
     somatic = display.pop("_somatic", None)
     if _cacheable_allele(ref, alt):
         VariantResultCache.objects.update_or_create(**key, defaults={"result_json": display})
-        _refresh_reference_versions(assembly)
+        _refresh_reference_versions(assembly, tool)
         if somatic:
-            _store_somatic(assembly, chrom, pos, ref, alt, _somatic_slot("", ""), somatic)
+            _store_somatic(assembly, chrom, pos, ref, alt, _somatic_slot("", ""), somatic,
+                           somatic_signature(assembly, tool))
     return display, False
 
 
@@ -344,7 +361,8 @@ def _write_batch_tsv(out_path: str, displays: list, somatics: list = None) -> No
 
 
 def cached_classify_batch(in_vcf_path: str, out_tsv_path: str, assembly: str,
-                          somatic: bool = False, tumor_type: str = "") -> int:
+                          somatic: bool = False, tumor_type: str = "",
+                          insilico_tool: str | None = None) -> int:
     """VCF をキャッシュ活用で解析し TSV を出力。戻り値は出力した変異数。
 
     - 全変異がキャッシュ済み → エンジンを呼ばず TSV を即生成。
@@ -353,8 +371,11 @@ def cached_classify_batch(in_vcf_path: str, out_tsv_path: str, assembly: str,
     - somatic=True なら体細胞評価（tumor_type の腫瘍型）も同じアノテーションで行い、
       生殖細胞系列と体細胞の両方の列を持つ統合 TSV を出力する。
     """
-    from .engine import EngineUnavailable, classify_vcf, normalize_tumor_type
+    from .engine import (EngineUnavailable, classify_vcf, normalize_insilico_tool,
+                         normalize_tumor_type)
     from .models import VariantResultCache
+
+    tool = normalize_insilico_tool(insilico_tool)
 
     try:
         variants = _read_variants(in_vcf_path, assembly)
@@ -362,7 +383,7 @@ def cached_classify_batch(in_vcf_path: str, out_tsv_path: str, assembly: str,
         raise EngineUnavailable(
             f"VCF を読み込めませんでした（VCF 形式を確認してください）: {exc}"
         ) from exc
-    sig = reference_signature(assembly)
+    sig = reference_signature(assembly, tool)
     ev = engine_version()
 
     cached = {}
@@ -378,7 +399,7 @@ def cached_classify_batch(in_vcf_path: str, out_tsv_path: str, assembly: str,
     slot = _somatic_slot(code, "")
     som_cached = {}
     if somatic:
-        som_sig = somatic_signature(assembly)
+        som_sig = somatic_signature(assembly, tool)
         for key, chrom, pos, ref, alt in variants:
             d = _load_somatic(assembly, chrom, pos, ref, alt, slot, som_sig)
             if d is not None:
@@ -389,7 +410,8 @@ def cached_classify_batch(in_vcf_path: str, out_tsv_path: str, assembly: str,
 
     fresh, som_fresh = {}, {}
     if uncached:
-        fresh = classify_vcf(in_vcf_path, assembly, somatic=somatic, tumor_type=code)
+        fresh = classify_vcf(in_vcf_path, assembly, somatic=somatic, tumor_type=code,
+                             insilico_tool=tool)
         for _key, disp in fresh.items():
             som = disp.pop("_somatic", None)
             if som:
@@ -405,14 +427,14 @@ def cached_classify_batch(in_vcf_path: str, out_tsv_path: str, assembly: str,
             )
             if som:
                 _store_somatic(assembly, disp.get("chrom", ""), int(disp.get("pos") or 0),
-                               disp.get("ref", ""), disp.get("alt", ""), slot, som)
-        _refresh_reference_versions(assembly)
+                               disp.get("ref", ""), disp.get("alt", ""), slot, som, som_sig)
+        _refresh_reference_versions(assembly, tool)
 
     ordered = [fresh.get(key) or cached.get(key) for key, *_ in variants]
     somatics = ([som_fresh.get(key) or som_cached.get(key) for key, *_ in variants]
                 if somatic else None)
     _write_batch_tsv(out_tsv_path, ordered, somatics)
-    _write_batch_provenance(out_tsv_path, assembly)
+    _write_batch_provenance(out_tsv_path, assembly, tool)
     return len([d for d in ordered if d])
 
 
@@ -421,13 +443,14 @@ def provenance_path(out_tsv_path: str) -> str:
     return f"{out_tsv_path}.provenance.json"
 
 
-def _write_batch_provenance(out_tsv_path: str, assembly: str) -> None:
+def _write_batch_provenance(out_tsv_path: str, assembly: str,
+                            insilico_tool: str | None = None) -> None:
     """使用データの版情報を TSV と同じ場所に JSON で保存する（失敗しても解析は止めない）。"""
     import json
 
     from .engine import batch_provenance
     try:
-        prov = batch_provenance(assembly)
+        prov = batch_provenance(assembly, insilico_tool)
         with open(provenance_path(out_tsv_path), "w", encoding="utf-8") as fh:
             json.dump(prov, fh, ensure_ascii=False, indent=2, sort_keys=True)
     except Exception:  # noqa: BLE001
@@ -454,13 +477,15 @@ _SOMATIC_TRACKED = [
 _SOMATIC_SCHEMA_VERSION = 1
 
 
-def somatic_signature(assembly: str) -> str:
+def somatic_signature(assembly: str, insilico_tool: str | None = None) -> str:
     """体細胞評価のキャッシュ署名。生殖細胞系列の署名（ClinVar・gnomAD・VEP など共通の
     参照を含む）に体細胞専用の参照（CIViC・cancerhotspots・NCG・OncoTree 等）を加える。
     VariantResultCache の生殖細胞系列の行とは署名が異なるので混ざらない。"""
-    from .engine import _build_config
-    parts = [f"somatic_schema={_SOMATIC_SCHEMA_VERSION}", reference_signature(assembly)]
-    cfg = _build_config(assembly)
+    from .engine import _build_config, normalize_insilico_tool
+    tool = normalize_insilico_tool(insilico_tool)
+    parts = [f"somatic_schema={_SOMATIC_SCHEMA_VERSION}",
+             reference_signature(assembly, tool)]
+    cfg = _build_config(assembly, insilico_tool=tool)
     try:
         from acmg_classifier.somatic.resources import resolve
     except Exception:  # noqa: BLE001
@@ -511,20 +536,22 @@ def _store_somatic(assembly, chrom, pos, ref, alt, slot, display, sig=None) -> N
 
 
 def cached_classify_somatic(assembly: str, chrom: str, pos: int, ref: str, alt: str,
-                            tumor_type: str = "", transcript: str = ""):
+                            tumor_type: str = "", transcript: str = "",
+                            insilico_tool: str | None = None):
     """キャッシュ参照付きの体細胞評価。戻り値 (display, hit)。
 
     1 変異 1 行（署名 = somatic_signature）に {腫瘍型|transcript: display} を蓄積する。
     手動の根拠（OP2 など）を付けた再評価はキャッシュしない（engine.classify_somatic を直接呼ぶ）。
     """
-    from .engine import classify_somatic, normalize_tumor_type
+    from .engine import classify_somatic, normalize_insilico_tool, normalize_tumor_type
 
-    sig = somatic_signature(assembly)
+    tool = normalize_insilico_tool(insilico_tool)
+    sig = somatic_signature(assembly, tool)
     slot = _somatic_slot(normalize_tumor_type(tumor_type), transcript)
     hit = _load_somatic(assembly, chrom, pos, ref, alt, slot, sig)
     if hit is not None:
         return hit, True
     display = classify_somatic(assembly, chrom, int(pos), ref, alt, tumor_type=tumor_type,
-                               transcript=transcript)
+                               transcript=transcript, insilico_tool=tool)
     _store_somatic(assembly, chrom, pos, ref, alt, slot, display, sig)
     return display, False

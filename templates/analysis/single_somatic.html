@@ -9,6 +9,14 @@
 
 <table border="1" cellpadding="6" cellspacing="0">
     <tr><th>{% translate "アセンブリ" %}</th><td>{{ variant.assembly }}</td></tr>
+    {% with tool=somatic.provenance.resources.insilico.missense %}
+    {% if tool %}
+    <tr><th>{% translate "in silico（OP1/SBP1）" %}</th>
+        <td>{% if tool == "funcvep" %}FuncVEP-CTI
+            <span style="color:var(--muted);">{% translate "（非商用利用限定のツールです）" %}</span>
+            {% elif tool == "esm1b" %}ESM1b{% else %}{{ tool }}{% endif %}</td></tr>
+    {% endif %}
+    {% endwith %}
     <tr><th>genome</th><td>{{ variant.chrom }}:{{ variant.pos }} {{ variant.ref }}&gt;{{ variant.alt }}</td></tr>
     <tr><th>gene</th><td>{{ variant.gene }}{% if somatic %} <span class="tag {% if somatic.gene_role == 'not_cancer_gene' %}tag-not{% else %}tag-pc{% endif %}" title="{{ somatic.gene_role_note }}">{{ somatic.gene_role }}{% if somatic.gene_role_source %} · {{ somatic.gene_role_source }}{% endif %}</span>{% endif %}</td></tr>
     <tr><th>transcript</th><td>{{ variant.transcript }}{% if active_transcript %} <span class="tag tag-pc">MANE Plus Clinical</span>{% endif %} <span style="color:var(--muted);">{% translate "（評価に使用）" %}</span></td></tr>

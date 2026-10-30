@@ -17,6 +17,7 @@ from transvar_client.client import convert as transvar_convert
 
 from .cache import cached_classify_single, cached_classify_somatic, somatic_judgment
 from .engine import (
+    INSILICO_DEFAULT,
     STRENGTH_CHOICES,
     EngineUnavailable,
     UnknownTumorType,
@@ -24,6 +25,8 @@ from .engine import (
     assembly_to_hg,
     classify_single,
     classify_somatic,
+    insilico_label,
+    normalize_insilico_tool,
     normalize_tumor_type,
     parse_assembly_token,
     somatic_criteria,
@@ -75,6 +78,7 @@ def single_input(request):
         return render(request, "analysis/single_resolve.html", {
             "query": form.cleaned_data["query"],
             "assembly": form.cleaned_data["assembly"],
+            "insilico_tool": form.cleaned_data.get("insilico_tool") or INSILICO_DEFAULT,
             "refversion": result.get("refversion"),
             "kind": result.get("kind"),
             "candidates": result.get("candidates", []),
@@ -130,19 +134,46 @@ def _parse_locus(locus: str):
     return chrom, pos_i, ref, alt, assembly
 
 
-def _permalink_from_variant(request, variant: dict) -> str:
+def _permalink_from_variant(request, variant: dict, display: dict | None = None) -> str:
     """variant dict から共有用の座標パーマリンク（絶対URL）を組み立てる。
-    必要項目が欠ける場合は空文字。"""
+    必要項目が欠ける場合は空文字。
+
+    既定（ESM1b）以外の in silico ツールで評価した結果は ?insilico= を付けて、
+    リンクを開いたときに同じツールで再評価されるようにする。"""
     if not variant:
         return ""
     if any(variant.get(k) in (None, "") for k in ("assembly", "chrom", "pos", "ref", "alt")):
         return ""
     hg = assembly_to_hg(str(variant["assembly"]))
     locus = f'{variant["chrom"]}-{variant["pos"]}-{variant["ref"]}-{variant["alt"]}-{hg}'
-    return request.build_absolute_uri(reverse("analysis:single_variant", args=[locus]))
+    url = request.build_absolute_uri(reverse("analysis:single_variant", args=[locus]))
+    tool = _insilico_of(display) if display is not None else INSILICO_DEFAULT
+    return f"{url}?insilico={tool}" if tool != INSILICO_DEFAULT else url
 
 
 VIEW_AUTOMATED = "automated"
+
+
+def _insilico_from_request(request) -> str:
+    """POST/GET の insilico_tool（または insilico）→ 正規化したツール名。"""
+    src = request.POST if request.method == "POST" else request.GET
+    return normalize_insilico_tool(src.get("insilico_tool") or src.get("insilico"))
+
+
+def _insilico_of(display: dict) -> str:
+    """保存済み結果が使ったツール（provenance の insilico.missense）。無ければ既定。"""
+    try:
+        res = ((display or {}).get("provenance") or {}).get("resources") or {}
+        return normalize_insilico_tool((res.get("insilico") or {}).get("missense"))
+    except Exception:  # noqa: BLE001
+        return INSILICO_DEFAULT
+
+
+def _insilico_context(tool: str) -> dict:
+    """テンプレート用（使用ツール名とライセンス注記の有無）。"""
+    tool = normalize_insilico_tool(tool)
+    return {"insilico_tool": tool, "insilico_label": insilico_label(tool),
+            "insilico_noncommercial": tool == "funcvep"}
 
 
 def _apply_view(request, display: dict):
@@ -166,16 +197,18 @@ def single_variant(request, locus: str):
         raise Http404("不正なバリアント座標です。")
     chrom, pos, ref, alt, assembly = parsed
 
+    tool = _insilico_from_request(request)
     try:
-        display, _hit = cached_classify_single(assembly, chrom, pos, ref, alt)
+        display, _hit = cached_classify_single(assembly, chrom, pos, ref, alt,
+                                              insilico_tool=tool)
     except (EngineUnavailable, ValueError) as exc:
         logger.warning("single_variant engine error: %s", exc)
-        return render(request, "analysis/single_result.html", {
+        return render(request, "analysis/single_result.html", dict({
             "variant": {"assembly": assembly, "chrom": chrom, "pos": pos,
                         "ref": ref, "alt": alt},
             "engine_error": _ENGINE_ERROR_MSG,
             "strength_choices": STRENGTH_CHOICES,
-        })
+        }, **_insilico_context(tool)))
 
     variant = {
         "assembly": assembly, "chrom": chrom, "pos": pos, "ref": ref, "alt": alt,
@@ -227,7 +260,7 @@ def single_variant(request, locus: str):
         "active_transcript": "",
         "view": view,
         "can_toggle_erepo": can_toggle,
-        "permalink": _permalink_from_variant(request, variant),
+        "permalink": _permalink_from_variant(request, variant, display),
         "export_json": json.dumps({"variant": variant, "display": shown, "edits": [],
                                    "view": view or "default"}, ensure_ascii=False),
     })
@@ -240,17 +273,18 @@ def single_analyze(request):
         return redirect("analysis:single_input")
 
     variant = _variant_from_post(request)
+    tool = _insilico_from_request(request)
     try:
         display, _hit = cached_classify_single(
             variant["assembly"], variant["chrom"], int(variant["pos"]),
-            variant["ref"], variant["alt"],
+            variant["ref"], variant["alt"], insilico_tool=tool,
         )
     except (EngineUnavailable, ValueError) as exc:
         logger.warning("single_analyze engine error: %s", exc)
-        return render(request, "analysis/single_result.html", {
+        return render(request, "analysis/single_result.html", dict({
             "variant": variant, "engine_error": _ENGINE_ERROR_MSG,
             "strength_choices": STRENGTH_CHOICES,
-        })
+        }, **_insilico_context(tool)))
     # 評価は MANE Select（エンジンの primary consequence）で行われる。Plus Clinical 候補
     # を選んだ場合も、保存・表示する transcript/HGVS は評価に使ったものにそろえ、
     # 入力時の表記は input_* として併記する。
@@ -292,6 +326,7 @@ def single_analyze(request):
         f"分類(ACMG 2015): {display.get('classification_2015', '-')}\n"
         f"分類(Bayesian): {display.get('classification_bayesian', '-')}"
         f"（score {display.get('bayesian_score', '-')}）\n"
+        f"in silico ツール: {insilico_label(tool)}\n"
         f"Met クライテリア: {met_summary}\n",
     )
     # 変換結果で MANE Plus Clinical の候補（またはその表記）を選んだ場合は、
@@ -326,7 +361,7 @@ def single_result(request, pk: int):
         "active_transcript": "",
         "view": view,
         "can_toggle_erepo": can_toggle,
-        "permalink": _permalink_from_variant(request, variant),
+        "permalink": _permalink_from_variant(request, variant, display),
         # 画面に表示中の内容をそのままエクスポートできるよう JSON を埋め込む
         "export_json": json.dumps(export, ensure_ascii=False),
     })
@@ -365,7 +400,7 @@ def single_cspec(request, pk: int, cspec_id: str):
         "strength_choices": STRENGTH_CHOICES,
         "available_cspecs": available,
         "active_cspec": active,
-        "permalink": _permalink_from_variant(request, variant),
+        "permalink": _permalink_from_variant(request, variant, display),
         "export_json": json.dumps(export_data, ensure_ascii=False),
     })
 
@@ -403,7 +438,7 @@ def single_transcript(request, pk: int, transcript: str):
         "available_transcripts": available,
         "active_transcript": transcript,
         "can_toggle_erepo": False,
-        "permalink": _permalink_from_variant(request, variant),
+        "permalink": _permalink_from_variant(request, variant, display),
         "export_json": json.dumps(export_data, ensure_ascii=False),
     })
 
@@ -432,6 +467,7 @@ def single_edit(request, pk: int):
         display = classify_single(
             variant["assembly"], variant["chrom"], int(variant["pos"]),
             variant["ref"], variant["alt"], supplement_entries=entries,
+            insilico_tool=_insilico_of(data.get("display")),
         )
     except (EngineUnavailable, ValueError) as exc:
         logger.warning("single_edit engine error: %s", exc)
@@ -465,7 +501,7 @@ def single_edit(request, pk: int):
         "display": display,
         "edits": entries,
         "strength_choices": STRENGTH_CHOICES,
-        "permalink": _permalink_from_variant(request, variant),
+        "permalink": _permalink_from_variant(request, variant, display),
         # 未保存の編集結果をそのままエクスポートできるよう JSON を埋め込む
         "export_json": json.dumps(edited, ensure_ascii=False),
     })
@@ -658,7 +694,9 @@ def single_export(request, pk: int):
     if not isinstance(somatic, dict):
         base = (vr.result_json or {}).get("variant", {}) or {}
         try:
-            somatic, _err = _somatic_for(base, remembered_tumor(request, pk), tx)
+            somatic, _err = _somatic_for(
+                base, remembered_tumor(request, pk), tx,
+                insilico_tool=_insilico_of((vr.result_json or {}).get("display")))
         except Exception as exc:  # noqa: BLE001  体細胞評価の失敗は生殖細胞系列の出力を止めない
             logger.warning("single_export somatic error: %s", exc)
             somatic = {"error": _ENGINE_ERROR_MSG}
@@ -787,17 +825,21 @@ def amp_evidence_rows(items, candidates: bool = False) -> list:
     return rows
 
 
-def _somatic_for(variant: dict, tumor: str, tx: str = "", manual=None):
+def _somatic_for(variant: dict, tumor: str, tx: str = "", manual=None,
+                 insilico_tool: str = INSILICO_DEFAULT):
     """体細胞評価（手動の根拠が無ければキャッシュ経由）。戻り値 (display, tumor_error)。
-    不明な腫瘍型は腫瘍型なしで評価し、エラー文を返す。"""
+    不明な腫瘍型は腫瘍型なしで評価し、エラー文を返す。
+    insilico_tool は生殖細胞系列の結果と同じものを渡す（OP1/SBP1 が PP3/BP4 由来）。"""
     def _run(code):
         if manual:
             return classify_somatic(
                 variant["assembly"], variant["chrom"], int(variant["pos"]), variant["ref"],
-                variant["alt"], tumor_type=code, transcript=tx, manual_entries=manual)
+                variant["alt"], tumor_type=code, transcript=tx, manual_entries=manual,
+                insilico_tool=insilico_tool)
         return cached_classify_somatic(
             variant["assembly"], variant["chrom"], int(variant["pos"]), variant["ref"],
-            variant["alt"], tumor_type=code, transcript=tx)[0]
+            variant["alt"], tumor_type=code, transcript=tx,
+            insilico_tool=insilico_tool)[0]
     try:
         return _run(tumor), ""
     except UnknownTumorType as exc:
@@ -831,10 +873,11 @@ def single_somatic(request, pk: int):
         "tumor": tumor, "active_transcript": tx,
         "plus_clinical": sorted(_plus_clinical_ids(germline)),
         "manual": manual,
-        "permalink": _permalink_from_variant(request, variant),
+        "permalink": _permalink_from_variant(request, variant, germline),
     }
     try:
-        somatic, tumor_error = _somatic_for(variant, tumor, tx, manual)
+        somatic, tumor_error = _somatic_for(variant, tumor, tx, manual,
+                                            _insilico_of(germline))
     except (EngineUnavailable, ValueError, KeyError) as exc:
         logger.warning("single_somatic engine error: %s", exc)
         context["engine_error"] = _ENGINE_ERROR_MSG
@@ -890,6 +933,8 @@ def batch_upload(request):
             input_text=form.cleaned_data["vcf"].name,
             mode=form.cleaned_data.get("mode") or AnalysisJob.Mode.GERMLINE,
             tumor_type=form.cleaned_data.get("tumor_type", ""),
+            insilico_tool=(form.cleaned_data.get("insilico_tool")
+                           or AnalysisJob.InSilicoTool.ESM1B),
             status=AnalysisJob.Status.PENDING,
         )
         run_batch_classification.delay(job.id)
@@ -901,6 +946,7 @@ def batch_upload(request):
             f"アセンブリ: {job.assembly}\n"
             f"モード: {job.get_mode_display()}"
             f"{'（腫瘍型 ' + job.tumor_type + '）' if job.tumor_type else ''}\n"
+            f"in silico ツール: {job.get_insilico_tool_display()}\n"
             f"バッチ解析が投入されました（内容は非開示）。\n",
         )
         return redirect("analysis:batch_status", pk=job.id)

@@ -30,6 +30,7 @@
                 <form method="post" action="{% url 'analysis:single_analyze' %}">
                     {% csrf_token %}
                     <input type="hidden" name="assembly" value="{{ assembly }}">
+                    <input type="hidden" name="insilico_tool" value="{{ insilico_tool }}">
                     <input type="hidden" name="chrom" value="{{ c.chrom }}">
                     <input type="hidden" name="pos" value="{{ c.pos }}">
                     <input type="hidden" name="ref" value="{{ c.ref }}">
@@ -44,6 +45,7 @@
                 <form method="post" action="{% url 'analysis:single_analyze' %}" class="pc-form">
                     {% csrf_token %}
                     <input type="hidden" name="assembly" value="{{ assembly }}">
+                    <input type="hidden" name="insilico_tool" value="{{ insilico_tool }}">
                     <input type="hidden" name="chrom" value="{{ c.chrom }}">
                     <input type="hidden" name="pos" value="{{ c.pos }}">
                     <input type="hidden" name="ref" value="{{ c.ref }}">
