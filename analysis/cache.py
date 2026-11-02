@@ -239,8 +239,21 @@ _TSV_BASE_COLS = [
     "clinvar_stars", "clinvar_variation_id",
     "vcep_classification", "vcep_met_codes", "vcep_expert_panel", "vcep_approval_date",
     "erepo_url",
+    # VCEP 既分類との一致（exact / same_direction / discordant / vcep_conflict）と疾患
+    "vcep_disease", "vcep_concordance_2015", "vcep_concordance_bayesian",
     "warnings",
 ]
+
+
+def _vcep_concordance(vcep_assertion: str, automated: str) -> str:
+    """VCEP 既分類と自動判定の一致度（エンジンの erepo_db.concordance）。旧エンジンでは空。"""
+    if not vcep_assertion:
+        return ""
+    try:
+        from acmg_classifier.local_db.erepo_db import concordance
+        return concordance(vcep_assertion, automated or "")
+    except Exception:  # noqa: BLE001
+        return ""
 
 
 def _read_variants(vcf_path: str, assembly: str):
@@ -349,6 +362,11 @@ def _write_batch_tsv(out_path: str, displays: list, somatics: list = None) -> No
                 (d.get("vcep") or {}).get("expert_panel", ""),
                 (d.get("vcep") or {}).get("approval_date", ""),
                 (d.get("vcep") or {}).get("erepo_url", ""),
+                (d.get("vcep") or {}).get("disease", ""),
+                _vcep_concordance((d.get("vcep") or {}).get("assertion", ""),
+                                  d.get("classification_2015", "")),
+                _vcep_concordance((d.get("vcep") or {}).get("assertion", ""),
+                                  d.get("classification_bayesian", "")),
                 " / ".join(d.get("warnings", [])),
             ]
             if somatics is not None:
