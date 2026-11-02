@@ -130,16 +130,26 @@ def _tracked_paths(assembly: str, insilico_tool: str | None = None):
 # v6: MANE Plus Clinical の transcript での評価（transcript_evaluations / available_transcripts）。
 # v7: Plus Clinical 評価に比較用の mane_select_evaluation を追加。
 # v8: PS3/BS3 を較正済み機能アッセイ（MaveDB / ENIGMA 表9）から判定、source に functional_assay。
-_DISPLAY_SCHEMA_VERSION = 8
+# v9: ミスセンスの PP3 でスプライス予測（OpenSpliceAI/SpliceAI）を優先する判定に変更
+#     （エンジン版番号が変わらないため、ここで既存キャッシュを無効化する）。
+_DISPLAY_SCHEMA_VERSION = 9
 
 
 def reference_signature(assembly: str, insilico_tool: str | None = None) -> str:
     """参照データ版署名（SHA-256）。size+mtime+エンジン版+出力スキーマ版＋in silico
     ツールから算出。ツールを含めることで ESM1b と FuncVEP の結果が混ざらない。"""
-    from .engine import normalize_insilico_tool
+    from .engine import _build_config, normalize_insilico_tool
     tool = normalize_insilico_tool(insilico_tool)
     parts = [f"engine={engine_version()}", f"schema={_DISPLAY_SCHEMA_VERSION}",
              f"insilico={tool}"]
+    # 結果を変える実行オプション（環境変数 ACMG_MAVEDB_RESEARCH_USE 等）も署名に含め、
+    # 切り替えたときに古いキャッシュを返さないようにする。
+    try:
+        cfg = _build_config(assembly)
+        parts.append(f"mavedb_research_use={bool(getattr(cfg, 'mavedb_research_use', False))}")
+        parts.append(f"pp3_missense_priority={getattr(cfg, 'pp3_missense_priority', 'splice')}")
+    except Exception:  # noqa: BLE001
+        pass
     for label, path in _tracked_paths(assembly, tool):
         name, size, mtime = _stat_token(path)
         parts.append(f"{label}:{name}:{size}:{int(mtime)}")

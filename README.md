@@ -198,6 +198,7 @@ Create `.env` (development) and `.env.prod` (production) in the project root. Ke
 | `MANE_SUMMARY` | Optional. MANE summary read by the `transvar` service (container path). Default `$ACMG_DATA_DIR/shared/MANE.GRCh38.v1.5.summary.txt.gz` (`ACMG_DATA_DIR` defaults to `/data`; falls back to a legacy `/tools/transvar/mane/MANE.GRCh38.v1.3.summary.txt`) |
 | `JOB_ARTIFACT_RETENTION_HOURS` | Retention time for batch artifacts (default `1`) |
 | `HUVAR_FUNCVEP` | `0` hides the FuncVEP-CTI option (PP3/BP4 then always uses ESM1b). Default: shown |
+| `ACMG_MAVEDB_RESEARCH_USE` | Optional, default off. `true` also uses MaveDB calibrations flagged research-use-only (ExCALIBR) for PS3/BS3: clinical calibrations still win, and for BRCA1/2 only variants absent from ENIGMA Table 9 are evaluated. Such calls are labelled "research use only" in the evidence. Part of the cache signature, so toggling it re-evaluates cached results |
 | `ACMG_FUNCVEP_GRCH38` / `ACMG_FUNCVEP_GRCH37` | Optional. Container paths of the FuncVEP-CTI score files (TSV or VCF, bgzip + tabix) when they are kept outside `/data`, e.g. `/tools/funcvep/FuncVEP_CTI_hg38.vcf.gz`. Set them for both the `app` and `worker` services |
 | `ADMIN_ADDRESS` | Recipient for notification emails |
 | `GMAIL_ADDRESS` / `GMAIL_PASS` | Gmail SMTP sending (`GMAIL_PASS` is an **app password**) |
