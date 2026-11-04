@@ -118,7 +118,9 @@ LANGUAGES = [
     ("ja", "日本語"),
     ("en", "English"),
 ]
-LOCALE_PATHS = [BASE_DIR / "locale"]
+# HUVAR_LOCALE_DIR: コンテナでは entrypoint.sh が locale/ を書き込み可能な場所へ写して
+# .mo をコンパイルし、ここを差し替える（本番はコードを読み取り専用でマウントするため）。
+LOCALE_PATHS = [Path(os.environ.get("HUVAR_LOCALE_DIR") or BASE_DIR / "locale")]
 
 STATIC_URL = "/acmg/static/"
 STATIC_ROOT = "/static"

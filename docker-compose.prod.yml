@@ -48,7 +48,9 @@ services:
       context: .
       dockerfile: containers/django/Dockerfile
     volumes:
-      - .:/code
+      # コードは読み取り専用。書き込めるのはアップロード・結果の media だけ（非 root の huvar）
+      - .:/code:ro
+      - ./media:/code/media
       - ~/HUVar:/huvar:ro
       - /ddrive/data:/data:ro   # 参照データは読み取り専用（更新は setup_data.py をホストで）
       - ~/tools:/tools:ro
@@ -76,7 +78,9 @@ services:
       context: .
       dockerfile: containers/django/Dockerfile
     volumes:
-      - .:/code
+      # コードは読み取り専用。書き込めるのはアップロード・結果の media だけ（非 root の huvar）
+      - .:/code:ro
+      - ./media:/code/media
       - ~/HUVar:/huvar:ro
       - /ddrive/data:/data:ro   # 参照データは読み取り専用（更新は setup_data.py をホストで）
       - ~/tools:/tools:ro

@@ -220,6 +220,13 @@ docker compose -f docker-compose.prod.yml up -d --build
 ```
 
 On startup, `entrypoint.sh` automatically runs `migrate` / `collectstatic` / `compilemessages`.
+Migrations are part of the repository: the start-up only applies them (and warns if a model change
+has no migration). After changing a model, run `python manage.py makemigrations` in a development
+checkout (e.g. `docker compose exec -u huvar app python manage.py makemigrations`) and commit the new
+files. In production the code is mounted read-only (`.:/code:ro`); only `./media` (uploads and results)
+is writable, and the translation catalogue is compiled into `/tmp` inside the container. Deploy with
+`git pull`, then `docker compose -f docker-compose.prod.yml up -d acmgapp worker` (add `build` when
+`containers/` or `requirements*.txt` changed).
 
 ### 3. Create an administrator
 ```bash
@@ -275,9 +282,8 @@ Mail settings (`GMAIL_ADDRESS` / `GMAIL_PASS`, `ADMIN_ADDRESS`) must be configur
   and `/static`), then runs migrations, gunicorn / runserver and Celery as `huvar`. The mounted
   reference data (`~/HUVar`, `/ddrive/data`, `~/tools`) is mounted read-only and must be readable by
   that user; a warning is printed at start-up otherwise. Update the data with `setup_data.py` on the
-  host, not from inside the containers. Run management commands that write files as that user, e.g.
-  `docker compose exec -u huvar app python manage.py makemigrations` (files created as root are
-  re-owned at the next start anyway).
+  host, not from inside the containers. In development, run management commands that write files as
+  that user, e.g. `docker compose exec -u huvar app python manage.py makemigrations`.
 
 ---
 
