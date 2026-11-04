@@ -851,3 +851,23 @@ msgstr "There are errors in the form. Please check the fields marked in red."
 msgid "API トークンの有効期限が切れています。管理者に再発行を依頼してください。"
 msgstr "The API token has expired. Ask an administrator to issue a new one."
 
+
+# --- batch expiry / assembly check ---
+msgid "アップロードファイルと結果ファイルは、解析終了から保持期間 (既定 1 時間) を過ぎると自動削除されます。必要な結果は早めにダウンロードしてください。"
+msgstr "Uploaded and result files are deleted automatically once the retention period (default 1 hour) after the analysis finishes has passed. Download the results you need promptly."
+
+msgid "VCF をアップロードすると、ジョブとして投入され順番に解析されます。完了後 TSV をダウンロードできます。成果物（アップロード VCF・生成 TSV）は解析終了から 1 時間で自動削除されます。選んだアセンブリと VCF の座標が明らかに食い違う場合は投入できません。"
+msgstr "When you upload a VCF, it is queued as a job and analysed in order. You can download the TSV when it finishes. The uploaded VCF and generated TSV are deleted automatically 1 hour after the analysis finishes. A VCF whose coordinates clearly do not match the selected assembly cannot be submitted."
+
+#, python-format
+msgid "解析終了の %(h)s 時間後（経過後に自動削除）"
+msgstr "%(h)s hour(s) after the analysis finishes (then deleted automatically)"
+
+#, python-format
+msgid "解析終了の %(h)s 時間後"
+msgstr "%(h)s hour(s) after the analysis finishes"
+
+#, python-format
+msgid "選択したアセンブリ（%(selected)s）と VCF の座標が一致しません。%(detected)s の座標である可能性が高いです（%(evidence)s）。アセンブリの選択を確認してください。"
+msgstr "The VCF coordinates do not match the selected assembly (%(selected)s); they are most likely %(detected)s (%(evidence)s). Please check the assembly."
+

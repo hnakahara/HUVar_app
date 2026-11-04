@@ -259,7 +259,10 @@ SECURITY_MFA_FAILURES = int(os.environ.get("SECURITY_MFA_FAILURES", "3"))
 TRANSVAR_SERVICE_URL = os.environ.get("TRANSVAR_SERVICE_URL", "http://transvar:5000")
 
 # --- ジョブ成果物の保持期間（時間）。変異キャッシュ（FR-CACHE）は対象外。 ---
+# バッチは解析終了（成功・失敗）からこの時間で、入力 VCF・結果 TSV ごと自動削除する。
 JOB_ARTIFACT_RETENTION_HOURS = int(os.environ.get("JOB_ARTIFACT_RETENTION_HOURS", "1"))
+# 待ち・解析中のまま残ったジョブ（worker の異常終了など）を削除するまでの日数
+JOB_STALE_DAYS = int(os.environ.get("JOB_STALE_DAYS", "7"))
 
 LOGIN_URL = "accounts:login"
 # ログイン後は MFA フローへ（登録済みなら検証、未登録なら登録へ自動分岐）

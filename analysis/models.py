@@ -54,7 +54,17 @@ class AnalysisJob(models.Model):
     result_file = models.FileField(upload_to="results/", null=True, blank=True)  # TSV
     error = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    expires_at = models.DateTimeField(default=default_expiry)  # 成果物の有効期限
+    # 成果物の有効期限。バッチは解析終了時に「終了 + JOB_ARTIFACT_RETENTION_HOURS」へ
+    # 設定し直す（tasks.run_batch_classification）。待ち・解析中は削除対象にしない。
+    expires_at = models.DateTimeField(default=default_expiry)
+
+    @property
+    def is_finished(self) -> bool:
+        return self.status in (self.Status.DONE, self.Status.FAILED)
+
+    @property
+    def retention_hours(self) -> int:
+        return getattr(settings, "JOB_ARTIFACT_RETENTION_HOURS", 1)
 
     def __str__(self) -> str:
         return f"Job#{self.pk} {self.kind} {self.status}"

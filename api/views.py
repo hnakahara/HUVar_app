@@ -257,7 +257,9 @@ class JobCreateView(APIView):
     @extend_schema(
         summary="バッチ解析ジョブの投入 (jobs)",
         description="VCF をアップロードして解析ジョブを投入する（multipart/form-data）。"
-        "月あたりの実行上限あり（既定 5 回/月、トークンごと。上限到達時は 429）。",
+        "月あたりの実行上限あり（既定 5 回/月、トークンごと。上限到達時は 429）。"
+        "指定した assembly と VCF の座標（REF 塩基の照合・ヘッダー）が明らかに食い違う場合は "
+        "400 を返し、実行回数は消費しない。",
         request=JobCreateRequestSerializer,
         responses={201: JobCreateResponseSerializer},
         tags=["batch"],
@@ -273,6 +275,16 @@ class JobCreateView(APIView):
         if f.size and f.size > 50 * 1024 * 1024:
             return Response({"error": "ファイルサイズが大きすぎます（上限 50MB）"}, status=400)
 
+        assembly = request.data.get("assembly", "GRCh38")
+        if assembly not in ("GRCh38", "GRCh37"):
+            return Response({"error": "assembly は GRCh38 または GRCh37 を指定してください"},
+                            status=400)
+        # 選んだアセンブリと VCF の座標が明らかに食い違うときは投入させない
+        from analysis.assembly_check import mismatch_message
+        msg = mismatch_message(assembly, f)
+        if msg:
+            return Response({"error": msg}, status=400)
+
         # 月あたりの API バッチ実行上限（トークン=ユーザーごと、既定 5）。残数を消費。
         ok, limit, remaining = _consume_api_quota(request.user, "batch")
         if not ok:
@@ -281,7 +293,6 @@ class JobCreateView(APIView):
                 "limit": limit, "remaining": 0,
             }, status=429)
 
-        assembly = request.data.get("assembly", "GRCh38")
         job = AnalysisJob.objects.create(
             owner=request.user, kind=AnalysisJob.Kind.BATCH, assembly=assembly,
             input_file=f, input_text=f.name, status=AnalysisJob.Status.PENDING,
@@ -307,13 +318,15 @@ class JobStatusView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(summary="バッチジョブの状態取得",
-                   description="ジョブの進捗を取得。完了時は result_url を含む。",
+                   description="ジョブの進捗を取得。完了時は result_url を含む。"
+                   "expires_at は解析終了時に決まり（終了から既定 1 時間）、それまでは null。",
                    responses=JobStatusResponseSerializer, tags=["batch"])
     def get(self, request, pk: int):
         job = get_object_or_404(AnalysisJob, pk=pk, owner=request.user,
                                 kind=AnalysisJob.Kind.BATCH)
+        # 有効期限は解析終了時に決まる（終了 + 保持期間）。待ち・解析中は null。
         body = {"job_id": job.id, "status": job.status, "error": job.error,
-                "expires_at": job.expires_at.isoformat()}
+                "expires_at": job.expires_at.isoformat() if job.is_finished else None}
         if job.status == AnalysisJob.Status.DONE and job.result_file:
             body["result_url"] = request.build_absolute_uri(
                 reverse("api:job_result", args=[job.id]))

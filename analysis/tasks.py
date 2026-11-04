@@ -3,10 +3,17 @@
 単一変異解析は同期実行のため、ここには含めない（FR-SINGLE-1）。
 """
 import os
+from datetime import timedelta
 
 from celery import shared_task
 from django.conf import settings
+from django.db.models import Q
 from django.utils import timezone
+
+
+def _expiry_from_now():
+    """解析終了時点からの有効期限（成果物の保持期間）。"""
+    return timezone.now() + timedelta(hours=getattr(settings, "JOB_ARTIFACT_RETENTION_HOURS", 1))
 
 
 @shared_task(bind=True)
@@ -40,25 +47,36 @@ def run_batch_classification(self, job_id: int) -> str:
         job.result_file.name = out_rel
         job.status = AnalysisJob.Status.DONE
         job.error = ""
-        job.save(update_fields=["result_file", "status", "error"])
+        job.expires_at = _expiry_from_now()
+        job.save(update_fields=["result_file", "status", "error", "expires_at"])
     except (EngineUnavailable, ValueError) as exc:
         job.status = AnalysisJob.Status.FAILED
         job.error = str(exc)
-        job.save(update_fields=["status", "error"])
+        job.expires_at = _expiry_from_now()
+        job.save(update_fields=["status", "error", "expires_at"])
     except Exception as exc:  # noqa: BLE001
         job.status = AnalysisJob.Status.FAILED
         job.error = f"想定外のエラー: {exc}"
-        job.save(update_fields=["status", "error"])
+        job.expires_at = _expiry_from_now()
+        job.save(update_fields=["status", "error", "expires_at"])
     return job.status
 
 
 def cleanup_expired_jobs() -> int:
-    """保持期間（既定1時間）を過ぎたジョブと成果物ファイルを削除する。
+    """保持期間（解析終了から既定 1 時間）を過ぎたジョブと成果物ファイルを削除する。
 
+    待ち・解析中のジョブは削除しない（以前は投入から 1 時間で削除され、順番待ちや
+    長時間の解析の途中で入力 VCF が消えることがあった）。ただし worker の異常終了などで
+    その状態のまま JOB_STALE_DAYS 日を過ぎたものは片付ける。
     ビューからの随時呼び出しを想定（将来 Celery beat に移行可）。"""
     from .models import AnalysisJob
 
-    expired = AnalysisJob.objects.filter(expires_at__lt=timezone.now())
+    now = timezone.now()
+    finished = [AnalysisJob.Status.DONE, AnalysisJob.Status.FAILED]
+    stale = now - timedelta(days=getattr(settings, "JOB_STALE_DAYS", 7))
+    expired = AnalysisJob.objects.filter(
+        Q(status__in=finished, expires_at__lt=now)
+        | (~Q(status__in=finished) & Q(created_at__lt=stale)))
     count = 0
     for job in expired:
         # 結果 TSV に添付した使用データ版情報(JSON)も削除する

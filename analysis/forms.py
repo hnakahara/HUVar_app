@@ -124,6 +124,13 @@ class BatchVariantForm(forms.Form):
         data = super().clean()
         if data.get("mode") != "somatic":
             data["tumor_type"] = ""
+        # 選んだアセンブリと VCF の座標が明らかに食い違うときは投入させない
+        vcf, assembly = data.get("vcf"), data.get("assembly")
+        if vcf is not None and assembly and "vcf" not in self.errors:
+            from .assembly_check import mismatch_message
+            msg = mismatch_message(assembly, vcf)
+            if msg:
+                self.add_error("assembly", msg)
         return data
 
     def clean_vcf(self):

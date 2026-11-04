@@ -196,6 +196,7 @@
 - **FR-BATCH-4**: アップロードサイズ上限・行数上限・タイムアウトを設定。
 - **FR-BATCH-5**: in silico ツール（ESM1b / FuncVEP-CTI）をジョブ単位で選択し、`AnalysisJob.insilico_tool`
   に保存して worker が同じツールで解析する（FR-SINGLE-7 と同じ規則）。
+- **FR-BATCH-6**: 投入時に、選択したアセンブリと VCF の座標を照合する（先頭最大 300 件の REF 塩基を GRCh37/GRCh38 の参照 FASTA と比較。照合できないときはヘッダーの ##reference/##contig のアセンブリ名・染色体長）。明らかに食い違う場合は推定アセンブリと根拠（一致率）を示して投入を止める（Web はフォームエラー、API は 400・実行回数は消費しない）。
 
 ### 4.6 変異結果キャッシュ（FR-CACHE）
 
@@ -274,7 +275,7 @@
 
 - **NFR-OPS-1**: 解析は **Celery + Redis** による非同期ジョブで **順番に処理**（直列）。大規模 VCF でもタイムアウトしないよう nginx/gunicorn のタイムアウトを調整（vas は 3600s）。
 - **NFR-OPS-2**: HUVar 参照データ（配列・OpenSpliceAI モデル・phyloP bigWig 等、数 GB）と TransVar 参照（`/tools/transvar`、vas と共用）はボリュームで提供。GRCh37/GRCh38 両アセンブリ分を用意。
-- **NFR-OPS-3**: **ジョブ成果物（アップロード VCF・生成 TSV・ジョブ単位の結果ファイル）の保持期間は 1 時間**。経過後は自動削除（現状はジョブ一覧アクセス時に随時クリーンアップ。将来 Celery beat 化可）。※ 変異単位の自動判定キャッシュ（FR-CACHE）は対象外で、参照データ更新まで永続保持。
+- **NFR-OPS-3**: **ジョブ成果物（アップロード VCF・生成 TSV・ジョブ単位の結果ファイル）の保持期間は解析終了（成功・失敗）から 1 時間**（`JOB_ARTIFACT_RETENTION_HOURS`）。待ち・解析中のジョブは削除しない（`JOB_STALE_DAYS`〔既定 7 日〕を過ぎて残ったものだけ片付ける）。経過後は自動削除（現状はジョブ一覧アクセス時に随時クリーンアップ。将来 Celery beat 化可）。※ 変異単位の自動判定キャッシュ（FR-CACHE）は対象外で、参照データ更新まで永続保持。
 - **NFR-OPS-4**: ログ収集、ヘルスチェック（DB `pg_isready`、redis `PING`、transvar `/health`）。
 
 ## 6. データモデル（概要）
@@ -282,7 +283,7 @@
 - `User`（Django 標準 + ロール + MFA デバイス + 自己登録の状態〔approval_status: email_pending / pending / approved / rejected〕・利用目的・メール確認日時・承認/却下日時）
 - `ApiToken`（API 用トークン: 所有者・発行日時・失効フラグ）
 - `AccountRequest`（旧方式のアカウント発行リクエスト: 氏名・所属・メール・目的・状態。自己登録導入後は受付停止、履歴参照のみ）
-- `AnalysisJob`（種別: single/batch、入力、assembly、ステータス、Celery タスク ID、結果ファイル、所有者、作成日時、**成果物有効期限 = 作成 +1 時間**）
+- `AnalysisJob`（種別: single/batch、入力、assembly、ステータス、Celery タスク ID、結果ファイル、所有者、作成日時、**成果物有効期限 = 解析終了 +1 時間**。終了前は削除対象外）
 - `VariantResultCache`（変異キャッシュ: 正規化変異キー〔assembly, chrom, pos, ref, alt〕＋ エンジン版 ＋ **参照データ版署名**、分類結果 JSON、作成/更新日時。FR-CACHE）
 - `ReferenceDataVersion`（使用中参照データ〔HUVar 各データ・TransVar〕の版署名 = ファイルごとの ハッシュ＋サイズ＋mtime。更新検知とキャッシュ無効化に使用）
 - `VariantResult`（単一変異の最終結果・分類・スコア。ジョブ/ユーザー紐づけ）

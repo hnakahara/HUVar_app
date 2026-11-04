@@ -121,5 +121,6 @@ class JobStatusResponseSerializer(serializers.Serializer):
     job_id = serializers.IntegerField()
     status = serializers.CharField()
     error = serializers.CharField(allow_blank=True)
-    expires_at = serializers.DateTimeField()
+    expires_at = serializers.DateTimeField(
+        allow_null=True, help_text="成果物の削除予定時刻（解析終了から既定 1 時間）。終了前は null。")
     result_url = serializers.CharField(required=False)

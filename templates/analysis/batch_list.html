@@ -18,7 +18,7 @@
             <td>{% if job.mode == "somatic" %}{% translate "統合" %}{% if job.tumor_type %} {{ job.tumor_type }}{% endif %}{% else %}{% translate "生殖細胞系列" %}{% endif %}</td>
             <td>{{ job.get_status_display }}</td>
             <td>{{ job.created_at }}</td>
-            <td>{{ job.expires_at }}</td>
+            <td>{% if job.is_finished %}{{ job.expires_at }}{% else %}{% blocktranslate with h=job.retention_hours %}解析終了の {{ h }} 時間後{% endblocktranslate %}{% endif %}</td>
             <td>
                 {% if job.status == "done" %}
                     <a href="{% url 'analysis:batch_download' job.id %}">TSV</a>
