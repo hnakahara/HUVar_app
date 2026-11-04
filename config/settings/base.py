@@ -34,6 +34,10 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # 処理中のリクエストを保持（監査ログに接続元 IP / User-Agent を記録するため）
+    "accounts.security.RequestContextMiddleware",
+    # 管理画面(/admin/)を ADMIN_ALLOWED_NETWORKS の接続元に限定（未設定なら制限なし）
+    "accounts.security.AdminNetworkRestrictionMiddleware",
     # 静的ファイル配信（本番でフロント nginx に vas を流用するためアプリ側で配信）
     # FORCE_SCRIPT_NAME(/acmg) は WhiteNoise が自動で静的プレフィックスから除去する。
     "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -140,7 +144,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # --- REST Framework（トークン認証） ---
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.TokenAuthentication",
+        # トークン認証（有効期限 API_TOKEN_MAX_AGE_DAYS・最終使用日時/IP の記録つき）
+        "accounts.authentication.ExpiringTokenAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
@@ -228,6 +233,25 @@ CELERY_WORKER_CANCEL_LONG_RUNNING_TASKS_ON_CONNECTION_LOSS = True
 AXES_FAILURE_LIMIT = 5
 AXES_COOLOFF_TIME = 1  # hours
 AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]
+# 接続元 IP は accounts.security.client_ip で判定する。前段の nginx を経由するため
+# REMOTE_ADDR は常にプロキシの IP で、そのままでは全利用者が同じ IP 扱いになる
+# （誰かが 5 回失敗すると全員がロックされる）。
+AXES_CLIENT_IP_CALLABLE = "accounts.security.client_ip"
+
+# --- 接続元 IP・管理画面の制限・セキュリティ通知 ---
+# 前段の信頼できるリバースプロキシの段数。X-Forwarded-For の右端からこの位置の値を
+# 接続元とする（vas の nginx 1 段なら 1。プロキシ無しで直接公開するなら 0）。
+TRUSTED_PROXY_COUNT = int(os.environ.get("TRUSTED_PROXY_COUNT", "1"))
+# 管理画面(/admin/)へのアクセスを許可するネットワーク（カンマ区切り CIDR。例:
+# "133.41.0.0/16"）。未設定なら制限しない。許可外からは 404。
+ADMIN_ALLOWED_NETWORKS = os.environ.get("ADMIN_ALLOWED_NETWORKS", "")
+# API トークンの有効期限（発行からの日数。0 で無期限）。期限切れは管理者が再発行する。
+API_TOKEN_MAX_AGE_DAYS = int(os.environ.get("API_TOKEN_MAX_AGE_DAYS", "365"))
+# セキュリティ通知のしきい値（accounts.signals）。10 分間のログイン失敗が同一 IP から
+# この回数、またはサイト全体でこの回数に達したら通知する。MFA コードの連続失敗も同様。
+SECURITY_LOGIN_FAILURES_PER_IP = int(os.environ.get("SECURITY_LOGIN_FAILURES_PER_IP", "10"))
+SECURITY_LOGIN_FAILURES_TOTAL = int(os.environ.get("SECURITY_LOGIN_FAILURES_TOTAL", "30"))
+SECURITY_MFA_FAILURES = int(os.environ.get("SECURITY_MFA_FAILURES", "3"))
 
 # --- TransVar サービス ---
 TRANSVAR_SERVICE_URL = os.environ.get("TRANSVAR_SERVICE_URL", "http://transvar:5000")

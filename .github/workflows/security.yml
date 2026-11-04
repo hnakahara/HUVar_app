@@ -17,7 +17,11 @@ jobs:
         run: pip install bandit pip-audit ruff
       - name: Ruff (lint)
         run: ruff check . || true
+      # 中程度以上の指摘・既知の脆弱性があればジョブを失敗させる（以前は || true で常に成功）
       - name: Bandit (static security, medium+)
-        run: bandit -r accounts analysis api config transvar_client containers/transvar -ll || true
+        run: bandit -r accounts analysis api config transvar_client containers/transvar -ll -x '*/tests.py'
       - name: pip-audit (dependency CVEs)
-        run: pip-audit -r requirements.txt || true
+        # psycopg2 のビルド（依存関係の解決）に pg_config が要る
+        run: |
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends libpq-dev
+          pip-audit -r requirements.txt

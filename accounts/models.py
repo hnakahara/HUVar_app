@@ -39,6 +39,11 @@ class User(AbstractUser):
         null=True, blank=True, help_text="登録時のメールアドレス確認日時。")
     approval_processed_at = models.DateTimeField(
         null=True, blank=True, help_text="承認または却下した日時。")
+    # --- API トークンの使用状況（漏洩調査用。accounts.authentication が記録） ---
+    api_token_last_used_at = models.DateTimeField(
+        null=True, blank=True, help_text="API トークンが最後に使われた日時。")
+    api_token_last_ip = models.GenericIPAddressField(
+        null=True, blank=True, help_text="API トークンが最後に使われた接続元 IP。")
     # MFA 免除（レビュー用）。administrator が admin で設定。True の間は MFA 強制を回避。
     mfa_exempt = models.BooleanField(
         default=False,

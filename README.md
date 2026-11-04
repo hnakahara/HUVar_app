@@ -247,6 +247,31 @@ Mail settings (`GMAIL_ADDRESS` / `GMAIL_PASS`, `ADMIN_ADDRESS`) must be configur
 
 ---
 
+## Security monitoring
+
+- **Client IP behind the proxy**: the app is served behind the vas nginx, so `REMOTE_ADDR` is the
+  proxy. The client address is the right-most `X-Forwarded-For` entry added by the trusted proxy
+  (`TRUSTED_PROXY_COUNT`, default 1); the left part, which clients can forge, is ignored. Login
+  lockout (django-axes), form rate limits, the audit log and alerts all use it.
+- **Admin site**: restrict `/acmg/admin/` to trusted networks with `ADMIN_ALLOWED_NETWORKS`
+  (comma-separated CIDRs; requests from elsewhere get 404). Unset = unrestricted.
+- **Audit log** (admin → Audit logs, read-only): logins, failures, lockouts, MFA failures /
+  registrations / deletions, privilege and password changes, token issuance, analyses — with client IP
+  and User-Agent.
+- **Email alerts to `ADMIN_ADDRESS`** (subject `[HUVar] [セキュリティ] …`; repeats suppressed for an hour):
+  every login is still reported, and logins by administrators or from an address the user has never
+  used are marked 【要確認】; repeated login failures from one address or site-wide (10-minute
+  thresholds `SECURITY_LOGIN_FAILURES_PER_IP` / `_TOTAL`); lockouts; repeated MFA failures
+  (`SECURITY_MFA_FAILURES`); MFA device deletion / re-registration; staff / superuser /
+  administrator grants, password and email changes; API token issuance; admin-site access by a
+  non-staff user. Unhandled server errors are mailed as before.
+- **API tokens** expire `API_TOKEN_MAX_AGE_DAYS` days after issue (default 365; 0 = never); re-issuing
+  from the token request admin action creates a new key. The last use time and client IP are shown on
+  the user's admin page.
+- Production refuses to start without a `SECRET_KEY` of at least 32 characters.
+
+---
+
 ## Tests
 ```bash
 docker compose exec app python manage.py test

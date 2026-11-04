@@ -848,3 +848,6 @@ msgstr "Briefly describe how you plan to use the service (e.g. research, clinica
 msgid "入力内容にエラーがあります。赤字の項目を確認してください。"
 msgstr "There are errors in the form. Please check the fields marked in red."
 
+msgid "API トークンの有効期限が切れています。管理者に再発行を依頼してください。"
+msgstr "The API token has expired. Ask an administrator to issue a new one."
+

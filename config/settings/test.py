@@ -5,7 +5,8 @@ DEBUG = True
 
 # テストではローカル許可
 if not ALLOWED_HOSTS:  # noqa: F405
-    ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0"]
+    # Host ヘッダとして許可する値で、待ち受けアドレスではない（bandit B104 は誤検知）
+    ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0"]  # nosec B104
 
 # テストは HTTP のため secure cookie は無効
 SESSION_COOKIE_SECURE = False

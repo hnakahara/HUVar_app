@@ -29,10 +29,9 @@ log = logging.getLogger(__name__)
 
 
 def _client_ip(request) -> str:
-    xff = request.META.get("HTTP_X_FORWARDED_FOR", "")
-    if xff:
-        return xff.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR", "")
+    # X-Forwarded-For の先頭はクライアントが自由に書けるため使わない（accounts.security）
+    from .security import client_ip
+    return client_ip(request)
 
 
 def _rate_limited(request, action: str, limit: int = 5, window: int = 600) -> bool:
@@ -209,6 +208,8 @@ def mfa_setup(request):
             otp_login(request, device)
             messages.success(request, "MFA を設定しました。")
             return redirect("analysis:index")
+        from .signals import mfa_failed
+        mfa_failed(request.user)
         messages.error(request, "認証コードが正しくありません。")
 
     return render(request, "accounts/mfa_setup.html", {
@@ -231,6 +232,8 @@ def mfa_verify(request):
         if device.verify_token(token):
             otp_login(request, device)
             return redirect("analysis:index")
+        from .signals import mfa_failed
+        mfa_failed(request.user)
         messages.error(request, "認証コードが正しくありません。")
 
     return render(request, "accounts/mfa_verify.html")

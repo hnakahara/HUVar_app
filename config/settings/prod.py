@@ -5,6 +5,15 @@ from .base import *  # noqa: F401,F403
 
 DEBUG = False
 
+# 既定値（insecure-dev-key）や未設定のまま本番を起動しない
+from django.core.exceptions import ImproperlyConfigured  # noqa: E402
+
+if not os.environ.get("SECRET_KEY") or SECRET_KEY == "insecure-dev-key" \
+        or len(SECRET_KEY) < 32:  # noqa: F405
+    raise ImproperlyConfigured(
+        "SECRET_KEY が未設定か弱すぎます（.env.prod に 32 文字以上の値を設定してください。"
+        "例: python -c 'import secrets; print(secrets.token_urlsafe(50))'）")
+
 # プロキシ（nginx）経由の HTTPS を認識
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = True

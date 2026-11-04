@@ -23,7 +23,8 @@ class CustomUserAdmin(UserAdmin):
                      "api_batch_monthly_limit", "api_batch_remaining")
     list_filter = ("approval_status", "role", "mfa_exempt", "is_active", "is_staff")
     actions = ["approve_registrations", "reject_registrations"]
-    readonly_fields = ("email_verified_at", "approval_processed_at")
+    readonly_fields = ("email_verified_at", "approval_processed_at",
+                       "api_token_last_used_at", "api_token_last_ip")
     fieldsets = UserAdmin.fieldsets + (
         ("HUVar", {"fields": ("role", "institution", "mfa_exempt")}),
         ("自己登録・承認", {
@@ -35,7 +36,8 @@ class CustomUserAdmin(UserAdmin):
         ("API 利用上限（月次・トークンごと）", {
             "fields": ("api_single_monthly_limit", "api_single_remaining",
                        "api_batch_monthly_limit", "api_batch_remaining",
-                       "api_usage_period", "web_batch_monthly_limit"),
+                       "api_usage_period", "web_batch_monthly_limit",
+                       "api_token_last_used_at", "api_token_last_ip"),
             "description": "上限・残り回数は自由に編集できます。残り回数は毎月初回の "
                            "API 呼び出し時に上限へ自動リセットされます。",
         }),
@@ -216,7 +218,13 @@ class TokenRequestAdmin(admin.ModelAdmin):
                     f"{req.email}: 一致するユーザーが見つかりません。先にユーザーを作成してください。",
                     level=messages.WARNING)
                 continue
+            from .authentication import token_expired
             token, created = Token.objects.get_or_create(user=user)
+            if not created and token_expired(token):
+                # 有効期限切れは新しいキーで再発行する（古いキーは無効になる）
+                token.delete()
+                token = Token.objects.create(user=user)
+                created = True
             req.status = TokenRequest.Status.APPROVED
             req.processed_at = timezone.now()
             req.save(update_fields=["status", "processed_at"])

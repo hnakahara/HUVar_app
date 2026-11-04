@@ -147,6 +147,19 @@ class AuditLog(models.Model):
     action = models.CharField(max_length=64)
     detail = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    # 接続元（Web/API リクエスト中に作成された場合。Celery タスク等では空）
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=255, blank=True, default="")
+
+    def save(self, *args, **kwargs):
+        # 呼び出し側で指定がなければ、処理中のリクエストから接続元を補完する
+        if self._state.adding and not self.ip_address:
+            from accounts.security import client_ip, current_request, user_agent
+            req = current_request()
+            if req is not None:
+                self.ip_address = client_ip(req) or None
+                self.user_agent = self.user_agent or user_agent(req)
+        super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         return f"{self.created_at:%Y-%m-%d %H:%M} {self.action}"
