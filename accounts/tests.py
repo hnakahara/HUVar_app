@@ -211,3 +211,15 @@ class SignupFlowTests(TestCase):
     def test_signup_purpose_help_is_for_the_registrant(self):
         form = self.client.get(reverse("accounts:signup")).context["form"]
         self.assertNotIn("自己登録時に入力された", str(form["registration_purpose"].help_text))
+
+    def test_errors_are_marked_in_red(self):
+        User.objects.create_user("alice", "other@example.org", PASSWORD)
+        resp = self._signup(institution="")
+        self.assertContains(resp, 'class="form-errors"')
+        self.assertContains(resp, 'form-row has-error')
+        self.assertContains(resp, 'class="field-errors"')
+        self.assertContains(resp, "赤字の項目を確認してください")
+        # login: a form-level error only, without the "check the red fields" line
+        resp = self._login(password="wrong-password-123")
+        self.assertContains(resp, 'class="form-errors"')
+        self.assertNotContains(resp, "赤字の項目を確認してください")

@@ -1,0 +1,23 @@
+{% load i18n %}
+{# 縦積みのフォーム描画（ラベル → 入力欄 → エラー → 説明）。エラーは赤字で表示する。 #}
+{% if form.errors %}
+<div class="form-errors" role="alert">
+    {# 項目ごとのエラーがあるときだけ「赤字の項目を確認」の案内を出す（"__all__" は全体エラー） #}
+    {% with n=form.errors|length %}
+    {% if form.non_field_errors %}{% if n > 1 %}<p>{% translate "入力内容にエラーがあります。赤字の項目を確認してください。" %}</p>{% endif %}
+    {% elif n %}<p>{% translate "入力内容にエラーがあります。赤字の項目を確認してください。" %}</p>{% endif %}
+    {% endwith %}
+    {% for e in form.non_field_errors %}<p>{{ e }}</p>{% endfor %}
+</div>
+{% endif %}
+{% for field in form.hidden_fields %}{{ field }}{% endfor %}
+{% for field in form.visible_fields %}
+<div class="form-row{% if field.errors %} has-error{% endif %}">
+    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+    {{ field }}
+    {% if field.errors %}
+    <ul class="field-errors">{% for e in field.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+    {% endif %}
+    {% if field.help_text %}<div class="help" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</div>{% endif %}
+</div>
+{% endfor %}

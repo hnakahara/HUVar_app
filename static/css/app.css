@@ -277,6 +277,47 @@ table button { padding: 6px 12px; font-size: .8rem; }
   font-size: .92rem;
 }
 .alert::before { content: "› "; color: var(--accent-2); font-family: var(--mono); }
+.alert-error {
+  background: rgba(248, 113, 113, .1);
+  border-color: rgba(248, 113, 113, .45);
+  color: var(--danger);
+  font-weight: 600;
+}
+.alert-error::before { color: var(--danger); }
+.alert-warning {
+  background: rgba(251, 191, 36, .1);
+  border-color: rgba(251, 191, 36, .4);
+  color: var(--warn);
+}
+.alert-warning::before { color: var(--warn); }
+
+/* ---- Stacked form fields (accounts/_form_fields.html: signup / login) ---- */
+.form-row {
+  display: flex; flex-direction: column; gap: 6px;
+  margin: 0 0 18px; max-width: 560px;
+}
+.form-row input[type="text"], .form-row input[type="password"],
+.form-row input[type="email"], .form-row textarea, .form-row select {
+  width: 100%; box-sizing: border-box;
+}
+.form-row textarea { min-height: 7em; resize: vertical; }
+.form-row .help { color: var(--muted); font-size: .85rem; line-height: 1.55; }
+.form-row .help ul { margin: .2em 0 0; padding-left: 1.2em; }
+.field-errors {
+  list-style: none; margin: 0; padding: 0;
+  color: var(--danger); font-size: .88rem; font-weight: 600;
+}
+.field-errors li { margin: 0; }
+.has-error label { color: var(--danger); }
+.has-error input, .has-error textarea, .has-error select { border-color: var(--danger); }
+.form-errors {
+  max-width: 560px; margin: 0 0 18px; padding: 10px 14px;
+  background: rgba(248, 113, 113, .1);
+  border: 1px solid rgba(248, 113, 113, .45);
+  border-radius: 10px;
+  color: var(--danger); font-weight: 600; font-size: .92rem;
+}
+.form-errors p { margin: .15em 0; }
 
 /* ---- Lists ---- */
 ul { padding-left: 1.2em; }

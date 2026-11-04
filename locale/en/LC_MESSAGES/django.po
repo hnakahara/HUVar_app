@@ -845,3 +845,6 @@ msgstr "The confirmation email could not be sent. Please try again later."
 msgid "研究・臨床・教育など、どのような目的で利用するかを簡単にご記入ください（管理者が承認の判断に使用します）。"
 msgstr "Briefly describe how you plan to use the service (e.g. research, clinical work, teaching); the administrator uses this to review your registration."
 
+msgid "入力内容にエラーがあります。赤字の項目を確認してください。"
+msgstr "There are errors in the form. Please check the fields marked in red."
+
