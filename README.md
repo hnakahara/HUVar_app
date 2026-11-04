@@ -273,8 +273,9 @@ Mail settings (`GMAIL_ADDRESS` / `GMAIL_PASS`, `ADMIN_ADDRESS`) must be configur
   preparation as root (aligns the `huvar` user's UID/GID with the owner of the HUVar_app folder on the
   host, editable-installs the HUVar engine, fixes the ownership of `media/`, `*/migrations/`, `locale/`
   and `/static`), then runs migrations, gunicorn / runserver and Celery as `huvar`. The mounted
-  reference data (`~/HUVar`, `/ddrive/data`, `~/tools`) must be readable by that user; a warning is
-  printed at start-up otherwise. Run management commands that write files as that user, e.g.
+  reference data (`~/HUVar`, `/ddrive/data`, `~/tools`) is mounted read-only and must be readable by
+  that user; a warning is printed at start-up otherwise. Update the data with `setup_data.py` on the
+  host, not from inside the containers. Run management commands that write files as that user, e.g.
   `docker compose exec -u huvar app python manage.py makemigrations` (files created as root are
   re-owned at the next start anyway).
 
