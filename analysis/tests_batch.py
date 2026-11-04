@@ -21,15 +21,18 @@ PASSWORD = "correct-horse-battery-42"
 
 
 def _make_fastas(root: Path):
-    """互いに異なる配列を持つ 2 つの「アセンブリ」の FASTA（chr1, chr17）。"""
+    """2 つの「アセンブリ」の FASTA。chr1 は両者で同一（実際の chr1 先頭付近のように
+    判別できない領域）、chr17 は互いに異なる配列。"""
     import pysam
     rng = random.Random(7)
+    shared_chr1 = "".join(rng.choice("ACGT") for _ in range(6000))
     paths = {}
     for asm in ac.ASSEMBLIES:
         p = root / f"{asm}.fa"
         with p.open("w") as fh:
             for chrom in ("chr1", "chr17"):
-                seq = "".join(rng.choice("ACGT") for _ in range(6000))
+                seq = shared_chr1 if chrom == "chr1" else \
+                    "".join(rng.choice("ACGT") for _ in range(6000))
                 fh.write(f">{chrom}\n")
                 for i in range(0, len(seq), 60):
                     fh.write(seq[i:i + 60] + "\n")
@@ -38,17 +41,26 @@ def _make_fastas(root: Path):
     return paths
 
 
-def _vcf_bytes(fasta_path: Path, n=60, header_lines=(), chrom_prefix="chr"):
+def _records(fa, chrom, n, prefix="chr"):
+    out = []
+    for i in range(n):
+        pos = 100 + i * 37
+        ref = fa.fetch(chrom, pos - 1, pos)
+        alt = "A" if ref != "A" else "C"
+        name = chrom if prefix else chrom.removeprefix("chr")
+        out.append(f"{name}\t{pos}\t.\t{ref}\t{alt}\t.\tPASS\t.")
+    return out
+
+
+def _vcf_bytes(fasta_path: Path, n=60, header_lines=(), chrom_prefix="chr",
+               chrom="chr17", leading_shared=0):
+    """``leading_shared`` 件の chr1（両アセンブリで同一）の後に ``chrom`` の ``n`` 件。"""
     import pysam
     fa = pysam.FastaFile(str(fasta_path))
     lines = ["##fileformat=VCFv4.2", *header_lines,
              "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO"]
-    for i in range(n):
-        pos = 100 + i * 37
-        ref = fa.fetch("chr1", pos - 1, pos)
-        alt = "A" if ref != "A" else "C"
-        chrom = "chr1" if chrom_prefix else "1"
-        lines.append(f"{chrom}\t{pos}\t.\t{ref}\t{alt}\t.\tPASS\t.")
+    lines += _records(fa, "chr1", leading_shared, chrom_prefix)
+    lines += _records(fa, chrom, n, chrom_prefix)
     fa.close()
     return ("\n".join(lines) + "\n").encode()
 
@@ -96,6 +108,33 @@ class AssemblyCheckTests(TestCase):
         # enough records: content wins over a wrong header
         many = _vcf_bytes(self.paths["GRCh38"], n=60, header_lines=hdr)
         self.assertIsNone(ac.check_assembly("GRCh38", self._upload(many), self.paths))
+
+    def test_regression_start_of_file_cannot_tell_builds_apart(self):
+        """先頭が両アセンブリで同一の領域に偏った VCF（GATK hg19 の実例と同じ形）。"""
+        hdr = ["##contig=<ID=chr1,length=249250621>", "##contig=<ID=chr2,length=243199373>"]
+        # (a) 後半に判別できる変異がある: ファイル全体から抽出するので中身で判定できる
+        data = _vcf_bytes(self.paths["GRCh37"], n=150, leading_shared=150)
+        found = ac.check_assembly("GRCh38", self._upload(data), self.paths)
+        self.assertEqual(found[0], "GRCh37")
+        self.assertIn("REF", found[1])
+        # (b) 判別できる変異が無い: ヘッダーの染色体長で止める（以前は素通り）
+        data = _vcf_bytes(self.paths["GRCh37"], n=0, leading_shared=150, header_lines=hdr)
+        found = ac.check_assembly("GRCh38", self._upload(data), self.paths)
+        self.assertEqual(found[0], "GRCh37")
+        self.assertIn("249,250,621", found[1])
+        self.assertIsNone(ac.check_assembly("GRCh37", self._upload(data), self.paths))
+        # (c) 選択側の FASTA しか無くても、ヘッダーで止める
+        found = ac.check_assembly("GRCh38", self._upload(data), {"GRCh38": self.paths["GRCh38"]})
+        self.assertEqual(found[0], "GRCh37")
+        # (d) ヘッダーも無く判別できなければ止めない
+        data = _vcf_bytes(self.paths["GRCh37"], n=0, leading_shared=150)
+        self.assertIsNone(ac.check_assembly("GRCh38", self._upload(data), self.paths))
+
+    def test_sample_covers_the_whole_file(self):
+        data = _vcf_bytes(self.paths["GRCh38"], n=500, leading_shared=2000)
+        _, recs = ac.read_vcf_sample(self._upload(data))
+        self.assertEqual(len(recs), ac.MAX_RECORDS)
+        self.assertGreater(sum(1 for c, _, _ in recs if c == "chr17"), 20)
 
     def test_no_reference_available_never_blocks(self):
         f = self._upload(_vcf_bytes(self.paths["GRCh37"]))

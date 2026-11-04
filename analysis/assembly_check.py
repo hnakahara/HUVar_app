@@ -3,11 +3,14 @@
 利用者が選んだアセンブリと VCF の座標が明らかに食い違うときだけ投入を止める（取り違えた
 まま解析すると、全変異が別の位置として評価されてしまうため）。判定は次の順で行う。
 
-1. 中身（REF 塩基の照合）: 先頭から最大 ``MAX_RECORDS`` 件の REF を、サーバにある
-   GRCh37 / GRCh38 の参照ゲノム FASTA と照合し、一致率を比べる。正しいアセンブリでは
-   ほぼ 100% 一致し、取り違えると大きく下がる。ヘッダーが無い・誤っている VCF にも効く。
-2. ヘッダー: 中身で判断できない（照合できる変異が少ない、FASTA が無い）ときだけ、
-   ``##reference`` / ``##contig`` のアセンブリ名と染色体長で判定する。
+1. 中身（REF 塩基の照合）: ファイル全体から無作為に最大 ``MAX_RECORDS`` 件を選び、REF を
+   サーバにある GRCh37 / GRCh38 の参照ゲノム FASTA と照合して一致率を比べる。正しい
+   アセンブリではほぼ 100% 一致し、取り違えると大きく下がる。ヘッダーが無い・誤っている
+   VCF にも効く。先頭だけを使うと、両アセンブリで座標・配列がほぼ同じ領域（chr1 の
+   先頭付近など）に偏って判別できないため、ファイル全体から選ぶ。
+2. ヘッダー: 中身で白黒がつかない（両方で一致する・照合できる変異が少ない・FASTA が無い）
+   ときは、``##contig`` の染色体長（アセンブリごとに異なる）と ``##reference`` 等の
+   アセンブリ名で判定する。
 """
 from __future__ import annotations
 
@@ -18,7 +21,8 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 ASSEMBLIES = ("GRCh38", "GRCh37")
-MAX_RECORDS = 300      # 照合する変異数の上限（先頭から）
+MAX_RECORDS = 300      # 照合する変異数の上限（ファイル全体から無作為抽出）
+MAX_SCAN = 500_000     # 抽出のために読む変異行の上限（大きなファイルでの待ち時間を抑える）
 MIN_CHECKED = 20       # これ未満しか照合できなければ中身では判断しない
 MATCH_OK = 0.95        # 正しいアセンブリとみなす一致率
 MATCH_BAD = 0.90       # 選択アセンブリの一致率がこれ未満なら疑う
@@ -68,12 +72,16 @@ def _open_text(fileobj):
     return io.TextIOWrapper(raw, encoding="utf-8", errors="replace")
 
 
-def read_vcf_sample(fileobj, max_records: int = MAX_RECORDS):
-    """ヘッダー行と、先頭 ``max_records`` 件の (chrom, pos, ref) を返す。
+def read_vcf_sample(fileobj, max_records: int = MAX_RECORDS, max_scan: int = MAX_SCAN):
+    """ヘッダー行と、ファイル全体から無作為に選んだ最大 ``max_records`` 件の
+    (chrom, pos, ref) を返す（リザーバーサンプリング、乱数の種は固定）。
 
     ``fileobj`` はバイナリで読めるファイル（Django の UploadedFile など）。読み終えたら
     先頭に戻す（その後の保存に影響しないように）。"""
+    import random
+    rng = random.Random(0)
     header, records = [], []
+    seen = 0
     fileobj.seek(0)
     text = _open_text(fileobj)
     try:
@@ -87,10 +95,17 @@ def read_vcf_sample(fileobj, max_records: int = MAX_RECORDS):
             if len(cols) < 4:
                 continue
             try:
-                records.append((cols[0], int(cols[1]), cols[3]))
+                rec = (cols[0], int(cols[1]), cols[3])
             except ValueError:
                 continue
-            if len(records) >= max_records:
+            seen += 1
+            if len(records) < max_records:
+                records.append(rec)
+            else:
+                j = rng.randrange(seen)
+                if j < max_records:
+                    records[j] = rec
+            if seen >= max_scan:
                 break
     finally:
         try:
@@ -185,19 +200,25 @@ def mismatch_reason(selected: str, ev: AssemblyEvidence) -> Optional[tuple[str, 
         return None
     other = ASSEMBLIES[1] if selected == ASSEMBLIES[0] else ASSEMBLIES[0]
     r_sel, r_oth = ev.rate(selected), ev.rate(other)
+    content = "REF 一致率 " + ev.describe_match()
+    # 1. 中身で白黒がつく場合はそれに従う（ヘッダーが誤っていても中身を優先）
     if r_sel is not None and r_oth is not None:
         if r_sel < MATCH_BAD and r_oth >= MATCH_OK:
-            return other, "REF 一致率 " + ev.describe_match()
-        return None                       # 中身で判断できた（一致 or 決め手なし）
-    if r_sel is not None and r_oth is None:
-        if r_sel < MATCH_VERY_BAD:
-            return other, "REF 一致率 " + ev.describe_match()
-        if r_sel >= MATCH_OK:
+            return other, content
+        if r_sel >= MATCH_OK and r_oth < MATCH_BAD:
             return None
-    if r_oth is not None and r_sel is None and r_oth >= MATCH_OK:
-        return other, "REF 一致率 " + ev.describe_match()
+    elif r_sel is not None:                         # 選択側の FASTA しか無い
+        if r_sel < MATCH_VERY_BAD:
+            return other, content
+    elif r_oth is not None and r_oth >= MATCH_OK:    # もう一方の FASTA しか無い
+        if ev.header in (None, other):
+            return other, content
+    # 2. 中身で決まらない（両方で一致・照合不足・FASTA 無し）ときはヘッダーで判定
     if ev.header and ev.header != selected:
-        return ev.header, "VCF ヘッダー: " + ev.header_reason
+        reason = "VCF ヘッダー: " + ev.header_reason
+        if ev.match:
+            reason += "。REF は両アセンブリで判別できませんでした（" + ev.describe_match() + "）"
+        return ev.header, reason
     return None
 
 
