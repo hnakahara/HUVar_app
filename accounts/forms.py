@@ -29,6 +29,10 @@ class SignUpForm(UserCreationForm):
         super().__init__(*args, **kwargs)
         self.fields["institution"].required = True
         self.fields["registration_purpose"].required = True
+        # モデルの help_text は管理画面向けの説明なので、登録者向けの案内に置き換える
+        self.fields["registration_purpose"].help_text = _(
+            "研究・臨床・教育など、どのような目的で利用するかを簡単にご記入ください"
+            "（管理者が承認の判断に使用します）。")
         self.fields["username"].help_text = _(
             "150文字以内。半角英数字と @ . + - _ のみ使用できます。ログイン時に使用します。")
         # ブラウザの自動補完によるコピペ回避

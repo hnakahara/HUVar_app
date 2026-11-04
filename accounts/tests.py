@@ -207,3 +207,7 @@ class SignupFlowTests(TestCase):
         lst = admin.get(reverse("admin:accounts_user_changelist")
                         + "?approval_status__exact=email_pending")
         self.assertContains(lst, "alice")
+
+    def test_signup_purpose_help_is_for_the_registrant(self):
+        form = self.client.get(reverse("accounts:signup")).context["form"]
+        self.assertNotIn("自己登録時に入力された", str(form["registration_purpose"].help_text))
