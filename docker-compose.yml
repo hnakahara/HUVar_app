@@ -47,7 +47,9 @@ services:
       - ~/tools:/tools               # TransVar 参照（vas と共用、エンジン側参照用）
     expose:
       - "8000"
-    command: sh -c "/usr/local/bin/entrypoint.sh"
+    # exec 形式（sh -c を挟まない）: entrypoint が PID 1 になり、最後に exec する
+    # gunicorn/runserver が停止シグナルを直接受け取る（root のシェルも残らない）
+    command: ["/usr/local/bin/entrypoint.sh"]
     env_file:
       - .env
     depends_on:
@@ -69,7 +71,7 @@ services:
       - ~/tools:/tools
     # Celery 直列処理（concurrency=1）
     # 準備（エンジンの install 等）は root、celery は一般ユーザー huvar で動く（entrypoint.sh）
-    command: sh -c "/usr/local/bin/entrypoint.sh worker"
+    command: ["/usr/local/bin/entrypoint.sh", "worker"]
     env_file:
       - .env
     depends_on:
