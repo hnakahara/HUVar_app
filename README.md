@@ -269,6 +269,14 @@ Mail settings (`GMAIL_ADDRESS` / `GMAIL_PASS`, `ADMIN_ADDRESS`) must be configur
   from the token request admin action creates a new key. The last use time and client IP are shown on
   the user's admin page.
 - Production refuses to start without a `SECRET_KEY` of at least 32 characters.
+- **Non-root processes**: in the `acmgapp` / `worker` containers, `entrypoint.sh` does the start-up
+  preparation as root (aligns the `huvar` user's UID/GID with the owner of the HUVar_app folder on the
+  host, editable-installs the HUVar engine, fixes the ownership of `media/`, `*/migrations/`, `locale/`
+  and `/static`), then runs migrations, gunicorn / runserver and Celery as `huvar`. The mounted
+  reference data (`~/HUVar`, `/ddrive/data`, `~/tools`) must be readable by that user; a warning is
+  printed at start-up otherwise. Run management commands that write files as that user, e.g.
+  `docker compose exec -u huvar app python manage.py makemigrations` (files created as root are
+  re-owned at the next start anyway).
 
 ---
 

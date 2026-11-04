@@ -54,3 +54,12 @@ RUN pip install --index-url "${TORCH_INDEX_URL}" torch && \
 COPY . /code/
 COPY ./containers/django/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# --- 非 root 実行用ユーザー ---
+# Web(gunicorn/runserver) と Celery worker はこのユーザーで動く（root は起動時の準備だけ）。
+# UID/GID は起動時に entrypoint.sh がホスト側の /code（HUVar_app）の所有者に合わせて
+# 付け替えるため、ここでの 1000 は仮の値。/static は collectstatic の出力先。
+RUN groupadd -o -g 1000 huvar \
+    && useradd -o -u 1000 -g huvar -m -d /home/huvar -s /usr/sbin/nologin huvar \
+    && mkdir -p /static \
+    && chown huvar:huvar /static

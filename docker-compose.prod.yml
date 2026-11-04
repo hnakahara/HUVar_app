@@ -78,7 +78,8 @@ services:
       - ~/HUVar:/huvar:ro
       - /ddrive/data:/data
       - ~/tools:/tools
-    command: sh -c "if [ -f /huvar/pyproject.toml ]; then pip install --no-build-isolation --no-input -e /huvar; fi && celery -A config worker --loglevel=info --concurrency=1"
+    # 準備（エンジンの install 等）は root、celery は一般ユーザー huvar で動く（entrypoint.sh）
+    command: sh -c "/usr/local/bin/entrypoint.sh worker"
     env_file:
       - .env.prod
     depends_on:

@@ -242,7 +242,7 @@
 - **NFR-SEC-13**: 管理画面は `ADMIN_ALLOWED_NETWORKS`（CIDR）の接続元に限定可能（許可外は 404）。API トークンは発行から `API_TOKEN_MAX_AGE_DAYS` 日で失効し、最終使用日時・接続元を記録。本番は 32 文字以上の SECRET_KEY が無ければ起動しない。
 - **NFR-SEC-9**: 依存パッケージ脆弱性スキャン（CI）。bandit（中程度以上）・pip-audit の検出でジョブを失敗させる。
 - **NFR-SEC-10**: 自己登録は管理者の承認制（メールアドレス確認 → 承認まで無効。FR-AUTH と一体）。登録フォームはハニーポット＋IP 単位のレート制限付き。
-- **NFR-SEC-11**: 内部サービス（transvar・db・redis）はホストに公開せず、compose ネットワーク内のみで到達可能とする。Redis にはパスワードを設定。
+- **NFR-SEC-11**: 内部サービス（transvar・db・redis）はホストに公開せず、compose ネットワーク内のみで到達可能とする。Redis にはパスワードを設定。app / worker のサーバープロセス（gunicorn・runserver・Celery・マイグレーション）は一般ユーザー `huvar` で実行する（root は起動時の準備のみ。UID/GID はホストの HUVar_app フォルダの所有者に合わせる）。
 - 実装時、`security-reviewer` エージェントによるレビューを必須とする。
 
 ### 5.2 環境分離（NFR-ENV）
