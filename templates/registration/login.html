@@ -9,6 +9,6 @@
     <button type="submit">{% translate "ログイン" %}</button>
 </form>
 <p>{% translate "アカウントをお持ちでない方は" %}
-    <a href="{% url 'accounts:account_request' %}">{% translate "アカウント発行リクエスト" %}</a>
-    {% translate "（自己登録はできません。管理者が承認します）。" %}</p>
+    <a href="{% url 'accounts:signup' %}">{% translate "新規アカウント登録" %}</a>
+    {% translate "（管理者の承認後に利用できます）。" %}</p>
 {% endblock %}

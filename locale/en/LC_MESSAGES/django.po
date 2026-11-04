@@ -756,3 +756,89 @@ msgstr "When no score is available for a variant (non-missense, or not covered),
 
 msgid "in silico 予測は ESM1b（Brandes et al. 2023, MIT）と FuncVEP-CTI（Kayaalp et al., Nat Genet 2026; Zenodo 10.5281/zenodo.18432730, PolyForm Strict License 1.0.0）です。FuncVEP のスコアは非商用利用限定・再配布不可のため、本サイト（非営利の学術公開）での表示に限ります。閾値は ESM1b が Bergquist et al. 2024、FuncVEP が原論文の補足表に従います。"
 msgstr "The in-silico predictors are ESM1b (Brandes et al. 2023, MIT) and FuncVEP-CTI (Kayaalp et al., Nat Genet 2026; Zenodo 10.5281/zenodo.18432730, PolyForm Strict License 1.0.0). FuncVEP scores are non-commercial and not redistributable, so they are shown only on this site (a non-profit academic service). Thresholds follow Bergquist et al. 2024 for ESM1b and the original paper's supplementary table for FuncVEP."
+
+# --- self-registration (signup / email confirmation / approval) ---
+msgid "新規アカウント登録"
+msgstr "Create an account"
+
+msgid "登録後、入力したメールアドレスに確認メールが届きます。リンクを開いてメールアドレスを確認すると、管理者の承認を経てご利用いただけるようになります（承認結果はメールでお知らせします）。"
+msgstr "After you register, a confirmation email is sent to the address you entered. Open the link to confirm your email address; you can use the service once an administrator approves the account (you will be notified of the result by email)."
+
+msgid "登録する"
+msgstr "Register"
+
+msgid "確認メールを送信しました"
+msgstr "Confirmation email sent"
+
+msgid "登録したメールアドレスに確認メールを送信しました。メール内のリンクを開いてメールアドレスを確認してください。確認後、管理者が承認するとメールでお知らせします。"
+msgstr "A confirmation email has been sent to the address you registered. Open the link in the email to confirm your address. After that, you will be notified by email when an administrator approves your account."
+
+msgid "メールが届かない場合は迷惑メールフォルダをご確認ください。リンクの有効期限が切れた場合は、もう一度登録してください。"
+msgstr "If you do not receive the email, check your spam folder. If the link has expired, please register again."
+
+msgid "メールアドレスの確認"
+msgstr "Email confirmation"
+
+msgid "メールアドレスを確認しました。管理者の承認をお待ちください。承認されるとメールでお知らせします。"
+msgstr "Your email address has been confirmed. Please wait for administrator approval; you will be notified by email."
+
+msgid "このメールアドレスは既に確認済みです。"
+msgstr "This email address has already been confirmed."
+
+msgid "確認リンクが無効か、有効期限が切れています。お手数ですが、もう一度登録してください。"
+msgstr "The confirmation link is invalid or has expired. Please register again."
+
+msgid "（管理者の承認後に利用できます）。"
+msgstr "(accounts can be used after administrator approval)."
+
+msgid "登録したユーザー名とパスワードでログインします（管理者の承認後）。"
+msgstr "Log in with the user name and password you registered (after administrator approval)."
+
+msgid "言語切替・アカウント登録"
+msgstr "Language switching and account registration"
+
+msgid "5. 言語切替・アカウント登録"
+msgstr "5. Language switching and account registration"
+
+msgid "新規アカウントはログイン画面の「新規アカウント登録」から登録します。確認メールのリンクでメールアドレスを確認した後、管理者が承認すると利用できるようになります（結果はメールで通知されます）。"
+msgstr "Register a new account from \"Create an account\" on the login page. After you confirm your email address with the link in the confirmation email, the account can be used once an administrator approves it (you will be notified of the result by email)."
+
+msgid "メールアドレス"
+msgstr "Email address"
+
+msgid "メールアドレス（確認）"
+msgstr "Email address (confirm)"
+
+msgid "所属"
+msgstr "Institution"
+
+msgid "利用目的"
+msgstr "Purpose of use"
+
+msgid "150文字以内。半角英数字と @ . + - _ のみ使用できます。ログイン時に使用します。"
+msgstr "Up to 150 characters: letters, digits and @ . + - _ only. Used to log in."
+
+msgid "このメールアドレスは既に登録されています。"
+msgstr "This email address is already registered."
+
+msgid "送信できませんでした。"
+msgstr "The form could not be submitted."
+
+msgid "メールアドレスが一致しません。"
+msgstr "The email addresses do not match."
+
+msgid "メールアドレスの確認が完了していません。登録時に送信された確認メールのリンクを開いてください。"
+msgstr "Your email address has not been confirmed yet. Open the link in the confirmation email sent when you registered."
+
+msgid "このアカウントは管理者の承認待ちです。承認されるとメールでお知らせします。"
+msgstr "This account is awaiting administrator approval. You will be notified by email when it is approved."
+
+msgid "このアカウントは承認されませんでした。"
+msgstr "This account was not approved."
+
+msgid "リクエストが多すぎます。しばらく時間をおいて再度お試しください。"
+msgstr "Too many requests. Please wait a while and try again."
+
+msgid "確認メールを送信できませんでした。時間をおいて再度お試しください。"
+msgstr "The confirmation email could not be sent. Please try again later."
+

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "メールアドレスの確認" %} | HUVar{% endblock %}
+{% block content %}
+<h1>{% translate "メールアドレスの確認" %}</h1>
+{% if state == "verified" %}
+<p>{% translate "メールアドレスを確認しました。管理者の承認をお待ちください。承認されるとメールでお知らせします。" %}</p>
+{% elif state == "already" %}
+<p>{% translate "このメールアドレスは既に確認済みです。" %}</p>
+{% else %}
+<p>{% translate "確認リンクが無効か、有効期限が切れています。お手数ですが、もう一度登録してください。" %}</p>
+<p><a href="{% url 'accounts:signup' %}">{% translate "新規アカウント登録" %}</a></p>
+{% endif %}
+<p><a href="{% url 'accounts:login' %}">{% translate "ログインへ戻る" %}</a></p>
+{% endblock %}

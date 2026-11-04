@@ -11,7 +11,7 @@
         <li><a href="#single">{% translate "単一バリアント解析" %}</a></li>
         <li><a href="#batch">{% translate "バッチ解析 (VCF)" %}</a></li>
         <li><a href="#api">{% translate "API（外部連携）" %}</a></li>
-        <li><a href="#misc">{% translate "言語切替・アカウント発行" %}</a></li>
+        <li><a href="#misc">{% translate "言語切替・アカウント登録" %}</a></li>
     </ul>
 </nav>
 
@@ -19,7 +19,7 @@
 
 <h2 id="login">{% translate "1. ログインと多要素認証 (MFA)" %}</h2>
 <ul>
-    <li>{% translate "発行されたユーザー名と仮パスワードでログインします。" %}</li>
+    <li>{% translate "登録したユーザー名とパスワードでログインします（管理者の承認後）。" %}</li>
     <li>{% translate "初回ログイン時に多要素認証 (MFA) の設定が必要です。認証アプリ (Google Authenticator など) で QR コードを読み取り、表示された 6 桁コードを入力してください。" %}</li>
     <li>{% translate "2 回目以降はログイン後に 6 桁コードの入力を求められます。" %}</li>
     <li>{% translate "セッションはブラウザを閉じると失効します（最大 12 時間保持）。" %}</li>
@@ -107,10 +107,10 @@
     <li>{% translate "レート制限が適用されます（既定 60 リクエスト／分）。" %}</li>
 </ul>
 
-<h2 id="misc">{% translate "5. 言語切替・アカウント発行" %}</h2>
+<h2 id="misc">{% translate "5. 言語切替・アカウント登録" %}</h2>
 <ul>
     <li>{% translate "画面右上のセレクタで日本語 / English を切り替えできます。" %}</li>
-    <li>{% translate "新規アカウントは自己登録できません。発行リクエストを送信し、管理者の承認後に発行されます。" %}</li>
+    <li>{% translate "新規アカウントはログイン画面の「新規アカウント登録」から登録します。確認メールのリンクでメールアドレスを確認した後、管理者が承認すると利用できるようになります（結果はメールで通知されます）。" %}</li>
 </ul>
 
 <h2 id="data-sources">{% translate "6. データ出典" %}</h2>

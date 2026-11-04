@@ -3,9 +3,11 @@ import secrets
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin
 from django.db.models import Count, Q
+from django.urls import reverse
 from django.utils import timezone
 
 from .models import AccountRequest, TokenRequest, User
+from .notifications import notify_user
 
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
@@ -15,13 +17,21 @@ class CustomUserAdmin(UserAdmin):
                     "n_api_classify", "n_api_jobs",
                     "api_single_monthly_limit", "api_single_remaining",
                     "api_batch_monthly_limit", "api_batch_remaining",
-                    "is_active", "is_staff")
+                    "approval_status", "is_active", "is_staff")
     # 一覧上で上限・残り回数を直接編集可能にする
     list_editable = ("api_single_monthly_limit", "api_single_remaining",
                      "api_batch_monthly_limit", "api_batch_remaining")
-    list_filter = ("role", "mfa_exempt", "is_active", "is_staff")
+    list_filter = ("approval_status", "role", "mfa_exempt", "is_active", "is_staff")
+    actions = ["approve_registrations", "reject_registrations"]
+    readonly_fields = ("email_verified_at", "approval_processed_at")
     fieldsets = UserAdmin.fieldsets + (
         ("HUVar", {"fields": ("role", "institution", "mfa_exempt")}),
+        ("自己登録・承認", {
+            "fields": ("approval_status", "registration_purpose",
+                       "email_verified_at", "approval_processed_at"),
+            "description": "承認・却下はユーザー一覧で対象を選び、アクション"
+                           "「選択した登録を承認する／却下する」から行います（本人にメールで通知）。",
+        }),
         ("API 利用上限（月次・トークンごと）", {
             "fields": ("api_single_monthly_limit", "api_single_remaining",
                        "api_batch_monthly_limit", "api_batch_remaining",
@@ -44,6 +54,76 @@ class CustomUserAdmin(UserAdmin):
             _n_api_classify=_cnt("api_classify"),    # API 単一(classify)
             _n_api_jobs=_cnt("api_batch_submit"),    # API バッチ(jobs)
         )
+
+    @admin.action(description="選択した登録を承認する（アカウントを有効化し本人に通知）")
+    def approve_registrations(self, request, queryset):
+        from analysis.models import AuditLog
+        login_url = request.build_absolute_uri(reverse("accounts:login"))
+        for user in queryset:
+            if user.approval_status == User.ApprovalStatus.APPROVED and user.is_active:
+                self.message_user(request, f"{user.username}: 既に承認済みです。",
+                                  level=messages.INFO)
+                continue
+            if user.approval_status == User.ApprovalStatus.EMAIL_PENDING:
+                self.message_user(
+                    request, f"{user.username}: メールアドレスの確認が済んでいないため"
+                             "承認しませんでした。", level=messages.WARNING)
+                continue
+            user.is_active = True
+            user.approval_status = User.ApprovalStatus.APPROVED
+            user.approval_processed_at = timezone.now()
+            user.save(update_fields=["is_active", "approval_status", "approval_processed_at"])
+            AuditLog.objects.create(user=request.user, action="user_approved",
+                                    detail=user.username)
+            sent = notify_user(
+                user, "アカウントが承認されました / Your account has been approved",
+                f"{user.username} 様\n\n"
+                "HUVar ACMG Classifier のアカウントが承認されました。次の URL から、登録した"
+                "ユーザー名とパスワードでログインしてください。初回ログイン時に多要素認証"
+                "（MFA）の設定が必要です。\n\n"
+                f"{login_url}\n\n"
+                "----\n"
+                "Your HUVar ACMG Classifier account has been approved. Log in at the URL "
+                "above with the user name and password you registered. You will be asked "
+                "to set up multi-factor authentication (MFA) at the first login.\n",
+            )
+            self.message_user(
+                request, f"{user.username}: 承認しました"
+                         + ("（本人に通知メールを送信）。" if sent else
+                            "。通知メールは送信できませんでした。"),
+                level=messages.SUCCESS if sent else messages.WARNING)
+
+    @admin.action(description="選択した登録を却下する（本人に通知）")
+    def reject_registrations(self, request, queryset):
+        from analysis.models import AuditLog
+        for user in queryset:
+            if not user.is_awaiting_approval:
+                self.message_user(
+                    request, f"{user.username}: 承認待ちではないため変更しませんでした"
+                             "（既存アカウントの停止は「有効」のチェックを外してください）。",
+                    level=messages.WARNING)
+                continue
+            # メール未確認のアドレスには送らない（他人のアドレスの可能性がある）
+            verified = user.approval_status == User.ApprovalStatus.PENDING
+            user.is_active = False
+            user.approval_status = User.ApprovalStatus.REJECTED
+            user.approval_processed_at = timezone.now()
+            user.save(update_fields=["is_active", "approval_status", "approval_processed_at"])
+            AuditLog.objects.create(user=request.user, action="user_rejected",
+                                    detail=user.username)
+            sent = verified and notify_user(
+                user, "アカウント登録について / About your account registration",
+                f"{user.username} 様\n\n"
+                "HUVar ACMG Classifier へのアカウント登録は承認されませんでした。"
+                "ご不明な点は管理者までお問い合わせください。\n\n"
+                "----\n"
+                "Your registration for HUVar ACMG Classifier was not approved. Please "
+                "contact the administrator if you have any questions.\n",
+            )
+            self.message_user(
+                request, f"{user.username}: 却下しました"
+                         + ("（本人に通知メールを送信）。" if sent else "。"),
+                level=messages.SUCCESS)
 
     @admin.display(description="ログイン回数", ordering="_n_login")
     def n_login(self, obj):
@@ -68,6 +148,8 @@ class CustomUserAdmin(UserAdmin):
 
 @admin.register(AccountRequest)
 class AccountRequestAdmin(admin.ModelAdmin):
+    """（旧方式）アカウント発行リクエストの履歴。新規受付は自己登録（ユーザー一覧の
+    「自己登録・承認」）に移行した。"""
     list_display = ("full_name", "email", "institution", "status", "created_at")
     list_filter = ("status",)
     search_fields = ("full_name", "email", "institution")

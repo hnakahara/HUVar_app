@@ -1,6 +1,7 @@
 import base64
 import io
-import os
+import logging
+from datetime import timedelta
 
 import qrcode
 import qrcode.image.svg
@@ -10,12 +11,21 @@ from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.core.mail import send_mail
 from django.shortcuts import redirect, render
+from django.urls import reverse
+from django.utils import timezone
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from django.utils.translation import gettext as _
 
 from django_otp import login as otp_login
 from django_otp.plugins.otp_totp.models import TOTPDevice
 
-from .forms import AccountRequestForm, TokenRequestForm
+from .forms import SignUpForm, TokenRequestForm
+from .models import User
 from .notifications import notify_admin
+from .tokens import email_verification_token
+
+log = logging.getLogger(__name__)
 
 
 def _client_ip(request) -> str:
@@ -38,36 +48,108 @@ def _rate_limited(request, action: str, limit: int = 5, window: int = 600) -> bo
         return False
 
 
-def account_request(request):
-    """新規ユーザーは自己登録できないため、発行リクエストのみ送信する。"""
+def _purge_stale_unverified() -> None:
+    """確認リンクの有効期限を過ぎてもメール確認されなかった自己登録を削除する。
+
+    ユーザー名・メールアドレスを解放し、同じ情報で登録し直せるようにする。"""
+    cutoff = timezone.now() - timedelta(seconds=settings.PASSWORD_RESET_TIMEOUT)
+    User.objects.filter(
+        approval_status=User.ApprovalStatus.EMAIL_PENDING,
+        is_active=False,
+        date_joined__lt=cutoff,
+    ).delete()
+
+
+def _send_verification_email(request, user) -> None:
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = email_verification_token.make_token(user)
+    url = request.build_absolute_uri(
+        reverse("accounts:verify_email", kwargs={"uidb64": uid, "token": token}))
+    days = max(1, settings.PASSWORD_RESET_TIMEOUT // 86400)
+    send_mail(
+        subject="[HUVar] メールアドレスの確認 / Confirm your email address",
+        message=(
+            f"{user.get_username()} 様\n\n"
+            "HUVar ACMG Classifier へのご登録ありがとうございます。\n"
+            f"次のリンクを開いてメールアドレスを確認してください（有効期限 {days} 日）。\n"
+            "確認後、管理者の承認を経てご利用いただけるようになります。\n\n"
+            f"{url}\n\n"
+            "このメールに心当たりがない場合は破棄してください。\n\n"
+            "----\n"
+            "Thank you for registering with HUVar ACMG Classifier.\n"
+            f"Open the link above within {days} day(s) to confirm your email address. "
+            "Your account can be used after an administrator approves it.\n"
+            "If you did not register, please ignore this email.\n"
+        ),
+        from_email=None,
+        recipient_list=[user.email],
+        fail_silently=False,
+    )
+
+
+def signup(request):
+    """自己登録。アカウントは無効で作成し、本人に確認メールを送る。
+
+    確認リンクを開くと承認待ちになり、管理者へ通知される（verify_email）。"""
     if request.method == "POST":
-        if _rate_limited(request, "account_request"):
-            messages.error(request, "リクエストが多すぎます。しばらく時間をおいて再度お試しください。")
-            return render(request, "accounts/account_request.html", {"form": AccountRequestForm()})
-        form = AccountRequestForm(request.POST)
+        if _rate_limited(request, "signup"):
+            messages.error(request, _("リクエストが多すぎます。しばらく時間をおいて再度お試しください。"))
+            return render(request, "accounts/signup.html", {"form": SignUpForm()})
+        _purge_stale_unverified()
+        form = SignUpForm(request.POST)
         if form.is_valid():
-            obj = form.save()
-            admin_address = getattr(settings, "ADMIN_ADDRESS", "") or os.environ.get(
-                "ADMIN_ADDRESS", ""
-            )
-            if admin_address:
-                send_mail(
-                    subject="[HUVar] 新規アカウント発行リクエスト",
-                    message=(
-                        f"ユーザー名: {obj.full_name}\n"
-                        f"メール: {obj.email}\n"
-                        f"所属: {obj.institution}\n"
-                        f"目的: {obj.purpose}\n"
-                    ),
-                    from_email=None,
-                    recipient_list=[admin_address],
-                    fail_silently=True,
-                )
-            messages.success(request, "リクエストを送信しました。管理者の承認をお待ちください。")
-            return redirect("accounts:login")
+            user = form.save()
+            try:
+                _send_verification_email(request, user)
+            except Exception:  # noqa: BLE001  確認メールが届かない登録は残さない
+                log.exception("signup verification email failed for %s", user.email)
+                user.delete()
+                messages.error(request, _(
+                    "確認メールを送信できませんでした。時間をおいて再度お試しください。"))
+                return render(request, "accounts/signup.html", {"form": form})
+            from analysis.models import AuditLog
+            AuditLog.objects.create(user=user, action="signup", detail=user.email)
+            return redirect("accounts:signup_done")
     else:
-        form = AccountRequestForm()
-    return render(request, "accounts/account_request.html", {"form": form})
+        form = SignUpForm()
+    return render(request, "accounts/signup.html", {"form": form})
+
+
+def signup_done(request):
+    return render(request, "accounts/signup_done.html")
+
+
+def verify_email(request, uidb64, token):
+    """確認リンク。正しければ承認待ち（pending）にして管理者へ通知する。"""
+    try:
+        user = User.objects.get(pk=force_str(urlsafe_base64_decode(uidb64)))
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        user = None
+
+    if user is not None and user.approval_status == User.ApprovalStatus.EMAIL_PENDING \
+            and email_verification_token.check_token(user, token):
+        user.approval_status = User.ApprovalStatus.PENDING
+        user.email_verified_at = timezone.now()
+        user.save(update_fields=["approval_status", "email_verified_at"])
+        from analysis.models import AuditLog
+        AuditLog.objects.create(user=user, action="signup_email_verified", detail=user.email)
+        admin_url = request.build_absolute_uri(
+            reverse("admin:accounts_user_changelist")
+            + f"?approval_status__exact={User.ApprovalStatus.PENDING}")
+        notify_admin(
+            "新規アカウントの承認待ち",
+            f"ユーザー名: {user.get_username()}\n"
+            f"メール: {user.email}（確認済み）\n"
+            f"所属: {user.institution}\n"
+            f"利用目的: {user.registration_purpose}\n\n"
+            f"承認・却下はユーザー一覧のアクションから行ってください:\n{admin_url}\n",
+        )
+        state = "verified"
+    elif user is not None and user.approval_status != User.ApprovalStatus.EMAIL_PENDING:
+        state = "already"
+    else:
+        state = "invalid"
+    return render(request, "accounts/verify_email.html", {"state": state})
 
 
 def token_request(request):

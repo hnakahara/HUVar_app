@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "確認メールを送信しました" %} | HUVar{% endblock %}
+{% block content %}
+<h1>{% translate "確認メールを送信しました" %}</h1>
+<p>{% translate "登録したメールアドレスに確認メールを送信しました。メール内のリンクを開いてメールアドレスを確認してください。確認後、管理者が承認するとメールでお知らせします。" %}</p>
+<p>{% translate "メールが届かない場合は迷惑メールフォルダをご確認ください。リンクの有効期限が切れた場合は、もう一度登録してください。" %}</p>
+<p><a href="{% url 'accounts:login' %}">{% translate "ログインへ戻る" %}</a></p>
+{% endblock %}

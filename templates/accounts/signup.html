@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "新規アカウント登録" %} | HUVar{% endblock %}
+{% block content %}
+<h1>{% translate "新規アカウント登録" %}</h1>
+<p>{% translate "登録後、入力したメールアドレスに確認メールが届きます。リンクを開いてメールアドレスを確認すると、管理者の承認を経てご利用いただけるようになります（承認結果はメールでお知らせします）。" %}</p>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">{% translate "登録する" %}</button>
+</form>
+<p><a href="{% url 'accounts:login' %}">{% translate "ログインへ戻る" %}</a></p>
+{% endblock %}

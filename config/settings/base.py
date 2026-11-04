@@ -243,7 +243,8 @@ LOGIN_REDIRECT_URL = "accounts:mfa_setup"
 OTP_TOTP_ISSUER = "HUVar ACMG Classifier"
 
 # --- メール（Gmail SMTP）/ 管理者通知 ---
-# ADMIN_ADDRESS 宛にアカウント発行リクエスト・ログイン・解析実行を通知する
+# ADMIN_ADDRESS 宛に承認待ちの自己登録・ログイン・解析実行を通知する。自己登録の確認メール・
+# 承認/却下の通知も同じ SMTP 設定で本人宛に送る
 # （accounts.notifications.notify_admin）。未設定なら通知はスキップされる。
 # 認証は GMAIL_ADDRESS / GMAIL_PASS（Gmail アプリパスワード）を使用する。
 ADMIN_ADDRESS = os.environ.get("ADMIN_ADDRESS", "")

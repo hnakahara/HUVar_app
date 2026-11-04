@@ -225,8 +225,13 @@ On startup, `entrypoint.sh` automatically runs `migrate` / `collectstatic` / `co
 ```bash
 docker compose exec app python manage.py createsuperuser
 ```
-New users cannot self-register: they submit an account request, and an administrator approves/creates
-the account from the Django admin.
+New users register themselves from **Create an account** on the login page (`/accounts/signup/`).
+The account is created inactive: the user first confirms the email address with the link sent to them
+(valid for 3 days, single use), then an administrator is notified and approves or rejects it from the
+Django admin (**Users** → filter *approval status* → action *approve / reject the selected
+registrations*). The user is told the result by email (a rejection only when the address was
+confirmed). Registrations never confirmed are removed at the next sign-up after the link expires.
+Mail settings (`GMAIL_ADDRESS` / `GMAIL_PASS`, `ADMIN_ADDRESS`) must be configured for this flow.
 
 ---
 

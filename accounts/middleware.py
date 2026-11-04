@@ -32,6 +32,8 @@ class MFAEnforcementMiddleware:
                 reverse("accounts:login"),
                 reverse("accounts:logout"),
                 reverse("accounts:account_request"),
+                reverse("accounts:signup"),
+                reverse("accounts:signup_done"),
                 reverse("accounts:token_request"),
                 reverse("accounts:mfa_setup"),
                 reverse("accounts:mfa_verify"),
