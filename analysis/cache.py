@@ -224,7 +224,8 @@ def cached_classify_single(assembly: str, chrom: str, pos: int, ref: str, alt: s
 # ---------------------------------------------------------------------------
 
 _TSV_BASE_COLS = [
-    "variant_id", "chrom", "pos", "ref", "alt", "gene_symbol", "transcript_id",
+    # input_variant: 正規化で表記が変わったときの VCF 上の表記（例 GAAA>GAA → GA>G）
+    "variant_id", "input_variant", "chrom", "pos", "ref", "alt", "gene_symbol", "transcript_id",
     "hgvs_c", "hgvs_p",
     # MANE Plus Clinical の補足（評価は MANE Select）。複数（GNAS）は ";" 区切り。
     "mane_plus_clinical_transcript", "mane_plus_clinical_hgvs_c",
@@ -257,14 +258,25 @@ def _vcep_concordance(vcep_assertion: str, automated: str) -> str:
 
 
 def _read_variants(vcf_path: str, assembly: str):
-    """VCF を read_vcf で列挙し [(key, chrom, pos, ref, alt)] を順序保持で返す。"""
+    """VCF を read_vcf で列挙し [(key, chrom, pos, ref, alt, input_variant)] を順序保持で返す。
+
+    エンジンの解析（run_pipeline）と同じく、アレルを正規化（余分な塩基の除去・参照ゲノム
+    による左寄せ）した表記で返す。キャッシュの照合キーと解析結果のキーをそろえるため。
+    input_variant は正規化で表記が変わったときの VCF 上の表記（変わらなければ ""）。"""
     from acmg_classifier.io.vcf_reader import read_vcf
     from acmg_classifier.models.enums import Assembly
 
+    from .engine import _build_config
+
+    try:
+        fasta = _build_config(assembly).genome_fasta
+    except Exception:  # noqa: BLE001  FASTA が無くても余分な塩基の除去は行われる
+        fasta = None
     out = []
-    for v in read_vcf(Path(vcf_path), Assembly(assembly)):
+    for v in read_vcf(Path(vcf_path), Assembly(assembly), fasta=fasta):
         if v.alt and v.alt != ".":
-            out.append((v.key, v.chrom, v.pos, v.ref, v.alt))
+            out.append((v.key, v.chrom, v.pos, v.ref, v.alt,
+                        getattr(v, "input_variant", None) or ""))
     return out
 
 
@@ -321,13 +333,17 @@ def somatic_judgment(c: dict) -> str:
     return "met" if c.get("met") else "not_met"
 
 
-def _write_batch_tsv(out_path: str, displays: list, somatics: list = None) -> None:
+def _write_batch_tsv(out_path: str, displays: list, somatics: list = None,
+                     inputs: list = None) -> None:
     """display dict 群（VCF 順）から全クライテリア列付き TSV を書く。
 
     somatics（displays と同順、None 可）を渡すと、体細胞の要約列（基本列の直後）と
-    体細胞クライテリア列（末尾）を加えた統合 TSV にする。"""
-    pairs = [(d, (somatics[i] if somatics else None))
-             for i, d in enumerate(displays) if d]
+    体細胞クライテリア列（末尾）を加えた統合 TSV にする。inputs（同順）は正規化前の
+    VCF 上の表記で、表記が変わった変異は input_variant 列と警告に示す。"""
+    triples = [(d, (somatics[i] if somatics else None),
+                (inputs[i] if inputs and i < len(inputs) else ""))
+               for i, d in enumerate(displays) if d]
+    pairs = [(d, s) for d, s, _ in triples]
     rows = [d for d, _ in pairs]
     crit_order = [c["criterion"] for c in rows[0]["criteria"]] if rows else []
     som_order = []
@@ -345,11 +361,16 @@ def _write_batch_tsv(out_path: str, displays: list, somatics: list = None) -> No
     with open(out_path, "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh, delimiter="\t")
         w.writerow(header)
-        for d, som in pairs:
+        for d, som, input_variant in triples:
             crit_map = {c["criterion"]: c for c in d.get("criteria", [])}
             clinvar = d.get("clinvar") or {}
+            warnings = list(d.get("warnings", []))
+            if input_variant:
+                warnings.insert(0, f"NORMALIZED: VCF allele {input_variant} evaluated as "
+                                   f"{d.get('variant_id', '')} (minimal, left-aligned "
+                                   "representation used for ClinVar/gnomAD/splice lookups)")
             row = [
-                d.get("variant_id", ""), d.get("chrom", ""), d.get("pos", ""),
+                d.get("variant_id", ""), input_variant, d.get("chrom", ""), d.get("pos", ""),
                 d.get("ref", ""), d.get("alt", ""), d.get("gene_symbol", ""),
                 d.get("transcript_id", ""), d.get("hgvs_c", ""), d.get("hgvs_p", ""),
                 *mane_pc_cells(d),
@@ -367,7 +388,7 @@ def _write_batch_tsv(out_path: str, displays: list, somatics: list = None) -> No
                                   d.get("classification_2015", "")),
                 _vcep_concordance((d.get("vcep") or {}).get("assertion", ""),
                                   d.get("classification_bayesian", "")),
-                " / ".join(d.get("warnings", [])),
+                " / ".join(warnings),
             ]
             if somatics is not None:
                 row += somatic_summary_cells(som)
@@ -415,7 +436,7 @@ def cached_classify_batch(in_vcf_path: str, out_tsv_path: str, assembly: str,
     ev = engine_version()
 
     cached = {}
-    for key, chrom, pos, ref, alt in variants:
+    for key, chrom, pos, ref, alt, _input in variants:
         row = VariantResultCache.objects.filter(
             assembly=assembly, chrom=chrom, pos=int(pos), ref=ref, alt=alt,
             engine_version=ev, refdata_signature=sig,
@@ -428,7 +449,7 @@ def cached_classify_batch(in_vcf_path: str, out_tsv_path: str, assembly: str,
     som_cached = {}
     if somatic:
         som_sig = somatic_signature(assembly, tool)
-        for key, chrom, pos, ref, alt in variants:
+        for key, chrom, pos, ref, alt, _input in variants:
             d = _load_somatic(assembly, chrom, pos, ref, alt, slot, som_sig)
             if d is not None:
                 som_cached[key] = d
@@ -461,7 +482,8 @@ def cached_classify_batch(in_vcf_path: str, out_tsv_path: str, assembly: str,
     ordered = [fresh.get(key) or cached.get(key) for key, *_ in variants]
     somatics = ([som_fresh.get(key) or som_cached.get(key) for key, *_ in variants]
                 if somatic else None)
-    _write_batch_tsv(out_tsv_path, ordered, somatics)
+    _write_batch_tsv(out_tsv_path, ordered, somatics,
+                     inputs=[v[5] for v in variants])
     _write_batch_provenance(out_tsv_path, assembly, tool)
     return len([d for d in ordered if d])
 

@@ -367,3 +367,29 @@ class BatchWorkersTests(TestCase):
         self.assertNotIn("workers", kw)
         self.assertNotIn("classify_workers", kw)
         self.assertNotIn("workers", self._built(True, {"HUVAR_BATCH_WORKERS": "abc"}))
+
+
+class BatchTsvNormalisationTests(TestCase):
+    def test_input_representation_column_and_warning(self):
+        import csv
+        from .cache import _write_batch_tsv
+        crit = [{"criterion": "PM2", "triggered": False, "strength": "", "evidence": ""}]
+        displays = [
+            {"variant_id": "chr1:115725557:GA:G", "chrom": "chr1", "pos": 115725557,
+             "ref": "GA", "alt": "G", "criteria": crit, "warnings": ["w1"]},
+            None,                                         # a record with no result
+            {"variant_id": "chr1:10:A:T", "chrom": "chr1", "pos": 10, "ref": "A", "alt": "T",
+             "criteria": crit, "warnings": []},
+        ]
+        out = Path(tempfile.mkdtemp()) / "o.tsv"
+        _write_batch_tsv(str(out), displays,
+                         inputs=["chr1:115725557:GAAA:GAA", "chr1:5:C:G", ""])
+        with out.open(encoding="utf-8") as fh:
+            rows = list(csv.DictReader(fh, delimiter="\t"))
+        self.assertEqual(rows[0]["input_variant"], "chr1:115725557:GAAA:GAA")
+        self.assertTrue(rows[0]["warnings"].startswith("NORMALIZED: VCF allele "
+                                                       "chr1:115725557:GAAA:GAA"))
+        self.assertTrue(rows[0]["warnings"].endswith(" / w1"))
+        self.assertEqual(rows[1]["variant_id"], "chr1:10:A:T")      # stays aligned
+        self.assertEqual(rows[1]["input_variant"], "")
+        shutil.rmtree(out.parent, ignore_errors=True)
