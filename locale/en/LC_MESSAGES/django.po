@@ -871,3 +871,7 @@ msgstr "%(h)s hour(s) after the analysis finishes"
 msgid "選択したアセンブリ（%(selected)s）と VCF の座標が一致しません。%(detected)s の座標である可能性が高いです（%(evidence)s）。アセンブリの選択を確認してください。"
 msgstr "The VCF coordinates do not match the selected assembly (%(selected)s); they are most likely %(detected)s (%(evidence)s). Please check the assembly."
 
+#, python-format
+msgid "成果物は解析終了から %(h)s 時間で自動削除されます。"
+msgstr "Results are deleted automatically %(h)s hour(s) after the analysis finishes."
+

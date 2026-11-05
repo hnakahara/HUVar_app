@@ -82,7 +82,7 @@ def insilico_choices(assembly: str = "GRCh38"):
 
 
 def _build_config(assembly: str, openspliceai_flanking_size: Optional[int] = None,
-                  insilico_tool: Optional[str] = None):
+                  insilico_tool: Optional[str] = None, batch: bool = False):
     from acmg_classifier.config import Config
     from acmg_classifier.models.enums import Assembly, InSilicoTool
 
@@ -101,6 +101,15 @@ def _build_config(assembly: str, openspliceai_flanking_size: Optional[int] = Non
     # 単一バリアント解析のみ高感度な flanking を指定（batch は既定 80nt のまま）。
     if openspliceai_flanking_size is not None:
         kwargs["openspliceai_flanking_size"] = openspliceai_flanking_size
+    # バッチ解析（Celery worker）だけの並列数。単一変異の解析（Web）は既定のまま。
+    #   HUVAR_BATCH_WORKERS: VEP の --fork 合計・注釈の並列スレッド数（エンジン既定 4）
+    #   HUVAR_BATCH_CLASSIFY_WORKERS: 判定（クライテリア評価）のプロセス数（既定 1）
+    if batch:
+        for env, key in (("HUVAR_BATCH_WORKERS", "workers"),
+                         ("HUVAR_BATCH_CLASSIFY_WORKERS", "classify_workers")):
+            value = os.environ.get(env, "").strip()
+            if value.isdigit() and int(value) > 0:
+                kwargs[key] = int(value)
     return Config(data_dir=Path(DATA_DIR), assembly=asm, **kwargs)
 
 
@@ -575,7 +584,7 @@ def classify_batch(vcf_path: str, output_tsv_path: str, assembly: str,
             f"解析エンジン(acmg_classifier)が利用できません: {exc}"
         ) from exc
 
-    cfg = _build_config(assembly, insilico_tool=insilico_tool)
+    cfg = _build_config(assembly, insilico_tool=insilico_tool, batch=True)
     try:
         results = run_pipeline(Path(vcf_path), cfg, output_path=Path(output_tsv_path))
     except FileNotFoundError as exc:
@@ -602,7 +611,7 @@ def classify_vcf(vcf_path: str, assembly: str, somatic: bool = False,
             f"解析エンジン(acmg_classifier)が利用できません: {exc}"
         ) from exc
 
-    cfg = _build_config(assembly, insilico_tool=insilico_tool)
+    cfg = _build_config(assembly, insilico_tool=insilico_tool, batch=True)
     code = normalize_tumor_type(tumor_type)
     som_clf = _somatic_classifier(cfg, code) if somatic else None  # 不明な腫瘍型は先に検出
     mpath = manual_criteria_path(cfg)

@@ -223,10 +223,20 @@ CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 CELERY_RESULT_BACKEND = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 CELERY_TASK_ACKS_LATE = True
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1  # 直列処理を担保
-CELERY_TASK_TIME_LIMIT = 60 * 60
+# バッチ 1 件の解析時間の上限（時間）。超えたらアプリ側で解析（VEP 等の子プロセスを
+# 含む）を打ち切り、ジョブを「失敗（制限時間超過）」として記録する（analysis.tasks）。
+# 以前は Celery の 1 時間の強制終了だけで、エクソーム VCF が途中で止まり状態が
+# 「解析中」のまま残った。
+BATCH_TIME_LIMIT_HOURS = float(os.environ.get("BATCH_TIME_LIMIT_HOURS", "12"))
+BATCH_TIME_LIMIT = int(BATCH_TIME_LIMIT_HOURS * 3600)
+# Celery の強制終了はアプリ側の打ち切りが効かなかった場合の最後の手段（15 分の余裕）
+CELERY_TASK_TIME_LIMIT = BATCH_TIME_LIMIT + 15 * 60
 # Redis 接続のレジリエンス（一時切断時の自動再接続・keepalive）
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
-CELERY_BROKER_TRANSPORT_OPTIONS = {"socket_keepalive": True, "health_check_interval": 30}
+# visibility_timeout: 未完了（acks_late）のジョブを Redis が配り直すまでの秒数。既定の
+# 1 時間だと、1 時間を超える解析が実行中に配り直されて重複実行される。
+CELERY_BROKER_TRANSPORT_OPTIONS = {"socket_keepalive": True, "health_check_interval": 30,
+                                   "visibility_timeout": CELERY_TASK_TIME_LIMIT + 3600}
 CELERY_RESULT_BACKEND_TRANSPORT_OPTIONS = {"socket_keepalive": True, "health_check_interval": 30}
 # 接続断時は実行中タスクを安全に再配信（acks_late と併用。再実行はキャッシュで高速）
 CELERY_WORKER_CANCEL_LONG_RUNNING_TASKS_ON_CONNECTION_LOSS = True

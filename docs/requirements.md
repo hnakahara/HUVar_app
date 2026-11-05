@@ -193,7 +193,7 @@
 - **FR-BATCH-1**: VCF アップロード → `classify` 相当を **Celery ジョブとして投入し順番に処理**。進捗表示。
 - **FR-BATCH-2**: 完了後、結果を **TSV でダウンロード**（HUVar の `tsv_writer` 出力を踏襲。全クライテリアの triggered/strength/evidence 列を含む）。
 - **FR-BATCH-3**: ジョブ履歴の一覧・再ダウンロード（ユーザー単位）。
-- **FR-BATCH-4**: アップロードサイズ上限・行数上限・タイムアウトを設定。
+- **FR-BATCH-4**: アップロードサイズ上限・行数上限・タイムアウトを設定。解析時間の上限は `BATCH_TIME_LIMIT_HOURS`（既定 12 時間）で、超えたら解析の子プロセス（VEP・OpenSpliceAI 等）ごと打ち切り「失敗（制限時間超過）」とする。Celery の強制終了（+15 分）は最後の手段、Redis の再配信（visibility_timeout）はそれより長くして重複実行を防ぐ。バッチだけの並列数は `HUVAR_BATCH_WORKERS`（VEP --fork 合計等）・`HUVAR_BATCH_CLASSIFY_WORKERS`（判定のプロセス数）で設定でき、単一変異の解析には影響しない。待ち状態以外のジョブが再び届いても実行しない。worker の起動時と一覧表示時に、取り残された「解析中」のジョブを失敗にする。
 - **FR-BATCH-5**: in silico ツール（ESM1b / FuncVEP-CTI）をジョブ単位で選択し、`AnalysisJob.insilico_tool`
   に保存して worker が同じツールで解析する（FR-SINGLE-7 と同じ規則）。
 - **FR-BATCH-6**: 投入時に、選択したアセンブリと VCF の座標を照合する（ファイル全体から無作為に最大 300 件を選び、REF 塩基を GRCh37/GRCh38 の参照 FASTA と比較。中身で白黒がつかない〔両方で一致・照合不足・FASTA 無し〕ときはヘッダーの ##contig の染色体長・##reference 等のアセンブリ名）。明らかに食い違う場合は推定アセンブリと根拠（一致率）を示して投入を止める（Web はフォームエラー、API は 400・実行回数は消費しない）。

@@ -4,6 +4,7 @@ import json
 import logging
 import re
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import FileResponse, Http404, HttpResponse
@@ -971,7 +972,9 @@ def batch_list(request):
     jobs = AnalysisJob.objects.filter(
         owner=request.user, kind=AnalysisJob.Kind.BATCH
     ).order_by("-created_at")
-    return render(request, "analysis/batch_list.html", {"jobs": jobs})
+    return render(request, "analysis/batch_list.html", {
+        "jobs": jobs,
+        "jobs_retention_hours": getattr(settings, "JOB_ARTIFACT_RETENTION_HOURS", 1)})
 
 
 @login_required

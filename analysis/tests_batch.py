@@ -256,3 +256,114 @@ class JobExpiryTests(TestCase):
         page = self.client.get(reverse("analysis:batch_status", args=[running.id]))
         self.assertContains(page, "解析終了の 1 時間後")
         self.assertContains(self.client.get(reverse("analysis:batch_list")), "解析終了の 1 時間後")
+
+
+class JobTimeLimitTests(TestCase):
+    def setUp(self):
+        self.media = tempfile.mkdtemp()
+        self.override = override_settings(MEDIA_ROOT=self.media)
+        self.override.enable()
+        self.user = User.objects.create_user("carl", "carl@example.org", PASSWORD)
+
+    def tearDown(self):
+        self.override.disable()
+        shutil.rmtree(self.media, ignore_errors=True)
+
+    def _job(self, status=AnalysisJob.Status.PENDING, **kw):
+        return AnalysisJob.objects.create(
+            owner=self.user, kind=AnalysisJob.Kind.BATCH, status=status,
+            input_file=SimpleUploadedFile("in.vcf", b"##fileformat=VCFv4.2\n"), **kw)
+
+    def test_redelivered_or_duplicate_job_is_not_run_again(self):
+        from .tasks import run_batch_classification
+        for status in (AnalysisJob.Status.RUNNING, AnalysisJob.Status.DONE):
+            job = self._job(status)
+            with mock.patch("analysis.cache.cached_classify_batch") as engine:
+                self.assertIn("skipped", run_batch_classification(job.id))
+            engine.assert_not_called()
+
+    @override_settings(BATCH_TIME_LIMIT=1)
+    def test_time_limit_stops_child_processes_and_marks_the_job_failed(self):
+        import subprocess
+        import time as _time
+        from .tasks import run_batch_classification
+        job = self._job()
+
+        def slow_engine(*a, **k):          # like VEP: a long-running child process
+            if subprocess.run(["sleep", "30"]).returncode != 0:
+                raise RuntimeError("VEP exited -15")
+        t0 = _time.monotonic()
+        with mock.patch("analysis.cache.cached_classify_batch", side_effect=slow_engine):
+            run_batch_classification(job.id)
+        self.assertLess(_time.monotonic() - t0, 15)
+        job.refresh_from_db()
+        self.assertEqual(job.status, AnalysisJob.Status.FAILED)
+        self.assertIn("制限時間", job.error)
+        self.assertIsNotNone(job.started_at)
+        self.assertGreater(job.expires_at, timezone.now())
+
+    def test_worker_start_marks_orphaned_running_jobs_failed(self):
+        from .tasks import _on_worker_ready
+        running = self._job(AnalysisJob.Status.RUNNING, started_at=timezone.now())
+        pending = self._job()
+        _on_worker_ready()
+        running.refresh_from_db()
+        pending.refresh_from_db()
+        self.assertEqual(running.status, AnalysisJob.Status.FAILED)
+        self.assertIn("再起動", running.error)
+        self.assertEqual(pending.status, AnalysisJob.Status.PENDING)
+
+    @override_settings(CELERY_TASK_TIME_LIMIT=3600)
+    def test_cleanup_fails_jobs_running_far_beyond_the_limit(self):
+        from .tasks import cleanup_expired_jobs
+        old = self._job(AnalysisJob.Status.RUNNING,
+                        started_at=timezone.now() - timedelta(hours=3))
+        legacy = self._job(AnalysisJob.Status.RUNNING)         # no started_at (before this fix)
+        AnalysisJob.objects.filter(pk=legacy.pk).update(
+            created_at=timezone.now() - timedelta(hours=3))
+        recent = self._job(AnalysisJob.Status.RUNNING,
+                           started_at=timezone.now() - timedelta(minutes=30))
+        cleanup_expired_jobs()
+        states = dict(AnalysisJob.objects.values_list("pk", "status"))
+        self.assertEqual(states[old.pk], AnalysisJob.Status.FAILED)
+        self.assertEqual(states[legacy.pk], AnalysisJob.Status.FAILED)
+        self.assertEqual(states[recent.pk], AnalysisJob.Status.RUNNING)
+
+    def test_broker_redelivery_waits_longer_than_the_time_limit(self):
+        from django.conf import settings
+        self.assertGreater(settings.CELERY_TASK_TIME_LIMIT, settings.BATCH_TIME_LIMIT)
+        self.assertGreater(settings.CELERY_BROKER_TRANSPORT_OPTIONS["visibility_timeout"],
+                           settings.CELERY_TASK_TIME_LIMIT)
+
+
+class BatchWorkersTests(TestCase):
+    """HUVAR_BATCH_WORKERS / HUVAR_BATCH_CLASSIFY_WORKERS はバッチだけに効く。"""
+
+    def _built(self, batch, env):
+        import os
+        import sys
+        import types
+        captured = {}
+
+        class Config:
+            def __init__(self, **kw):
+                captured.update(kw)
+
+        enums = types.SimpleNamespace(Assembly=lambda v: v, InSilicoTool=lambda v: v)
+        fake = {"acmg_classifier": types.ModuleType("acmg_classifier"),
+                "acmg_classifier.config": types.SimpleNamespace(Config=Config),
+                "acmg_classifier.models": types.ModuleType("acmg_classifier.models"),
+                "acmg_classifier.models.enums": enums}
+        from . import engine
+        with mock.patch.dict(sys.modules, fake), mock.patch.dict(os.environ, env):
+            engine._build_config("GRCh38", batch=batch)
+        return captured
+
+    def test_only_batch_uses_the_batch_settings(self):
+        env = {"HUVAR_BATCH_WORKERS": "12", "HUVAR_BATCH_CLASSIFY_WORKERS": "4"}
+        kw = self._built(True, env)
+        self.assertEqual((kw["workers"], kw["classify_workers"]), (12, 4))
+        kw = self._built(False, env)
+        self.assertNotIn("workers", kw)
+        self.assertNotIn("classify_workers", kw)
+        self.assertNotIn("workers", self._built(True, {"HUVAR_BATCH_WORKERS": "abc"}))

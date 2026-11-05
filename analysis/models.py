@@ -51,6 +51,7 @@ class AnalysisJob(models.Model):
     input_file = models.FileField(upload_to="uploads/", null=True, blank=True)  # VCF
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
     celery_task_id = models.CharField(max_length=255, blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)  # バッチ解析の開始時刻
     result_file = models.FileField(upload_to="results/", null=True, blank=True)  # TSV
     error = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -3,7 +3,7 @@
 {% block title %}{% translate "ジョブ履歴" %} | HUVar{% endblock %}
 {% block content %}
 <h1>{% translate "バッチジョブ履歴" %}</h1>
-<p>{% translate "成果物は作成から 1 時間で自動削除されます。" %}</p>
+<p>{% blocktranslate with h=jobs_retention_hours|default:1 %}成果物は解析終了から {{ h }} 時間で自動削除されます。{% endblocktranslate %}</p>
 
 <table border="1" cellpadding="6" cellspacing="0">
     <thead>
