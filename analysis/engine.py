@@ -340,6 +340,8 @@ def _to_display(result, ann=None) -> dict:
             "evidence": r.evidence,
             "suppressed": r.suppressed,
             "points": r.points,
+            # 判定に使った数値（スコア・しきい値・頻度など。エンジンが記録したもの）
+            "values": dict(getattr(r, "values", None) or {}),
         })
     clinvar_ann = ann if ann is not None else getattr(result, "annotation", None)
     return {

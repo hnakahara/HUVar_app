@@ -393,3 +393,33 @@ class BatchTsvNormalisationTests(TestCase):
         self.assertEqual(rows[1]["variant_id"], "chr1:10:A:T")      # stays aligned
         self.assertEqual(rows[1]["input_variant"], "")
         shutil.rmtree(out.parent, ignore_errors=True)
+
+    def test_sample_rows_and_inference_columns(self):
+        import csv
+        from types import SimpleNamespace
+        from . import cache
+        crit = [{"criterion": "PP3", "triggered": True, "strength": "Strong", "evidence": "",
+                 "values": {"insilico_tool": "FuncVEP-CTI", "insilico_score": "0.9300"}},
+                {"criterion": "BA1", "triggered": False, "strength": "", "evidence": "",
+                 "values": {"af_value": "0.015"}}]
+        d = {"variant_id": "chr1:100:A:G", "chrom": "chr1", "pos": 100, "ref": "A", "alt": "G",
+             "criteria": crit, "warnings": []}
+        calls = [SimpleNamespace(sample="blood", gt="0/1", dp=10, vaf=0.4),
+                 SimpleNamespace(sample="tumor", gt="0|1", dp=40, vaf=0.25)]
+        out = Path(tempfile.mkdtemp()) / "o.tsv"
+        cols = (["insilico_tool", "insilico_score", "af_value"],
+                {"insilico_tool": ("PP3", "BP4"), "insilico_score": ("PP3", "BP4"),
+                 "af_value": ("BA1", "BS1")})
+        with mock.patch.object(cache, "_inference_columns", return_value=cols):
+            cache._write_batch_tsv(str(out), [d, dict(d, variant_id="chr1:5:C:T")],
+                                   inputs=["", ""], calls=[calls, []])
+        with out.open(encoding="utf-8") as fh:
+            rows = list(csv.DictReader(fh, delimiter="\t"))
+        self.assertEqual([(r["variant_id"], r["sample"], r["gt"], r["dp"], r["vaf"]) for r in rows],
+                         [("chr1:100:A:G", "blood", "0/1", "10", "0.4"),
+                          ("chr1:100:A:G", "tumor", "0|1", "40", "0.25"),
+                          ("chr1:5:C:T", "", "", "", "")])
+        self.assertEqual((rows[0]["insilico_tool"], rows[0]["insilico_score"], rows[0]["af_value"]),
+                         ("FuncVEP-CTI", "0.9300", "0.015"))
+        self.assertEqual(rows[0]["PP3"], "met")
+        shutil.rmtree(out.parent, ignore_errors=True)
