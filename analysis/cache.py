@@ -316,6 +316,11 @@ def _sample_cells(call) -> list:
             "" if count is None else str(count), "" if vaf is None else f"{vaf:.4g}"]
 
 
+def _change_only(hgvs) -> str:
+    """NM_000546.6:c.215C>G -> c.215C>G（参照配列を除き変化だけ。VEP の %3D は =）。"""
+    return str(hgvs or "").split(":")[-1].replace("%3D", "=")
+
+
 def mane_pc_cells(display: dict) -> list:
     """display の mane_plus_clinical を TSV 5 列に整形（無ければ空欄）。"""
     pcs = (display or {}).get("mane_plus_clinical") or []
@@ -324,6 +329,8 @@ def mane_pc_cells(display: dict) -> list:
 
     def _j(key):
         vals = ["" if p.get(key) is None else str(p.get(key)) for p in pcs]
+        if key in ("hgvs_c", "hgvs_p"):
+            vals = [_change_only(v) for v in vals]
         return ";".join(vals) if any(vals) else ""
 
     changes = [p.get("criteria_changes") or "" for p in pcs]
@@ -411,7 +418,8 @@ def _write_batch_tsv(out_path: str, displays: list, somatics: list = None,
                     d.get("pos", ""), d.get("ref", ""), d.get("alt", "")]
             row = [
                 d.get("gene_symbol", ""),
-                d.get("transcript_id", ""), d.get("hgvs_c", ""), d.get("hgvs_p", ""),
+                d.get("transcript_id", ""), _change_only(d.get("hgvs_c")),
+                _change_only(d.get("hgvs_p")),
                 *mane_pc_cells(d),
                 d.get("classification_2015", ""), d.get("rules", ""),
                 d.get("bayesian_score", ""), d.get("classification_bayesian", ""),

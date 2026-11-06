@@ -403,6 +403,10 @@ class BatchTsvNormalisationTests(TestCase):
                 {"criterion": "BA1", "triggered": False, "strength": "", "evidence": "",
                  "values": {"af_value": "0.015"}}]
         d = {"variant_id": "chr1:100:A:G", "chrom": "chr1", "pos": 100, "ref": "A", "alt": "G",
+             "hgvs_c": "NM_000001.1:c.100A>G", "hgvs_p": "NP_000001.1:p.Ser34%3D",
+             "mane_plus_clinical": [{"transcript_id": "NM_000002.1",
+                                     "hgvs_c": "NM_000002.1:c.130A>G",
+                                     "hgvs_p": "NP_000002.1:p.Lys44Glu"}],
              "criteria": crit, "warnings": []}
         calls = [SimpleNamespace(sample="blood", depth=10, allele_count=4, vaf=0.4),
                  SimpleNamespace(sample="tumor", depth=40, allele_count=10, vaf=0.25)]
@@ -425,4 +429,8 @@ class BatchTsvNormalisationTests(TestCase):
         self.assertEqual((rows[0]["insilico_tool"], rows[0]["insilico_score"], rows[0]["af_value"]),
                          ("FuncVEP-CTI", "0.9300", "0.015"))
         self.assertEqual(rows[0]["PP3"], "met")
+        # HGVS columns carry the change only (no NM_ / NP_ accession).
+        self.assertEqual((rows[0]["hgvs_c"], rows[0]["hgvs_p"]), ("c.100A>G", "p.Ser34="))
+        self.assertEqual((rows[0]["mane_plus_clinical_hgvs_c"],
+                          rows[0]["mane_plus_clinical_hgvs_p"]), ("c.130A>G", "p.Lys44Glu"))
         shutil.rmtree(out.parent, ignore_errors=True)
