@@ -225,10 +225,11 @@ def cached_classify_single(assembly: str, chrom: str, pos: int, ref: str, alt: s
 
 _TSV_BASE_COLS = [
     # input_variant: 正規化で表記が変わったときの VCF 上の表記（例 GAAA>GAA → GA>G）
-    # sample / gt / dp / vaf: その変異を持つ VCF のサンプルごとに 1 行（持つサンプルが
-    # 無い・サンプル列の無い VCF は 1 行で空欄）
+    # sample / depth / allele_count / vaf: その変異を持つ VCF のサンプルごとに 1 行
+    # （持つサンプルが無い・サンプル列の無い VCF は 1 行で空欄）。allele_count は
+    # ALT を支持するリード数（AD[alt]、無ければ FORMAT/AO）
     "variant_id", "input_variant", "chrom", "pos", "ref", "alt",
-    "sample", "gt", "dp", "vaf", "gene_symbol", "transcript_id",
+    "sample", "depth", "allele_count", "vaf", "gene_symbol", "transcript_id",
     "hgvs_c", "hgvs_p",
     # MANE Plus Clinical の補足（評価は MANE Select）。複数（GNAS）は ";" 区切り。
     "mane_plus_clinical_transcript", "mane_plus_clinical_hgvs_c",
@@ -309,9 +310,10 @@ def _inference_cells(display: dict, columns: list, sources: dict) -> list:
 def _sample_cells(call) -> list:
     if call is None:
         return ["", "", "", ""]
-    dp, vaf = getattr(call, "dp", None), getattr(call, "vaf", None)
-    return [getattr(call, "sample", ""), getattr(call, "gt", ""),
-            "" if dp is None else str(dp), "" if vaf is None else f"{vaf:.4g}"]
+    depth, count = getattr(call, "depth", None), getattr(call, "allele_count", None)
+    vaf = getattr(call, "vaf", None)
+    return [getattr(call, "sample", ""), "" if depth is None else str(depth),
+            "" if count is None else str(count), "" if vaf is None else f"{vaf:.4g}"]
 
 
 def mane_pc_cells(display: dict) -> list:

@@ -191,7 +191,7 @@
 ### 4.5 バッチ（VCF）解析（FR-BATCH）
 
 - **FR-BATCH-1**: VCF アップロード → `classify` 相当を **Celery ジョブとして投入し順番に処理**。進捗表示。
-- **FR-BATCH-2**: 完了後、結果を **TSV でダウンロード**（HUVar の `tsv_writer` 出力を踏襲。全クライテリアの triggered/strength/evidence 列を含む）。VCF のサンプル情報（sample・GT・DP・VAF）を含め、その変異を持つサンプルごとに 1 行とする。判定に使った数値（in silico ツールとスコア・しきい値、スプライスのしきい値、gnomAD の指標と値・BA1/BS1/PM2 のしきい値、領域深度、phyloP）を固定列で出力する。正規化で表記が変わった変異は input_variant 列に VCF 上の表記を残す。
+- **FR-BATCH-2**: 完了後、結果を **TSV でダウンロード**（HUVar の `tsv_writer` 出力を踏襲。全クライテリアの triggered/strength/evidence 列を含む）。VCF のサンプル情報（sample・depth・allele_count（ALT のリード数）・VAF）を含め、その変異を持つサンプルごとに 1 行とする。判定に使った数値（in silico ツールとスコア・しきい値、スプライスのしきい値、gnomAD の指標と値・BA1/BS1/PM2 のしきい値、領域深度、phyloP）を固定列で出力する。正規化で表記が変わった変異は input_variant 列に VCF 上の表記を残す。
 - **FR-BATCH-3**: ジョブ履歴の一覧・再ダウンロード（ユーザー単位）。
 - **FR-BATCH-4**: アップロードサイズ上限・行数上限・タイムアウトを設定。解析時間の上限は `BATCH_TIME_LIMIT_HOURS`（既定 12 時間）で、超えたら解析の子プロセス（VEP・OpenSpliceAI 等）ごと打ち切り「失敗（制限時間超過）」とする。Celery の強制終了（+15 分）は最後の手段、Redis の再配信（visibility_timeout）はそれより長くして重複実行を防ぐ。バッチだけの並列数は `HUVAR_BATCH_WORKERS`（VEP --fork 合計等）・`HUVAR_BATCH_CLASSIFY_WORKERS`（判定のプロセス数）で設定でき、単一変異の解析には影響しない。待ち状態以外のジョブが再び届いても実行しない。worker の起動時と一覧表示時に、取り残された「解析中」のジョブを失敗にする。
 - **FR-BATCH-5**: in silico ツール（ESM1b / FuncVEP-CTI）をジョブ単位で選択し、`AnalysisJob.insilico_tool`
