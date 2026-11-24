@@ -101,8 +101,8 @@ msgstr "VCEP rule numbering"
 msgid "Plus Clinical で解析"
 msgstr "Analyze on Plus Clinical"
 
-msgid "較正済み機能アッセイ（MaveDB の臨床用較正、BRCA1/2 は ENIGMA 表9）"
-msgstr "Calibrated functional assay (MaveDB clinical calibration; ENIGMA Table 9 for BRCA1/2)"
+msgid "機能アッセイ（MaveDB の臨床用較正、BRCA1/2 は ENIGMA 表9、TP53 / OTC / GALT / PAH / IDUA は VCEP 配布の変異別機能表）"
+msgstr "Functional assay (MaveDB clinical calibration; ENIGMA Table 9 for BRCA1/2; VCEP variant-level functional tables for TP53 / OTC / GALT / PAH / IDUA)"
 
 msgid "評価する transcript"
 msgstr "Transcript evaluated"

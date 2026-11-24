@@ -132,7 +132,15 @@ def _tracked_paths(assembly: str, insilico_tool: str | None = None):
 # v8: PS3/BS3 を較正済み機能アッセイ（MaveDB / ENIGMA 表9）から判定、source に functional_assay。
 # v9: ミスセンスの PP3 でスプライス予測（OpenSpliceAI/SpliceAI）を優先する判定に変更
 #     （エンジン版番号が変わらないため、ここで既存キャッシュを無効化する）。
-_DISPLAY_SCHEMA_VERSION = 10  # 10: criteria に判定の数値（values）を追加
+# v11: TP53 / OTC / GALT / PAH / IDUA の PS3/BS3 を VCEP 配布の変異別機能表から判定。
+# v12: VCEP 要件監査による判定修正（PS1 パラログ、PM4、PM2、PP3/BP4、PM5）。
+# v13: 同監査の残り（BS1_Supporting、PM2 付帯条件、BS2、BP7 など）。
+# v14: RASopathy の PM1+PM5 併用、IL2RG の PM2、RPGR/RS1 の BP4 Very Strong。
+# v15: RASopathy の PM5 を相同残基（パラログ）にも適用。
+# v16: CSpec 画面の総則文（VCEP Specifications）に基づく判定修正。
+# v17: RYR1 PM4_Strong（孔領域）、CDH1 PP3 の除外、BRCA1/2 BA1/BS1 の読み深度条件。
+# v18: GUCY2D/AIPL1 の PS1 対照スプライス条件、MYOC/CYP1B1/BMPR2 の PM2 集団サイズ条件。
+_DISPLAY_SCHEMA_VERSION = 18  # 10: criteria に判定の数値（values）を追加
 
 
 def reference_signature(assembly: str, insilico_tool: str | None = None) -> str:

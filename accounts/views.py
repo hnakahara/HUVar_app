@@ -175,9 +175,14 @@ def token_request(request):
 
 
 def _qr_data_uri(data: str) -> str:
-    """otpauth URI を QR(SVG) の data URI にする（Pillow 不要・<img> で確実に表示）。"""
-    factory = qrcode.image.svg.SvgPathImage
-    img = qrcode.make(data, image_factory=factory, box_size=10, border=2)
+    """otpauth URI を QR(SVG) の data URI にする（Pillow 不要・<img> で確実に表示）。
+
+    SvgPathImage は背景が透明なため、ダークテーマのカード上では黒モジュールが
+    背景に溶けて読み取れない。白背景を埋め込む SvgPathFillImage を使い、
+    quiet zone も QR 仕様の推奨値（4 モジュール）にする。
+    """
+    factory = qrcode.image.svg.SvgPathFillImage
+    img = qrcode.make(data, image_factory=factory, box_size=10, border=4)
     buf = io.BytesIO()
     img.save(buf)
     b64 = base64.b64encode(buf.getvalue()).decode()

@@ -220,7 +220,7 @@ SOURCE_USER = "user"                # 画面上でユーザーが編集
 SOURCE_EREPO = "erepo"              # 同梱 eRepo マニュアルクライテリア（VCEP 判定）
 SOURCE_EXPERT_PANEL = "expert_panel"  # ClinVar エキスパートパネル（★3以上）の判定
 SOURCE_TEXT_MINING = "text_mining"  # ClinVar 提出テキストの自動抽出（Supporting 上限）
-SOURCE_FUNCTIONAL = "functional_assay"  # 較正済み機能アッセイ（MaveDB / ENIGMA 表9）
+SOURCE_FUNCTIONAL = "functional_assay"  # 機能アッセイ（MaveDB / ENIGMA 表9 / VCEP の変異別機能表）
 SOURCE_AUTOMATED = "automated"      # ローカルデータからの自動判定
 
 
@@ -244,7 +244,7 @@ def _annotate_sources(display: dict, erepo_criteria=(), user_criteria=()) -> dic
             c["source"] = SOURCE_EXPERT_PANEL
         elif "[ClinVar text mining]" in ev:
             c["source"] = SOURCE_TEXT_MINING
-        elif ev.startswith(("[MaveDB]", "[ENIGMA Table 9]")):
+        elif ev.startswith(("[MaveDB]", "[ENIGMA Table 9]", "[VCEP functional table]")):
             c["source"] = SOURCE_FUNCTIONAL
         else:
             c["source"] = SOURCE_AUTOMATED
